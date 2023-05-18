@@ -1,0 +1,20 @@
+{
+  "name": "@xcpc-tools/client",
+  "bin": "bin/client.js",
+  "version": "1.0.0",
+  "description": "A printer client for xcpc-tools",
+  "main": "index.ts",
+  "repository": "https://github.com/Hydro-dev/xcpc-tools",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.1",
+    "@types/js-yaml": "^4.0.5",
+    "@types/lodash": "^4.14.179",
+    "@types/node": "^20.1.7",
+    "@types/superagent": "^4.1.15"
+  },
+  "dependencies": {
+    "@hydrooj/utils": "^1.4.8",
+    "superagent": "^8.0.9"
+  }
+}
