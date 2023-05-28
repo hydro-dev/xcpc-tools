@@ -1,0 +1,17 @@
+extends:
+  - '@hydrooj/eslint-config'
+settings:
+  import/parsers:
+    '@typescript-eslint/parser':
+      - .ts
+      - .tsx
+      - .js
+      - .jsx
+  import/resolver:
+    typescript:
+      alwaysTryTypes: true
+parserOptions:
+  sourceType: module
+#   project:
+#     - './tsconfig.json'
+#     - './packages/**/tsconfig.json'

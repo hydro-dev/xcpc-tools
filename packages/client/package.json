@@ -5,13 +5,14 @@
   "description": "A printer client for xcpc-tools",
   "main": "index.ts",
   "repository": "https://github.com/Hydro-dev/xcpc-tools",
-  "license": "MIT",
+  "author": "twingy <panda_dtdyy@outlook.com>",
+  "license": "AGPL-3.0",
   "devDependencies": {
     "@types/fs-extra": "^11.0.1",
     "@types/js-yaml": "^4.0.5",
-    "@types/lodash": "^4.14.179",
-    "@types/node": "^20.1.7",
-    "@types/superagent": "^4.1.15"
+    "@types/lodash": "^4.14.195",
+    "@types/node": "^18.11.0",
+    "@types/superagent": "^4.1.18"
   },
   "dependencies": {
     "@hydrooj/utils": "^1.4.8",
