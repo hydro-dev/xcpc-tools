@@ -1,0 +1,47 @@
+# Built Files & Log
+.build/
+dist/
+*.cache
+.cache
+/build/*.js
+.cache/
+*.log
+*.js.map
+*.tsbuildinfo
+
+packages/ui/
+
+# Config Files
+config.yaml
+config.json
+data/
+yarn.lock
+pnpm-lock.yaml
+tsconfig.json
+tsconfig.*.json
+
+.yarn/cache
+.yarn/build-state.yml
+.yarn/unplugged
+.yarn/sdks
+.yarn/install-state.gz
+.pnp.*
+
+
+# Base
+node_modules/
+__*
+!__mocks__
+!.gitkeep
+*.local
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
