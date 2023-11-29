@@ -31,7 +31,7 @@ export function load() {
         if (!config.token) throw new Error('Authentication is required');
         fs.ensureDirSync(path.resolve(__dirname, 'data'));
         if (fs.existsSync(path.resolve(__dirname, 'data/client.json'))) {
-            const clients = fs.readFileSync(path.resolve(__dirname, 'client.json'), 'utf8');
+            const clients = fs.readFileSync(path.resolve(__dirname, 'data/client.json'), 'utf8');
             global.Tools.clients = JSON.parse(clients);
         } else {
             fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), '[]');

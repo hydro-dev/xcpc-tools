@@ -18,7 +18,9 @@ async function apply(ctx: Context) {
     fs.ensureDirSync(tmpdir);
     require('./error');
     await require('./service/server').apply(ctx);
-    await require('./fetcher').apply(ctx);
+    if (global.Tools.config.type !== 'nofetch') {
+        await require('./fetcher').apply(ctx);
+    }
     await require('./handler').apply(ctx);
     await ctx.lifecycle.flush();
     await ctx.parallel('app/started');

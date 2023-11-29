@@ -40,20 +40,29 @@ class DomJudgeFetcher {
         global.Contest.todoBalloons = balloons.filter((b) => !b.done);
         logger.info(`Found ${balloons.length} balloons`);
     }
+
+    async setBalloonDone(bid) {
+        const { id } = global.Contest;
+        await superagent.post(`${global.Tools.config.server}/api/v4/contests/${id}/balloons/${bid}/done`)
+            .set('Authorization', global.Tools.config.token)
+            .set('Accept', 'application/json');
+        logger.info(`Balloon ${bid} set done`);
+    }
 }
 
-let timer = null;
+const fetcherList = {
+    domjudge: DomJudgeFetcher,
+};
+
+let timer: NodeJS.Timeout;
 
 async function fetchContestInfo(c, first = false) {
     if (timer) clearTimeout(timer);
-    const fetcher = c.type === 'domjudge' ? new DomJudgeFetcher() : null;
+    const fetcher = new fetcherList[c.type]();
     logger.info('Fetching contest info...');
     try {
-        await fetcher.contestInfo();
-        await fetcher.balloonInfo();
-        if (first) {
-            await fetcher.teamInfo();
-        }
+        await fetcher!.contestInfo();
+        await fetcher!.balloonInfo();
     } catch (e) {
         logger.error(e);
     }

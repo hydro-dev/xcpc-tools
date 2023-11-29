@@ -15,7 +15,6 @@ logger.info(`Building ${buildPackages}...`);
         outdir: '/tmp',
         splitting: false,
         write: false,
-        external: ['moment-timezone', 'mongodb', 'js-yaml', 'formidable'],
         minify: true,
         entryPoints: [path.resolve(__dirname, `packages/${buildPackages}/index.ts`)],
     });

@@ -4,55 +4,47 @@ import PouchDB from 'pouchdb';
 import { fs, Logger } from '@hydrooj/utils';
 import { BadRequestError } from './error';
 import { Context } from './interface';
-import { Handler, param, Types } from './service/server';
+import { Handler } from './service/server';
 
 PouchDB.plugin(require('pouchdb-find'));
 fs.ensureDirSync(path.resolve(__dirname, 'data/codeDatabase'));
 const db = new PouchDB(path.resolve(__dirname, 'data/codeDatabase'));
 
 const logger = new Logger('handler');
-let fetcher = null;
+let fetcher;
 
 class CodeHandler extends Handler {
-    async get() {
-        this.response.body = fs.readFileSync(path.resolve(__dirname, 'print.html'));
-        this.response.type = 'text/html';
-    }
-
-    @param('code', Types.String, true)
-    @param('team', Types.String, true)
-    @param('filename', Types.String, true)
-    @param('lang', Types.String, true)
-    async post(code: string, team: string, filename: string, lang: string) {
+    async post(params) {
+        const {
+            code, team, lang, filename, tname, location,
+        } = params;
         if (!code && !this.request.files?.file) throw new BadRequestError('Code', null, 'Code is required');
-        const teamInfo = global.Contest.team.find((t) => t.id === team);
-        if (!teamInfo) throw new BadRequestError('Team', null, 'Team not found');
-        const id = `${team}-${String.random(8)}`;
+        const _id = `${team}-${String.random(8)}`;
         fs.ensureDirSync(path.resolve(__dirname, 'data/codes'));
-        fs.writeFileSync(path.resolve(__dirname, 'data/codes', id), code || fs.readFileSync(this.request.files.file.filepath));
+        fs.writeFileSync(path.resolve(__dirname, 'data/codes', _id), code || fs.readFileSync(this.request.files.file.filepath));
         await db.put({
-            _id: `${team}-${String.random(8)}`,
-            team: `${team}: ${teamInfo.name}`,
-            location: teamInfo.location,
+            _id,
+            team: `${team}: ${tname}`,
+            location,
             filename,
             lang,
             printer: '',
         });
-        this.response.body = { ok: 1 };
+        this.response.body = `The code has been submitted. Code Print ID: ${team}-${String.random(8)}`;
+        logger.info(`Team(${team}): ${tname} submitted code: ${filename}(${lang})`);
     }
 }
 
 class ClientConnectHandler extends Handler {
-    @param('cid', Types.String)
-    async get(cid: string) {
-        const client = global.Tools.clients.find((c) => c.id === cid);
+    async get(params) {
+        const client = global.Tools.clients.find((c) => c.id === params.cid);
         if (!client) throw new BadRequestError('Client', null, 'Client not found');
         // no printer or printer = id
-        const codes = await db.find({ selector: { printer: { $in: ['', cid] } } });
+        const codes = await db.find({ selector: { printer: { $in: ['', params.cid] } } });
         for (const code of codes.docs) {
             try {
-                code.code = fs.readFileSync(path.resolve(__dirname, 'data/codes', code._id));
-                await db.update(code);
+                code.code = fs.readFileSync(path.resolve(__dirname, 'data/codes', code._id)).toString();
+                await db.put(code);
             } catch (e) {
                 logger.error(e);
             }
@@ -62,22 +54,22 @@ class ClientConnectHandler extends Handler {
             codes: codes.docs,
             balloons,
         };
+        logger.info(`Client ${client.name} connected`);
     }
 
-    @param('cid', Types.String)
-    @param('bid', Types.String)
-    async post(cid: string, bid: string) {
+    async post(params) {
+        const { cid, bid } = params;
         const client = global.Tools.clients.find((c) => c.id === cid);
         if (!client) throw new BadRequestError('Client', null, 'Client not found');
+        if (!bid) throw new BadRequestError('Balloon', null, 'Balloon is required');
         if (fetcher) await fetcher.setBalloonDone(bid);
         global.Contest.todoBalloons = global.Contest.todoBalloons.filter((b) => b.id !== bid);
     }
 }
 
 class AddClientHandler extends Handler {
-    @param('name', Types.String, true)
-    async get() {
-        const client = global.Tools.clients.find((c) => c.name === this.request.query.name);
+    async get(params) {
+        const client = global.Tools.clients.find((c) => c.name === params.name);
         if (client) throw new BadRequestError('Client', null, 'Client already exists');
         const id = String.random(16);
         global.Tools.clients.push({ id, name: this.request.query.name });
@@ -90,7 +82,7 @@ export async function apply(ctx: Context) {
     await db.find({ selector: {} });
     logger.info('Code Database loaded');
     ctx.Route('receive_code', '/code_print', CodeHandler);
-    ctx.Route('client_fetch', '/client/:id', ClientConnectHandler);
+    ctx.Route('client_fetch', '/client/:cid', ClientConnectHandler);
     ctx.Route('add_client', '/add_client', AddClientHandler);
     fetcher = ctx.fetcher;
 }
