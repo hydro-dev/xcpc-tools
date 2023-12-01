@@ -1,6 +1,5 @@
 import assert from 'assert';
 import { isSafeInteger } from 'lodash';
-import saslprep from 'saslprep';
 
 type InputType = string | number | Record<string, any> | any[];
 export type Converter<T> = (value: any) => T;
@@ -52,31 +51,18 @@ const basicString = <T = string>(regex?: RegExp, cb?: (i: string) => boolean, co
         return !!res.length;
     },
 ] as [(v) => string, (v) => boolean];
-const saslprepString = <T = string>(regex?: RegExp, cb?: (i: string) => boolean, convert?: (i: string) => T) => [
-    convert || ((v) => saslprep(v.toString().trim())),
-    (v) => {
-        try {
-            const res = saslprep(v.toString().trim());
-            if (regex && !regex.test(res)) return false;
-            if (cb && !cb(res)) return false;
-            return !!res.length;
-        } catch (e) {
-            return false;
-        }
-    },
-] as [(v) => string, (v) => boolean];
 
 export const Types: Types = {
     Content: [(v) => v.toString().trim(), (v) => v?.toString()?.trim() && v.toString().trim().length < 65536],
-    Key: saslprepString(/^[a-zA-Z0-9-_]+$/),
+    Key: basicString(/^[a-zA-Z0-9-_]+$/),
     /** @deprecated */
-    Name: saslprepString(/^.{1,255}$/),
-    Filename: saslprepString(/^[^\\/?#~!|*]{1,255}$/, (i) => !['con', '.', '..'].includes(i)),
-    UidOrName: saslprepString(/^(.{3,31}|[\u4e00-\u9fa5]{2}|-?[0-9]+)$/),
-    Username: saslprepString(/^(.{3,31}|[\u4e00-\u9fa5]{2})$/),
+    Name: basicString(/^.{1,255}$/),
+    Filename: basicString(/^[^\\/?#~!|*]{1,255}$/, (i) => !['con', '.', '..'].includes(i)),
+    UidOrName: basicString(/^(.{3,31}|[\u4e00-\u9fa5]{2}|-?[0-9]+)$/),
+    Username: basicString(/^(.{3,31}|[\u4e00-\u9fa5]{2})$/),
     Password: basicString(/^.{6,255}$/),
-    ProblemId: saslprepString(/^[a-zA-Z0-9]+$/i, () => true, (s) => (Number.isSafeInteger(+s) ? +s : s)),
-    Email: saslprepString(/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/i),
+    ProblemId: basicString(/^[a-zA-Z0-9]+$/i, () => true, (s) => (Number.isSafeInteger(+s) ? +s : s)),
+    Email: basicString(/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/i),
     Title: basicString(/^.{1,64}$/, (i) => !!i.trim()),
     String: basicString(),
 

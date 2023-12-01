@@ -6,7 +6,6 @@ import { Service } from 'cordis';
 import type { Files } from 'formidable';
 import Koa from 'koa';
 import Body from 'koa-body';
-import Compress from 'koa-compress';
 import Router from 'koa-router';
 import {
     Counter, errorMessage, fs,
@@ -309,7 +308,6 @@ export async function apply(pluginContext: Context) {
         }
         return await next();
     });
-    app.use(Compress());
     if (process.env.DEV) {
         app.use(async (ctx: Koa.Context, next: Function) => {
             const startTime = Date.now();

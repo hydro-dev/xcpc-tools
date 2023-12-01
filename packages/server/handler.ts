@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
-import nunjucks from 'nunjucks';
+import { Environment, Loader } from 'nunjucks';
 import PouchDB from 'pouchdb';
 import { fs, Logger } from '@hydrooj/utils';
 import { BadRequestError } from './error';
@@ -8,13 +8,29 @@ import { Context } from './interface';
 import { Handler } from './service/server';
 
 PouchDB.plugin(require('pouchdb-find'));
-fs.ensureDirSync(path.resolve(__dirname, 'data/codeDatabase'));
-const db = new PouchDB(path.resolve(__dirname, 'data/codeDatabase'));
+fs.ensureDirSync(path.resolve(process.cwd(), 'data/codeDatabase'));
+const db = new PouchDB(path.resolve(process.cwd(), 'data/codeDatabase'));
 db.createIndex({
     index: { fields: ['id', 'printer'] },
 });
 
 const logger = new Logger('handler');
+
+class NLoader extends Loader {
+    getSource(name) {
+        return {
+            src: fs.readFileSync(path.join(process.cwd(), 'home.html'), 'utf-8'),
+            noCache: true,
+        };
+    }
+}
+class Nunjucks extends Environment {
+    constructor() {
+        super(new NLoader(), { autoescape: true, trimBlocks: true });
+    }
+}
+
+const env = new Nunjucks();
 
 class HomeHandler extends Handler {
     async get() {
@@ -33,8 +49,7 @@ class HomeHandler extends Handler {
         }
         const codes = await db.find({ selector: {}, sort: [{ id: 'desc' }] });
         this.response.type = 'text/html';
-        const nunjucksEnv = nunjucks.configure(__dirname, { autoescape: true });
-        this.response.body = nunjucksEnv.render('home.html', {
+        this.response.body = env.render('home.html', {
             tasks: codes.docs,
             clients: global.Tools.clients,
         });
@@ -45,7 +60,7 @@ class HomeHandler extends Handler {
         if (client) throw new BadRequestError('Client', null, 'Client already exists');
         const id = String.random(16);
         global.Tools.clients.push({ id, name: params.name });
-        fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), JSON.stringify(global.Tools.clients));
+        fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
         this.back();
     }
 
@@ -53,7 +68,7 @@ class HomeHandler extends Handler {
         const client = global.Tools.clients.find((c) => c.id === params.id);
         if (!client) throw new BadRequestError('Client', null, 'Client not found');
         global.Tools.clients = global.Tools.clients.filter((c) => c.id !== params.id);
-        fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), JSON.stringify(global.Tools.clients));
+        fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
         this.back();
     }
 
@@ -89,8 +104,8 @@ class CodeHandler extends Handler {
         const doc = await db.find({ selector: {}, sort: [{ id: 'desc' }], limit: 1 });
         const id = (doc.docs?.[0]?.id || 0) + 1;
         const _id = `${team}-${String.random(8)}`;
-        fs.ensureDirSync(path.resolve(__dirname, 'data/codes'));
-        fs.writeFileSync(path.resolve(__dirname, 'data/codes', _id), code || fs.readFileSync(this.request.files.file.filepath));
+        fs.ensureDirSync(path.resolve(process.cwd(), 'data/codes'));
+        fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', _id), code || fs.readFileSync(this.request.files.file.filepath));
         await db.put({
             id,
             _id,
@@ -116,7 +131,7 @@ class ClientConnectHandler extends Handler {
             return;
         }
         try {
-            codes.docs[0].code = fs.readFileSync(path.resolve(__dirname, 'data/codes', codes.docs[0]._id)).toString();
+            codes.docs[0].code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', codes.docs[0]._id)).toString();
         } catch (e) {
             logger.error(e);
         }

@@ -5,7 +5,7 @@ const logger = new Logger('init');
 export function load() {
     try {
         logger.info('Loading config');
-        const configPath = path.resolve(__dirname, 'config.yaml');
+        const configPath = path.resolve(process.cwd(), 'config.yaml');
         if (!fs.existsSync(configPath)) {
             fs.writeFileSync(configPath, 'type: \nviewPass:\nserver: \ntoken: \nusername: \npassword: \n');
             throw new Error('Config file generated, please fill in the config.yaml');
@@ -33,12 +33,12 @@ export function load() {
             if (!config.server) throw new Error('Server is required');
             if (!config.token) throw new Error('Authentication is required');
         }
-        fs.ensureDirSync(path.resolve(__dirname, 'data'));
-        if (fs.existsSync(path.resolve(__dirname, 'data/client.json'))) {
-            const clients = fs.readFileSync(path.resolve(__dirname, 'data/client.json'), 'utf8');
+        fs.ensureDirSync(path.resolve(process.cwd(), 'data'));
+        if (fs.existsSync(path.resolve(process.cwd(), 'data/client.json'))) {
+            const clients = fs.readFileSync(path.resolve(process.cwd(), 'data/client.json'), 'utf8');
             global.Tools.clients = JSON.parse(clients);
         } else {
-            fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), '[]');
+            fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), '[]');
             global.Tools.clients = [];
         }
     } catch (e) {

@@ -13,9 +13,7 @@
     "@types/fs-extra": "^11.0.1",
     "@types/js-yaml": "^4.0.5",
     "@types/koa": "2.13.5",
-    "@types/koa-compress": "^4.0.3",
     "@types/koa-router": "^7.4.4",
-    "@types/koa-static-cache": "^5.1.1",
     "@types/superagent": "^4.1.18"
   },
   "dependencies": {
@@ -23,19 +21,12 @@
     "cordis": "2.8.8",
     "koa": "^2.14.2",
     "koa-body": "^6.0.1",
-    "koa-compress": "^5.1.1",
     "koa-proxies": "^0.12.3",
     "koa-router": "^12.0.0",
-    "koa-static-cache": "^5.1.4",
     "lodash": "^4.17.21",
-    "minato": "^2.3.1",
-    "nedb": "^1.8.0",
     "nunjucks": "^3.2.4",
     "pouchdb": "^8.0.1",
     "pouchdb-find": "^8.0.1",
-    "saslprep": "^1.0.3",
-    "superagent": "^8.0.9",
-    "typescript": "^5.2.2",
-    "ws": "^8.14.2"
+    "superagent": "^8.0.9"
   }
 }

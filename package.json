@@ -8,12 +8,14 @@
   "scripts": {
     "start:client": "node -r @hydrooj/utils/lib/register packages/client/index.ts",
     "start:server": "node -r @hydrooj/utils/lib/register packages/server/index.ts",
-    "build": "node -r @hydrooj/utils/lib/register build.ts"
+    "build": "node -r @hydrooj/utils/lib/register build.ts && pkg dist/entry.js"
   },
   "devDependencies": {
     "@hydrooj/eslint-config": "^1.0.4",
     "@types/node": "^20.9.0",
     "eslint": "^8.44.0",
-    "eslint-import-resolver-typescript": "^3.5.5"
+    "eslint-import-resolver-typescript": "^3.5.5",
+    "pkg": "^5.8.1",
+    "typescript": "^5.2.2"
   }
 }
