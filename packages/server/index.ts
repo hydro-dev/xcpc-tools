@@ -19,6 +19,7 @@ async function apply(ctx: Context) {
     require('./error');
     await require('./service/server').apply(ctx);
     if (global.Tools.config.type !== 'nofetch') {
+        logger.info('Fetch mode: ', global.Tools.config.type);
         await require('./fetcher').apply(ctx);
     }
     await require('./handler').apply(ctx);
