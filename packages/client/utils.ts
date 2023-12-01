@@ -10,39 +10,42 @@ export function generateTypst(team: string, location: string, filename: string, 
     filename: "",
     lang: "",
     body
-    ) = {
+) = {
     set document(author: (team), title: filename)
-    set text(font: (${Object.keys(global.Tools.config.fonts).map((i) => `"${i}"`).join(', ')}), lang: "zh")
-    set page(paper: "a4",
-    header: [
-        #if (location != "") {
-        [[#location]]
-        }
-        #team
-        #h(1fr)
-        By Hydro/XCPC-TOOLS
-        \n
-        filename: #filename
-        #h(1fr)
-        Page #counter(page).display("1 of 1",both: true)
-    ],
+    set text(font: (${Object.keys(global.Tools.config.fonts).map((i) => JSON.stringify(i)).join(', ')}), lang: "zh")
+    set page(
+        paper: "a4",
+        header: [
+            #if (location != "") {
+                [[#location]]
+            }
+            #team
+            #h(1fr)
+            By Hydro/XCPC-TOOLS
+            filename: #filename
+            #h(1fr)
+            Page #counter(page).display("1 of 1", both: true)
+        ]
     )
-        
+
     raw(read(filename), lang: lang)
     body
-    }
-    
-    #show raw.line: it => {
+}
+
+#show raw.line: it => {
     box(stack(
         dir: ltr,
         box(width: 18pt)[#it.number],
         it.body,
     ))
-    }
-    
-    
-    #show: print.with(team: "${team}", location: "${location}", filename: "${filename}", lang: "${lang}")
-`;
+}
+
+#show: print.with(
+    team: ${JSON.stringify(team || '')},
+    location: ${JSON.stringify(location || '')},
+    filename: ${JSON.stringify(filename || '')},
+    lang: ${JSON.stringify(lang || '')}
+)`;
 }
 
 export async function cachedFontInitOptions() {
