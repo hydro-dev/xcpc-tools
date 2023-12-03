@@ -60,7 +60,7 @@ class HomeHandler extends Handler {
         if (client) throw new BadRequestError('Client', null, 'Client already exists');
         const id = String.random(16);
         global.Tools.clients.push({ id, name: params.name });
-        fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
+        fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), JSON.stringify(global.Tools.clients));
         this.back();
     }
 
@@ -68,14 +68,16 @@ class HomeHandler extends Handler {
         const client = global.Tools.clients.find((c) => c.id === params.id);
         if (!client) throw new BadRequestError('Client', null, 'Client not found');
         global.Tools.clients = global.Tools.clients.filter((c) => c.id !== params.id);
-        fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
+        fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), JSON.stringify(global.Tools.clients));
         this.back();
     }
 
     async postReprint(params) {
-        console.log(params.id);
-        const codes = await db.find({ selector: { id: +params.id }, limit: 1 });
-        if (!codes.docs.length) throw new BadRequestError('Code', null, 'Code not found');
+        const codes = await db.find({ selector: { _id: params.id }, limit: 1 });
+        if (!codes.docs.length) {
+            logger.info(codes.docs, params.id);
+            throw new BadRequestError('Code', null, 'Code not found');
+        }
         await db.put({
             ...codes.docs[0],
             done: 0,
@@ -85,8 +87,24 @@ class HomeHandler extends Handler {
     }
 
     async postDone(params) {
-        const codes = await db.find({ selector: { id: +params.id }, limit: 1 });
-        if (!codes.docs.length) throw new BadRequestError('Code', null, 'Code not found');
+        const codes = await db.find({ selector: { _id: params.id }, limit: 1 });
+        if (!codes.docs.length) {
+            logger.info(codes.docs, params.id);
+            throw new BadRequestError('Code', null, 'Code not found');
+        }
+        await db.put({
+            ...codes.docs[0],
+            done: 1,
+        });
+        this.back();
+    }
+
+    async postRemove(params) {
+        const codes = await db.find({ selector: { _id: params.id }, limit: 1 });
+        if (!codes.docs.length) {
+            logger.info(codes.docs, params.id);
+            throw new BadRequestError('Code', null, 'Code not found');
+        }
         await db.put({
             ...codes.docs[0],
             done: 1,
@@ -131,11 +149,11 @@ class ClientConnectHandler extends Handler {
             return;
         }
         try {
-            codes.docs[0].code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', codes.docs[0]._id)).toString();
+            codes.docs[0].code = fs.readFileSync(path.resolve(__dirname, 'data/codes', codes.docs[0]._id)).toString();
         } catch (e) {
             logger.error(e);
         }
-        this.response.body = { code: 1, doc: codes.docs[0] };
+        this.response.body = { code: 1, doc: { ...codes.docs[0], id: codes.docs[0]._id } };
         logger.info(`Client ${client.name} connected, print task ${codes.docs[0].id}#${codes.docs[0]._id} sent.`);
         await db.put({
             ...codes.docs[0],
@@ -148,7 +166,7 @@ class ClientPrintDoneHandler extends Handler {
     async post(params) {
         const client = global.Tools.clients.find((c) => c.id === params.cid);
         if (!client) throw new BadRequestError('Client', null, 'Client not found');
-        const codes = await db.find({ selector: { id: +params.tid }, limit: 1 });
+        const codes = await db.find({ selector: { _id: params.tid }, limit: 1 });
         if (!codes.docs.length) throw new BadRequestError('Code', null, 'Code not found');
         if (codes.docs[0].printer !== params.cid) throw new BadRequestError('Client', null, 'Client not found');
         await db.put({

@@ -1,5 +1,6 @@
 import path from 'path';
-import { preloadRemoteFonts } from '@myriaddreamin/typst.ts/dist/cjs/options.init.cjs';
+import { preloadFontAssets, preloadRemoteFonts } from '@myriaddreamin/typst.ts/dist/cjs/options.init.cjs';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { fs } from '@hydrooj/utils';
 
 export function generateTypst(team: string, location: string, filename: string, lang: string) {
@@ -51,20 +52,37 @@ export function generateTypst(team: string, location: string, filename: string, 
 export async function cachedFontInitOptions() {
     return {
         beforeBuild: [
-            preloadRemoteFonts(
-                Object.values(global.Tools.config.fonts), {
-                    assetUrlPrefix: '/',
-                    // @ts-ignore
-                    fetcher: async (name: string) => {
-                        if (name.startsWith('https://raw.githubusercontent.com')) return { arrayBuffer: async () => null };
-                        const fontPath = path.resolve(__dirname, 'fonts', name);
-                        if (!fs.existsSync(fontPath)) throw Error(`Can not find font ${name}`);
+            preloadFontAssets({
+                assets: ['text', 'cjk', 'emoji'],
+                // @ts-ignore
+                fetcher: async (url: URL | RequestInfo, init?: RequestInit | undefined) => {
+                    const name = url.toString().split('/').pop() as string;
+                    const fontPath = path.resolve(process.cwd(), 'fonts', name);
+                    if (fs.existsSync(fontPath)) {
                         console.log('use local font', fontPath);
                         return {
                             arrayBuffer: async () => fs.readFileSync(fontPath).buffer,
                         };
-                    },
-                }),
+                    }
+                    console.log('loading remote font:', url);
+                    const proxyOption = process.env.HTTPS_PROXY
+                        ? { agent: new HttpsProxyAgent(process.env.HTTPS_PROXY) }
+                        : {};
+                    const fontRes = await fetch(url as any, {
+                        ...proxyOption,
+                        ...((init as any) || {}),
+                    });
+                    const buffer = await fontRes.arrayBuffer();
+                    fs.writeFileSync(fontPath, Buffer.from(buffer));
+                    fontRes.arrayBuffer = async () => buffer;
+                    return fontRes as any;
+                },
+            }),
+            preloadRemoteFonts(
+                Object.values(global.Tools.config.fonts), {
+                    assetUrlPrefix: '/',
+                },
+            ),
         ],
     };
 }

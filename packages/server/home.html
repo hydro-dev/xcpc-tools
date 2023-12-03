@@ -49,10 +49,11 @@
             <td>{{ task.filename }}({{ task.lang }})</td>
             <td>
               <form method="POST" style="display:inline;">
-                <input type="hidden" name="id" value="{{ task.id }}">
+                <input type="hidden" name="id" value="{{ task._id }}">
                 <div class="three ui mini buttons">
                   <button class="ui primary button" name="operation" value="reprint">RePrint</button>
                   <button class="ui positive button" name="operation" value="done">Done</button>
+                  <button class="ui negative button" name="operation" value="remove">Remove</button>
                 </div>
               </form>
             </td>

@@ -5,7 +5,6 @@ const logger = new Logger('init');
 
 const defaultFontConfig = {
     LXGWWenKai: 'LXGWWenKai-Regular.ttf',
-    'Linux Libertine': 'LinLibertine-Regular.ttf',
 };
 
 export async function load() {

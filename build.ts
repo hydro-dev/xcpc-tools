@@ -18,6 +18,7 @@ logger.info('Building...');
     if (res.errors.length) console.error(res.errors);
     if (res.warnings.length) console.warn(res.warnings);
     logger.info(`Resource Size: ${Math.floor((res.outputFiles[0].text.length / 1024 / 1024) * 10) / 10}MB`);
+    fs.ensureDirSync(path.resolve(__dirname, 'dist'));
     fs.writeFileSync(path.resolve(__dirname, 'dist/entry.js'), res.outputFiles[0].text);
-    logger.info('Sved to dist/entry.js');
+    logger.info('Saved to dist/entry.js');
 })();
