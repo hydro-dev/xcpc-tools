@@ -1,7 +1,7 @@
 import os from 'os';
 import path from 'path';
-import { fs, Logger } from '@hydrooj/utils';
 import { Context } from './interface';
+import { fs, Logger } from './utils';
 
 Logger.levels.base = 3;
 
@@ -18,7 +18,7 @@ async function apply(ctx: Context) {
     fs.ensureDirSync(tmpdir);
     require('./error');
     await require('./service/server').apply(ctx);
-    if (global.Tools.config.type !== 'nofetch') {
+    if (global.Tools.config.type !== 'server') {
         logger.info('Fetch mode: ', global.Tools.config.type);
         await require('./fetcher').apply(ctx);
     }

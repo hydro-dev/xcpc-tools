@@ -27,6 +27,7 @@ tsconfig.*.json
 .yarn/install-state.gz
 .pnp.*
 
+assets/
 
 # Base
 node_modules/

@@ -12,10 +12,10 @@ async function fetchTask(c) {
     try {
         const { body } = await superagent.get(`${c.server}/client/${c.token}`);
         if (body.code) {
-            logger.info(`Print task ${body.doc.id}#${body.doc._id}...`);
+            logger.info(`Print task ${body.doc._id}...`);
             await printFile(body.doc);
-            await superagent.post(`${c.server}/client/${c.token}/doneprint/${body.doc.id}`);
-            logger.info(`Print task ${body.doc.id}#${body.doc._id} completed.`);
+            await superagent.post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}`);
+            logger.info(`Print task ${body.doc._id} completed.`);
         } else {
             logger.info('No print task, sleeping...');
             await sleep(5000);

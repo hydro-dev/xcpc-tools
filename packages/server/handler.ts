@@ -1,66 +1,61 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
-import { Environment, Loader } from 'nunjucks';
 import PouchDB from 'pouchdb';
-import { fs, Logger } from '@hydrooj/utils';
-import { BadRequestError } from './error';
+import { AccessDeniedError, BadRequestError } from './error';
 import { Context } from './interface';
 import { Handler } from './service/server';
+import { fs, Logger } from './utils';
 
 PouchDB.plugin(require('pouchdb-find'));
 fs.ensureDirSync(path.resolve(process.cwd(), 'data/codeDatabase'));
 const db = new PouchDB(path.resolve(process.cwd(), 'data/codeDatabase'));
 db.createIndex({
-    index: { fields: ['id', 'printer'] },
+    index: { fields: ['createAt', '_id', 'printer'] },
 });
 
 const logger = new Logger('handler');
 
-class NLoader extends Loader {
-    getSource(name) {
-        return {
-            src: fs.readFileSync(path.join(process.cwd(), 'home.html'), 'utf-8'),
-            noCache: true,
-        };
-    }
-}
-class Nunjucks extends Environment {
-    constructor() {
-        super(new NLoader(), { autoescape: true, trimBlocks: true });
-    }
-}
-
-const env = new Nunjucks();
-
-class HomeHandler extends Handler {
-    async get() {
+class AuthHandler extends Handler {
+    async prepare() {
         if (!this.request.headers.authorization) {
-            this.response.status = 401;
             this.response.addHeader('WWW-Authenticate', 'Basic realm="XCPC Tools"');
             this.response.body = 'Authentication required';
-            return;
+            throw new AccessDeniedError('Auth', null, 'Authentication required');
         }
         const [uname, pass] = Buffer.from(this.request.headers.authorization.split(' ')[1], 'base64').toString().split(':');
         if (uname !== 'admin' || pass !== global.Tools.config.viewPassword.toString()) {
-            this.response.status = 401;
             this.response.addHeader('WWW-Authenticate', 'Basic realm="XCPC Tools"');
             this.response.body = 'Authentication failed';
-            return;
+            throw new AccessDeniedError('Auth', null, 'Authentication failed');
         }
-        const codes = await db.find({ selector: {}, sort: [{ id: 'desc' }] });
-        this.response.type = 'text/html';
-        this.response.body = env.render('home.html', {
-            tasks: codes.docs,
-            clients: global.Tools.clients,
-        });
+    }
+}
+
+class HomeHandler extends AuthHandler {
+    async get() {
+        const codes = await db.find({ selector: {}, sort: [{ createAt: 'desc' }] });
+        if (this.request.headers.accept === 'application/json') {
+            this.response.body = ({
+                tasks: codes.docs,
+                clients: global.Tools.clients,
+                secretRoute: global.Tools.config.secretRoute,
+            });
+        } else {
+            this.response.type = 'text/html';
+            this.response.body = fs.readFileSync(path.resolve(__dirname, 'assets/index.html')).toString().replace('<!--DATA-->', JSON.stringify({
+                tasks: codes.docs,
+                clients: global.Tools.clients,
+                secretRoute: global.Tools.config.secretRoute,
+            }));
+        }
     }
 
     async postAddClient(params) {
         const client = global.Tools.clients.find((c) => c.name === params.name);
         if (client) throw new BadRequestError('Client', null, 'Client already exists');
         const id = String.random(16);
-        global.Tools.clients.push({ id, name: params.name });
-        fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), JSON.stringify(global.Tools.clients));
+        global.Tools.clients.push({ id, name: params.name || 'Unknown' });
+        fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
         this.back();
     }
 
@@ -68,7 +63,7 @@ class HomeHandler extends Handler {
         const client = global.Tools.clients.find((c) => c.id === params.id);
         if (!client) throw new BadRequestError('Client', null, 'Client not found');
         global.Tools.clients = global.Tools.clients.filter((c) => c.id !== params.id);
-        fs.writeFileSync(path.resolve(__dirname, 'data/client.json'), JSON.stringify(global.Tools.clients));
+        fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
         this.back();
     }
 
@@ -105,10 +100,7 @@ class HomeHandler extends Handler {
             logger.info(codes.docs, params.id);
             throw new BadRequestError('Code', null, 'Code not found');
         }
-        await db.put({
-            ...codes.docs[0],
-            done: 1,
-        });
+        await db.remove(codes.docs[0]);
         this.back();
     }
 }
@@ -119,23 +111,25 @@ class CodeHandler extends Handler {
             code, team, lang, filename, tname, location,
         } = params;
         if (!code && !this.request.files?.file) throw new BadRequestError('Code', null, 'Code is required');
-        const doc = await db.find({ selector: {}, sort: [{ id: 'desc' }], limit: 1 });
-        const id = (doc.docs?.[0]?.id || 0) + 1;
         const _id = `${team}-${String.random(8)}`;
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/codes'));
         fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', _id), code || fs.readFileSync(this.request.files.file.filepath));
         await db.put({
-            id,
             _id,
             team: `${team}: ${tname}`,
             location,
             filename: filename || this.request.files.file.originalFilename,
             lang: lang || 'txt',
+            createAt: new Date().getTime(),
             printer: '',
             done: 0,
         });
-        this.response.body = `The code has been submitted. Code Print ID: ${id}#${_id}`;
-        logger.info(`Team(${team}): ${tname} submitted code. Code Print ID: ${id}#${_id}`);
+        this.response.body = `The code has been submitted. Code Print ID: ${_id}`;
+        logger.info(`Team(${team}): ${tname} submitted code. Code Print ID: ${_id}`);
+        if (tname > 40) {
+            logger.warn(`Team ${tname} name is too long, may cause overflow!`);
+            this.response.body += ', your team name is too long, may cause print failed!';
+        }
     }
 }
 
@@ -149,15 +143,16 @@ class ClientConnectHandler extends Handler {
             return;
         }
         try {
-            codes.docs[0].code = fs.readFileSync(path.resolve(__dirname, 'data/codes', codes.docs[0]._id)).toString();
+            codes.docs[0].code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', codes.docs[0]._id)).toString();
         } catch (e) {
             logger.error(e);
         }
-        this.response.body = { code: 1, doc: { ...codes.docs[0], id: codes.docs[0]._id } };
-        logger.info(`Client ${client.name} connected, print task ${codes.docs[0].id}#${codes.docs[0]._id} sent.`);
+        this.response.body = { code: 1, doc: { ...codes.docs[0] } };
+        logger.info(`Client ${client.name} connected, print task ${codes.docs[0]._id} sent.`);
         await db.put({
             ...codes.docs[0],
             printer: params.cid,
+            receiveAt: new Date().getTime(),
         });
     }
 }
@@ -172,9 +167,10 @@ class ClientPrintDoneHandler extends Handler {
         await db.put({
             ...codes.docs[0],
             done: 1,
+            doneAt: new Date().getTime(),
         });
         this.response.body = { code: 1 };
-        logger.info(`Client ${client.name} connected, print task ${codes.docs[0].id}#${codes.docs[0]._id} completed.`);
+        logger.info(`Client ${client.name} connected, print task ${codes.docs[0]._id} completed.`);
     }
 }
 
@@ -182,7 +178,8 @@ export async function apply(ctx: Context) {
     await db.find({ selector: {} });
     logger.info('Code Database loaded');
     ctx.Route('home', '/', HomeHandler);
-    ctx.Route('receive_code', '/print', CodeHandler);
+    ctx.Route('receive_code', `/print/${global.Tools.config.secretRoute}`, CodeHandler);
+    logger.info(`Code Print Route: /print/${global.Tools.config.secretRoute}`);
     ctx.Route('client_fetch', '/client/:cid', ClientConnectHandler);
     ctx.Route('client_fetch', '/client/:cid/doneprint/:tid', ClientPrintDoneHandler);
 }

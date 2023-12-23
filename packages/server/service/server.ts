@@ -10,15 +10,15 @@ import Compress from 'koa-compress';
 import Router from 'koa-router';
 import cache from 'koa-static-cache';
 import {
-    Counter, errorMessage, fs,
-    isClass, Logger, parseMemoryMB,
-} from '@hydrooj/utils/lib/utils';
-import {
     CsrfTokenError, HydroError, InvalidOperationError,
     MethodNotAllowedError, NotFoundError,
     PrivilegeError, UserFacingError,
 } from '../error';
 import { Context } from '../interface';
+import {
+    Counter, errorMessage, fs,
+    isClass, Logger,
+} from '../utils';
 import * as decorators from './decorators';
 import baseLayer from './layers/base';
 import responseLayer from './layers/response';
@@ -337,7 +337,7 @@ ${ctx.response.status} ${endTime - startTime}ms ${ctx.response.length}`);
         formLimit: '8mb',
         formidable: {
             uploadDir,
-            maxFileSize: parseMemoryMB('256m') * 1024 * 1024,
+            maxFileSize: 256 * 1024 * 1024,
             keepExtensions: true,
         },
     }));

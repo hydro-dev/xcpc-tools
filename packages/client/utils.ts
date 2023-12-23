@@ -1,3 +1,4 @@
+import path from 'path';
 import { preloadRemoteFonts } from '@myriaddreamin/typst.ts/dist/cjs/options.init.cjs';
 import { readFileSync } from 'fs-extra';
 import Logger from 'reggol';
@@ -59,13 +60,13 @@ export function generateTypst(team: string, location: string, filename: string, 
 )`;
 }
 
-const fontFiles = {
-    'DejaVuSansMono.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf'),
-    'DejaVuSansMono-Bold.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-Bold.ttf'),
-    'DejaVuSansMono-Oblique.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-Oblique.ttf'),
-    'DejaVuSansMono-BoldOblique.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-BoldOblique.ttf'),
-    // TODO: add chinese font
-};
+const fontFiles = [
+    'DejaVuSansMono.ttf',
+    'DejaVuSansMono-Bold.ttf',
+    'DejaVuSansMono-Oblique.ttf',
+    'DejaVuSansMono-BoldOblique.ttf',
+    'NotoSansSC_400Regular.ttf',
+];
 
 export async function cachedFontInitOptions() {
     return {
@@ -76,8 +77,9 @@ export async function cachedFontInitOptions() {
                     assetUrlPrefix: '/',
                     fetcher: async (url) => {
                         const name = url.toString().split('/').pop() as string;
-                        logger.info('loading font:', name);
-                        const fontRes = readFileSync(fontFiles[name]);
+                        const filepath = path.resolve(process.cwd(), 'assets', name);
+                        logger.info('loading font:', name, 'from', filepath);
+                        const fontRes = readFileSync(filepath);
                         return { arrayBuffer: async () => fontRes.buffer } as any;
                     },
                 }),

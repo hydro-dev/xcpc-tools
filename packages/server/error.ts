@@ -53,7 +53,6 @@ export const NoPDFError = Err('NoPDFError', NotFoundError, 'The contest does not
 export const AccessDeniedError = Err('AccessDeniedError', ForbiddenError, 'Access denied.');
 export const CsrfTokenError = Err('CsrfTokenError', ForbiddenError, 'CsrfTokenError');
 export const InvalidOperationError = Err('InvalidOperationError', MethodNotAllowedError);
-export const PermissionError = Err('PermissionError', ForbiddenError, "You don't have the required permission in this domain.");
 export const PrivilegeError = Err('PrivilegeError', ForbiddenError, function (this: HydroError) {
     if (this.params.includes(global.Hydro.model.builtin.PRIV.PRIV_USER_PROFILE)) {
         return "You're not logged in.";
