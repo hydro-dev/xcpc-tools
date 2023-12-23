@@ -2,8 +2,9 @@
 import path from 'path';
 import { createTypstCompiler } from '@myriaddreamin/typst.ts/dist/cjs/compiler.cjs';
 import { getPrinters, print } from 'unix-print';
-import { fs, Logger, sleep } from '@hydrooj/utils';
-import { cachedFontInitOptions, generateTypst } from './utils';
+import {
+    cachedFontInitOptions, fs, generateTypst, Logger, sleep,
+} from './utils';
 
 let compiler;
 

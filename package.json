@@ -1,6 +1,6 @@
 {
   "name": "xcpc-tools-workspace",
-  "packageManager": "yarn@3.5.1",
+  "packageManager": "yarn@4.0.2",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -11,11 +11,11 @@
     "build": "node -r @hydrooj/utils/lib/register build.ts && pkg dist/entry.js"
   },
   "devDependencies": {
-    "@hydrooj/eslint-config": "^1.0.4",
-    "@types/node": "^20.9.0",
-    "eslint": "^8.44.0",
-    "eslint-import-resolver-typescript": "^3.5.5",
+    "@hydrooj/eslint-config": "^1.0.7",
+    "@types/node": "^20.10.5",
+    "eslint": "^8.56.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
     "pkg": "^5.8.1",
-    "typescript": "^5.2.2"
+    "typescript": "^5.3.3"
   }
 }

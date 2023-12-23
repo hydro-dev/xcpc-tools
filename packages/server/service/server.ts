@@ -1,12 +1,14 @@
 import http from 'http';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import cac from 'cac';
 import { Service } from 'cordis';
 import type { Files } from 'formidable';
 import Koa from 'koa';
 import Body from 'koa-body';
+import Compress from 'koa-compress';
 import Router from 'koa-router';
+import cache from 'koa-static-cache';
 import {
     Counter, errorMessage, fs,
     isClass, Logger, parseMemoryMB,
@@ -308,6 +310,13 @@ export async function apply(pluginContext: Context) {
         }
         return await next();
     });
+    app.use(Compress());
+    const dir = resolve(process.cwd(), 'public');
+    if (fs.existsSync(dir)) {
+        app.use(cache(dir, {
+            maxAge: 24 * 3600 * 1000,
+        }));
+    }
     if (process.env.DEV) {
         app.use(async (ctx: Koa.Context, next: Function) => {
             const startTime = Date.now();

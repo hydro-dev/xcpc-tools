@@ -1,7 +1,7 @@
 import os from 'os';
 import path from 'path';
-import { fs, Logger } from '@hydrooj/utils';
 import { Context } from './interface';
+import { fs, Logger } from './utils';
 
 Logger.levels.base = 3;
 

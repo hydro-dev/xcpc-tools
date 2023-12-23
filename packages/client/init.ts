@@ -1,18 +1,14 @@
 import path from 'path';
 import { getPrinters } from 'unix-print';
-import { fs, Logger, yaml } from '@hydrooj/utils';
+import { fs, Logger, yaml } from './utils';
 const logger = new Logger('init');
-
-const defaultFontConfig = {
-    LXGWWenKai: 'LXGWWenKai-Regular.ttf',
-};
 
 export async function load() {
     try {
         logger.info('Loading config');
         const configPath = path.resolve(process.cwd(), 'config.yaml');
         if (!fs.existsSync(configPath)) {
-            fs.writeFileSync(configPath, `server: \ntype: \ntoken: \n${yaml.dump({ fonts: defaultFontConfig })}`);
+            fs.writeFileSync(configPath, 'server: \ntype: \ntoken: \n');
             throw new Error('Config file generated, please fill in the config.yaml');
         }
         const {

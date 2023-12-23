@@ -1,7 +1,16 @@
-import path from 'path';
-import { preloadFontAssets, preloadRemoteFonts } from '@myriaddreamin/typst.ts/dist/cjs/options.init.cjs';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import { fs } from '@hydrooj/utils';
+import { preloadRemoteFonts } from '@myriaddreamin/typst.ts/dist/cjs/options.init.cjs';
+import { readFileSync } from 'fs-extra';
+import Logger from 'reggol';
+
+Logger.levels.base = process.env.DEV ? 3 : 2;
+Logger.targets[0].showTime = 'dd hh:mm:ss';
+Logger.targets[0].label = {
+    align: 'right',
+    width: 9,
+    margin: 1,
+};
+
+const logger = new Logger('utils');
 
 export function generateTypst(team: string, location: string, filename: string, lang: string) {
     return `
@@ -13,7 +22,7 @@ export function generateTypst(team: string, location: string, filename: string, 
     body
 ) = {
     set document(author: (team), title: filename)
-    set text(font: (${Object.keys(global.Tools.config.fonts).map((i) => JSON.stringify(i)).join(', ')}), lang: "zh")
+    set text(font: ("Linux Libertine"), lang: "zh")
     set page(
         paper: "a4",
         header: [
@@ -23,6 +32,7 @@ export function generateTypst(team: string, location: string, filename: string, 
             #team
             #h(1fr)
             By Hydro/XCPC-TOOLS
+
             filename: #filename
             #h(1fr)
             Page #counter(page).display("1 of 1", both: true)
@@ -49,40 +59,37 @@ export function generateTypst(team: string, location: string, filename: string, 
 )`;
 }
 
+const fontFiles = {
+    'DejaVuSansMono.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf'),
+    'DejaVuSansMono-Bold.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-Bold.ttf'),
+    'DejaVuSansMono-Oblique.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-Oblique.ttf'),
+    'DejaVuSansMono-BoldOblique.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-BoldOblique.ttf'),
+    // TODO: add chinese font
+};
+
 export async function cachedFontInitOptions() {
     return {
         beforeBuild: [
-            preloadFontAssets({
-                assets: ['text', 'cjk', 'emoji'],
-                // @ts-ignore
-                fetcher: async (url: URL | RequestInfo, init?: RequestInit | undefined) => {
-                    const name = url.toString().split('/').pop() as string;
-                    const fontPath = path.resolve(process.cwd(), 'fonts', name);
-                    if (fs.existsSync(fontPath)) {
-                        console.log('use local font', fontPath);
-                        return {
-                            arrayBuffer: async () => fs.readFileSync(fontPath).buffer,
-                        };
-                    }
-                    console.log('loading remote font:', url);
-                    const proxyOption = process.env.HTTPS_PROXY
-                        ? { agent: new HttpsProxyAgent(process.env.HTTPS_PROXY) }
-                        : {};
-                    const fontRes = await fetch(url as any, {
-                        ...proxyOption,
-                        ...((init as any) || {}),
-                    });
-                    const buffer = await fontRes.arrayBuffer();
-                    fs.writeFileSync(fontPath, Buffer.from(buffer));
-                    fontRes.arrayBuffer = async () => buffer;
-                    return fontRes as any;
-                },
-            }),
             preloadRemoteFonts(
-                Object.values(global.Tools.config.fonts), {
+                Object.keys(fontFiles), {
+                    assets: false,
                     assetUrlPrefix: '/',
-                },
-            ),
+                    fetcher: async (url) => {
+                        const name = url.toString().split('/').pop() as string;
+                        logger.info('loading font:', name);
+                        const fontRes = readFileSync(fontFiles[name]);
+                        return { arrayBuffer: async () => fontRes.buffer } as any;
+                    },
+                }),
         ],
     };
 }
+
+export * as fs from 'fs-extra';
+export * as yaml from 'js-yaml';
+export function sleep(timeout: number) {
+    return new Promise((resolve) => {
+        setTimeout(() => resolve(true), timeout);
+    });
+}
+export { Logger };
