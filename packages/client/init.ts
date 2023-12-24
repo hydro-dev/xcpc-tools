@@ -6,7 +6,7 @@ const logger = new Logger('init');
 export async function load() {
     try {
         logger.info('Loading config');
-        const configPath = path.resolve(process.cwd(), 'config.yaml');
+        const configPath = path.resolve(process.cwd(), 'config.client.yaml');
         if (!fs.existsSync(configPath)) {
             fs.writeFileSync(configPath, 'server: \ntype: \ntoken: \n');
             throw new Error('Config file generated, please fill in the config.yaml');

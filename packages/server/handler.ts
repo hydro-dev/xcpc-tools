@@ -1,10 +1,10 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
 import Datastore from 'nedb-promises';
-import { fs, Logger } from '@hydrooj/utils';
 import { AccessDeniedError, BadRequestError, ValidationError } from './error';
 import { Context, PrintCode } from './interface';
 import { Handler } from './service/server';
+import { fs, Logger } from './utils';
 
 fs.ensureDirSync(path.resolve(process.cwd(), 'data/.db'));
 const db: Datastore<PrintCode> = Datastore.create(path.resolve(process.cwd(), 'data/.db/code.db'));

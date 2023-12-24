@@ -9,8 +9,6 @@ dist/
 *.js.map
 *.tsbuildinfo
 
-packages/ui/
-
 # Config Files
 config.yaml
 config.json
@@ -26,8 +24,6 @@ tsconfig.*.json
 .yarn/sdks
 .yarn/install-state.gz
 .pnp.*
-
-assets/
 
 # Base
 node_modules/

@@ -5,7 +5,7 @@ const logger = new Logger('init');
 export function load() {
     try {
         logger.info('Loading config');
-        const configPath = path.resolve(process.cwd(), 'config.yaml');
+        const configPath = path.resolve(process.cwd(), 'config.server.yaml');
         if (!fs.existsSync(configPath)) {
             fs.writeFileSync(configPath, `type: \nviewPass: ${String.random(8)}
 server: \ntoken: \nusername: \npassword: \nsecretRoute: ${String.random(12)}`);

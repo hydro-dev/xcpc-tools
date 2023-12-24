@@ -13,7 +13,6 @@ logger.info('Building...');
         splitting: false,
         write: false,
         minify: false,
-        external: ['moment-timezone', 'mongodb', 'js-yaml', 'formidable', 'leveldown'],
         entryPoints: [path.resolve(__dirname, 'entry.ts')],
         loader: {
             '.ttf': 'base64',

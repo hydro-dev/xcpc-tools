@@ -11,8 +11,7 @@ import Router from 'koa-router';
 import cache from 'koa-static-cache';
 import {
     CsrfTokenError, HydroError, InvalidOperationError,
-    MethodNotAllowedError, NotFoundError,
-    PrivilegeError, UserFacingError,
+    MethodNotAllowedError, NotFoundError, UserFacingError,
 } from '../error';
 import { Context } from '../interface';
 import {
@@ -99,13 +98,6 @@ export class HandlerCommon {
         this.url = context.getUrl.bind(context);
         this.session = context.session;
     }
-
-    checkPriv(...priv: number[]) {
-        for (const i in priv) {
-            if ((this.session.priv & priv[i]) === priv[i]) return true;
-        }
-        throw new PrivilegeError(...priv);
-    }
 }
 
 export class Handler extends HandlerCommon {
@@ -154,7 +146,7 @@ async function serial(name: string, ...args: any[]) {
     return r;
 }
 
-async function handle(ctx: KoaContext, HandlerClass, checker) {
+async function handle(ctx: KoaContext, HandlerClass) {
     const {
         args, request, response,
     } = ctx.HydroContext;
@@ -167,7 +159,6 @@ async function handle(ctx: KoaContext, HandlerClass, checker) {
             ? `_${ctx.request.body.operation}`.replace(/_([a-z])/gm, (s) => s[1].toUpperCase())
             : '';
 
-        if (checker) checker.call(h);
         if (method === 'post') {
             if (operation) {
                 if (typeof h[`post${operation}`] !== 'function') {
@@ -226,28 +217,8 @@ async function handle(ctx: KoaContext, HandlerClass, checker) {
     }
 }
 
-const Checker = (permPrivChecker) => {
-    let priv: number;
-    let checker = () => { };
-    for (const item of permPrivChecker) {
-        if (typeof item === 'object') {
-            if (typeof item.call !== 'undefined') {
-                checker = item;
-            } else if (typeof item[0] === 'number') {
-                priv = item;
-            }
-        } else if (typeof item === 'number') {
-            priv = item;
-        }
-    }
-    return function check(this: Handler) {
-        checker();
-        if (priv) this.checkPriv(priv);
-    };
-};
-
-export function Route(name: string, path: string, RouteHandler: any, ...permPrivChecker) {
-    router.all(name, path, (ctx) => handle(ctx as any, RouteHandler, Checker(permPrivChecker)));
+export function Route(name: string, path: string, RouteHandler: any) {
+    router.all(name, path, (ctx) => handle(ctx as any, RouteHandler));
 }
 
 class NotFoundHandler extends Handler {
@@ -350,7 +321,7 @@ ${ctx.response.status} ${endTime - startTime}ms ${ctx.response.length}`);
         router.use(layer as any);
         app.use(layer);
     }
-    app.use((ctx) => handle(ctx, NotFoundHandler, () => true));
+    app.use((ctx) => handle(ctx, NotFoundHandler));
     pluginContext.on('app/started', async () => {
         await new Promise((r) => {
             httpServer.listen(argv.options.port || global.Tools.config.port || 8889, () => {
