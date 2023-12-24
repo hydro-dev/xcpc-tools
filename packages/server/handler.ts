@@ -1,49 +1,48 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
-import PouchDB from 'pouchdb';
-import { AccessDeniedError, BadRequestError } from './error';
-import { Context } from './interface';
+import Datastore from 'nedb-promises';
+import { fs, Logger } from '@hydrooj/utils';
+import { AccessDeniedError, BadRequestError, ValidationError } from './error';
+import { Context, PrintCode } from './interface';
 import { Handler } from './service/server';
-import { fs, Logger } from './utils';
 
-PouchDB.plugin(require('pouchdb-find'));
-fs.ensureDirSync(path.resolve(process.cwd(), 'data/codeDatabase'));
-const db = new PouchDB(path.resolve(process.cwd(), 'data/codeDatabase'));
-db.createIndex({
-    index: { fields: ['createAt', '_id', 'printer'] },
-});
+fs.ensureDirSync(path.resolve(process.cwd(), 'data/.db'));
+const db: Datastore<PrintCode> = Datastore.create(path.resolve(process.cwd(), 'data/.db/code.db'));
 
 const logger = new Logger('handler');
 
 class AuthHandler extends Handler {
     async prepare() {
         if (!this.request.headers.authorization) {
+            this.response.status = 401;
             this.response.addHeader('WWW-Authenticate', 'Basic realm="XCPC Tools"');
             this.response.body = 'Authentication required';
-            throw new AccessDeniedError('Auth', null, 'Authentication required');
+            return 'cleanup';
         }
         const [uname, pass] = Buffer.from(this.request.headers.authorization.split(' ')[1], 'base64').toString().split(':');
         if (uname !== 'admin' || pass !== global.Tools.config.viewPassword.toString()) {
+            this.response.status = 401;
             this.response.addHeader('WWW-Authenticate', 'Basic realm="XCPC Tools"');
             this.response.body = 'Authentication failed';
-            throw new AccessDeniedError('Auth', null, 'Authentication failed');
+            return 'cleanup';
         }
+        return 'next';
     }
 }
 
 class HomeHandler extends AuthHandler {
     async get() {
-        const codes = await db.find({ selector: {}, sort: [{ createAt: 'desc' }] });
+        const codes = await db.find({}).sort({ createAt: -1 });
         if (this.request.headers.accept === 'application/json') {
             this.response.body = ({
-                tasks: codes.docs,
+                tasks: codes,
                 clients: global.Tools.clients,
                 secretRoute: global.Tools.config.secretRoute,
             });
         } else {
             this.response.type = 'text/html';
             this.response.body = fs.readFileSync(path.resolve(__dirname, 'assets/index.html')).toString().replace('<!--DATA-->', JSON.stringify({
-                tasks: codes.docs,
+                tasks: codes,
                 clients: global.Tools.clients,
                 secretRoute: global.Tools.config.secretRoute,
             }));
@@ -52,7 +51,7 @@ class HomeHandler extends AuthHandler {
 
     async postAddClient(params) {
         const client = global.Tools.clients.find((c) => c.name === params.name);
-        if (client) throw new BadRequestError('Client', null, 'Client already exists');
+        if (client) throw new ValidationError('Client', null, 'Client already exists');
         const id = String.random(16);
         global.Tools.clients.push({ id, name: params.name || 'Unknown' });
         fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
@@ -61,46 +60,39 @@ class HomeHandler extends AuthHandler {
 
     async postRemoveClient(params) {
         const client = global.Tools.clients.find((c) => c.id === params.id);
-        if (!client) throw new BadRequestError('Client', null, 'Client not found');
+        if (!client) throw new ValidationError('Client', null, 'Client not found');
         global.Tools.clients = global.Tools.clients.filter((c) => c.id !== params.id);
         fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), JSON.stringify(global.Tools.clients));
         this.back();
     }
 
     async postReprint(params) {
-        const codes = await db.find({ selector: { _id: params.id }, limit: 1 });
-        if (!codes.docs.length) {
-            logger.info(codes.docs, params.id);
-            throw new BadRequestError('Code', null, 'Code not found');
+        const code = await db.findOne({ id: params.id });
+        if (!code) {
+            logger.info(code, params.id);
+            throw new ValidationError('Code', null, 'Code not found');
         }
-        await db.put({
-            ...codes.docs[0],
-            done: 0,
-            printer: '',
-        });
+        await db.updateOne({ id: params.id }, { $set: { done: 0, printer: '' } });
         this.back();
     }
 
     async postDone(params) {
-        const codes = await db.find({ selector: { _id: params.id }, limit: 1 });
-        if (!codes.docs.length) {
-            logger.info(codes.docs, params.id);
-            throw new BadRequestError('Code', null, 'Code not found');
+        const code = await db.find({ selector: { id: params.id }, limit: 1 });
+        if (!code.length) {
+            logger.info(code, params.id);
+            throw new ValidationError('Code', null, 'Code not found');
         }
-        await db.put({
-            ...codes.docs[0],
-            done: 1,
-        });
+        await db.updateOne({ id: params.id }, { $set: { done: 1, doneAt: new Date().getTime() } });
         this.back();
     }
 
     async postRemove(params) {
-        const codes = await db.find({ selector: { _id: params.id }, limit: 1 });
-        if (!codes.docs.length) {
-            logger.info(codes.docs, params.id);
-            throw new BadRequestError('Code', null, 'Code not found');
+        const codes = await db.find({ selector: { id: params.id }, limit: 1 });
+        if (!codes.length) {
+            logger.info(codes, params.id);
+            throw new ValidationError('Code', null, 'Code not found');
         }
-        await db.remove(codes.docs[0]);
+        await db.updateOne({ id: params.id }, { $set: { deleted: 1 } });
         this.back();
     }
 }
@@ -111,11 +103,11 @@ class CodeHandler extends Handler {
             code, team, lang, filename, tname, location,
         } = params;
         if (!code && !this.request.files?.file) throw new BadRequestError('Code', null, 'Code is required');
-        const _id = `${team}-${String.random(8)}`;
+        const id = `${team}-${String.random(8)}`;
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/codes'));
-        fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', _id), code || fs.readFileSync(this.request.files.file.filepath));
-        await db.put({
-            _id,
+        fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', id), code || fs.readFileSync(this.request.files.file.filepath));
+        await db.insert({
+            id,
             team: `${team}: ${tname}`,
             location,
             filename: filename || this.request.files.file.originalFilename,
@@ -124,8 +116,8 @@ class CodeHandler extends Handler {
             printer: '',
             done: 0,
         });
-        this.response.body = `The code has been submitted. Code Print ID: ${_id}`;
-        logger.info(`Team(${team}): ${tname} submitted code. Code Print ID: ${_id}`);
+        this.response.body = `The code has been submitted. Code Print ID: ${id}`;
+        logger.info(`Team(${team}): ${tname} submitted code. Code Print ID: ${id}`);
         if (tname > 40) {
             logger.warn(`Team ${tname} name is too long, may cause overflow!`);
             this.response.body += ', your team name is too long, may cause print failed!';
@@ -136,46 +128,43 @@ class CodeHandler extends Handler {
 class ClientConnectHandler extends Handler {
     async get(params) {
         const client = global.Tools.clients.find((c) => c.id === params.cid);
-        if (!client) throw new BadRequestError('Client', null, 'Client not found');
-        const codes = await db.find({ selector: { done: 0, printer: { $in: ['', params.cid] } }, limit: 1 });
-        if (!codes.docs.length) {
+        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        const code = await db.findOne({ printer: { $in: ['', params.cid] }, done: 0, deleted: { $ne: 1 } }).sort({ createAt: 1 });
+        if (!code) {
             this.response.body = { code: 0 };
             return;
         }
         try {
-            codes.docs[0].code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', codes.docs[0]._id)).toString();
+            code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', code.id)).toString();
         } catch (e) {
             logger.error(e);
         }
-        this.response.body = { code: 1, doc: { ...codes.docs[0] } };
-        logger.info(`Client ${client.name} connected, print task ${codes.docs[0]._id} sent.`);
-        await db.put({
-            ...codes.docs[0],
-            printer: params.cid,
-            receiveAt: new Date().getTime(),
-        });
+        this.response.body = { code: 1, doc: code };
+        logger.info(`Client ${client.name} connected, print task ${code.id}#${code._id} sent.`);
+        await db.updateOne({ id: code.id }, { $set: { printer: params.cid, receivedAt: new Date().getTime() } });
     }
 }
 
 class ClientPrintDoneHandler extends Handler {
     async post(params) {
-        const client = global.Tools.clients.find((c) => c.id === params.cid);
-        if (!client) throw new BadRequestError('Client', null, 'Client not found');
-        const codes = await db.find({ selector: { _id: params.tid }, limit: 1 });
-        if (!codes.docs.length) throw new BadRequestError('Code', null, 'Code not found');
-        if (codes.docs[0].printer !== params.cid) throw new BadRequestError('Client', null, 'Client not found');
-        await db.put({
-            ...codes.docs[0],
-            done: 1,
-            doneAt: new Date().getTime(),
-        });
+        const client = global.Tools.clients.find((c) => c._id === params.cid);
+        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        const code = await db.findOne({ _id: params.tid });
+        if (!code) throw new ValidationError('Code', null, 'Code not found');
+        if (code.printer !== params.cid) throw new BadRequestError('Client', null, 'Client not match');
+        await db.updateOne({ _id: params.tid }, { $set: { done: 1, doneAt: new Date().getTime() } });
         this.response.body = { code: 1 };
-        logger.info(`Client ${client.name} connected, print task ${codes.docs[0]._id} completed.`);
+        logger.info(`Client ${client.name} connected, print task ${code.id}#${code._id} completed.`);
     }
 }
 
 export async function apply(ctx: Context) {
-    await db.find({ selector: {} });
+    await db.load();
+    await db.ensureIndex({ fieldName: 'id' });
+    await db.ensureIndex({ fieldName: 'createAt' });
+    await db.ensureIndex({ fieldName: 'done' });
+    await db.ensureIndex({ fieldName: 'printer' });
+    await db.ensureIndex({ fieldName: 'deleted' });
     logger.info('Code Database loaded');
     ctx.Route('home', '/', HomeHandler);
     ctx.Route('receive_code', `/print/${global.Tools.config.secretRoute}`, CodeHandler);

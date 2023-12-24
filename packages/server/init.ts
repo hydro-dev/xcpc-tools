@@ -36,13 +36,7 @@ server: \ntoken: \nusername: \npassword: \nsecretRoute: ${String.random(12)}`);
             if (!config.token) throw new Error('Authentication is required');
         }
         fs.ensureDirSync(path.resolve(process.cwd(), 'data'));
-        if (fs.existsSync(path.resolve(process.cwd(), 'data/client.json'))) {
-            const clients = fs.readFileSync(path.resolve(process.cwd(), 'data/client.json'), 'utf8');
-            global.Tools.clients = JSON.parse(clients);
-        } else {
-            fs.writeFileSync(path.resolve(process.cwd(), 'data/client.json'), '[]');
-            global.Tools.clients = [];
-        }
+        logger.info(`Server View User Info: admin/${config.viewPassword}`);
     } catch (e) {
         logger.error(e);
         process.exit(1);

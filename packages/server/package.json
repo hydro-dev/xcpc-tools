@@ -27,8 +27,7 @@
     "koa-router": "^12.0.1",
     "koa-static-cache": "^5.1.4",
     "lodash": "^4.17.21",
-    "pouchdb": "^8.0.1",
-    "pouchdb-find": "^8.0.1",
+    "nedb-promises": "^6.2.3",
     "superagent": "^8.1.2"
   }
 }

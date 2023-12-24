@@ -36,6 +36,21 @@ export interface Tools {
     version: string;
 }
 
+export interface PrintCode {
+    _id: string;
+    id: string;
+    team: string;
+    location: string;
+    filename: string;
+    lang: string;
+    printer: string;
+    createAt: number;
+    done?: number;
+    receivedAt?: number;
+    doneAt?: number;
+    code?: string;
+}
+
 declare global {
     namespace NodeJS {
         interface Global {
