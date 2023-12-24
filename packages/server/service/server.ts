@@ -10,15 +10,15 @@ import Compress from 'koa-compress';
 import Router from 'koa-router';
 import cache from 'koa-static-cache';
 import {
-    Counter, errorMessage, fs,
-    isClass, Logger,
-} from '@hydrooj/utils';
-import {
     CsrfTokenError, HydroError, InvalidOperationError,
     MethodNotAllowedError, NotFoundError,
     PrivilegeError, UserFacingError,
 } from '../error';
 import { Context } from '../interface';
+import {
+    Counter, errorMessage, fs,
+    isClass, Logger,
+} from '../utils';
 import * as decorators from './decorators';
 import baseLayer from './layers/base';
 import responseLayer from './layers/response';

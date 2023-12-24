@@ -1,6 +1,6 @@
 import path from 'path';
 import { getPrinters } from 'unix-print';
-import { fs, Logger, yaml } from '@hydrooj/utils';
+import { fs, Logger, yaml } from './utils';
 const logger = new Logger('init');
 
 export async function load() {
