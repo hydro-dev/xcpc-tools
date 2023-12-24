@@ -1,6 +1,6 @@
 import superagent from 'superagent';
+import { Logger, sleep } from '@hydrooj/utils';
 import { printFile } from './printer';
-import { Logger, sleep } from './utils';
 
 const logger = new Logger('fetcher');
 

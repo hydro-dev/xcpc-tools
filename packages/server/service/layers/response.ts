@@ -1,5 +1,5 @@
+import { errorMessage } from '@hydrooj/utils';
 import { SystemError, UserFacingError } from '../../error';
-import { errorMessage } from '../../utils';
 import type { KoaContext } from '../server';
 
 export default (router, logger) => async (ctx: KoaContext, next) => {

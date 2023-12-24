@@ -6,9 +6,6 @@ import { fs, Logger } from '@hydrooj/utils';
 const logger = new Logger('build');
 logger.info('Building...');
 (async () => {
-    fs.ensureDirSync(path.resolve(__dirname, 'dist'));
-    fs.ensureDirSync(path.resolve(__dirname, 'dist/assets'));
-    fs.copySync(path.resolve(__dirname, 'assets'), path.resolve(__dirname, 'dist/assets'));
     const res = await esbuild.build({
         platform: 'node',
         bundle: true,
@@ -16,8 +13,12 @@ logger.info('Building...');
         splitting: false,
         write: false,
         minify: false,
-        external: ['leveldown'],
+        external: ['moment-timezone', 'mongodb', 'js-yaml', 'formidable', 'leveldown'],
         entryPoints: [path.resolve(__dirname, 'entry.ts')],
+        loader: {
+            '.ttf': 'base64',
+            '.wasm': 'base64',
+        },
     });
     if (res.errors.length) console.error(res.errors);
     if (res.warnings.length) console.warn(res.warnings);

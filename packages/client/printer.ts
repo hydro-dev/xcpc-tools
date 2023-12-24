@@ -1,8 +1,8 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
 import { getPrinters, print } from 'unix-print';
+import { fs, Logger, sleep } from '@hydrooj/utils';
 import { createTypstCompiler, generateTypst } from './typst';
-import { fs, Logger, sleep } from './utils';
 
 let compiler;
 

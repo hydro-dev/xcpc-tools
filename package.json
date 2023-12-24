@@ -6,10 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "node -r @hydrooj/utils/lib/register copyAssets.ts",
-    "start:client": "node -r @hydrooj/utils/lib/register packages/client/index.ts",
-    "start:server": "node -r @hydrooj/utils/lib/register packages/server/index.ts",
-    "build": "node -r @hydrooj/utils/lib/register build.ts && pkg dist/entry.js -t node18-linux-arm64,node18-linux-x64,node18-macos-arm64,node18-macos-x64 --out-path dist/entry"
+    "start:client": "node -r ./register.js packages/client/index.ts",
+    "start:server": "node -r ./register.js packages/server/index.ts",
+    "build": "node -r ./register.js build.ts && pkg dist/entry.js -t node18-linux-arm64,node18-linux-x64,node18-macos-arm64,node18-macos-x64 --out-path dist/entry"
   },
   "devDependencies": {
     "@expo-google-fonts/noto-sans-sc": "^0.2.3",
@@ -20,13 +19,6 @@
     "eslint": "^8.56.0",
     "eslint-import-resolver-typescript": "^3.6.1",
     "pkg": "^5.8.1",
-    "postinstall": "^0.9.0",
-    "postinstall-postinstall": "^2.1.0",
     "typescript": "^5.3.3"
-  },
-  "dependencies": {
-    "fs-extra": "^11.2.0",
-    "js-yaml": "^4.1.0",
-    "reggol": "^1.6.3"
   }
 }

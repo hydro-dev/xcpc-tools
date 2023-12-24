@@ -19,6 +19,7 @@
     "@types/superagent": "^8.1.1"
   },
   "dependencies": {
+    "@hydrooj/xcpc-tools-client": "workspace:*",
     "cordis": "2.8.8",
     "koa": "^2.14.2",
     "koa-body": "^6.0.1",

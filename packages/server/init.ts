@@ -1,5 +1,5 @@
 import path from 'path';
-import { fs, Logger, yaml } from './utils';
+import { fs, Logger, yaml } from '@hydrooj/utils/lib/utils';
 const logger = new Logger('init');
 
 export function load() {

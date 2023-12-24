@@ -1,8 +1,13 @@
 // Fork from typst.ts/packages/typst.ts/src/compiler.mts
-
-import { resolve as pathResolve } from 'path';
 import type * as typst from '@myriaddreamin/typst-ts-web-compiler/pkg/wasm-pack-shim.mjs';
-import { fs } from './utils';
+import {
+    DejaVuSansMono,
+    DejaVuSansMonoBold,
+    DejaVuSansMonoBoldOblique,
+    DejaVuSansMonoOblique,
+    NotoSansSC,
+    wasmBinary,
+} from './assets';
 
 export type CompileFormat = 'vector' | 'pdf';
 
@@ -11,36 +16,22 @@ export interface CompileOptions<F extends CompileFormat = any> {
     format?: F;
 }
 
-const fontFiles = [
-    'DejaVuSansMono.ttf',
-    'DejaVuSansMono-Bold.ttf',
-    'DejaVuSansMono-Oblique.ttf',
-    'DejaVuSansMono-BoldOblique.ttf',
-    'NotoSansSC_400Regular.ttf',
-];
-
 class TypstCompilerDriver {
     compiler: typst.TypstCompiler;
     compilerJs: typeof typst;
     loadedFonts = new Set<string>();
 
     async init(): Promise<void> {
-        // convert to buffer
-        const wasmModule = fs.readFileSync(pathResolve(process.cwd(), 'assets', 'typst_ts_web_compiler_bg.wasm')).buffer;
         this.compilerJs = await import('@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler.mjs');
-        await this.compilerJs.initSync(wasmModule);
+        await this.compilerJs.initSync(Buffer.from(wasmBinary, 'base64'));
         const TypstCompilerBuilder = this.compilerJs.TypstCompilerBuilder;
 
         this.compiler = new TypstCompilerBuilder();
-        // TODO: load fonts
-        for (const fontFile of fontFiles) {
-            if (!this.loadedFonts.has(fontFile)) {
-                this.loadedFonts.add(fontFile);
-                const fontRes = fs.readFileSync(pathResolve(process.cwd(), 'assets', fontFile));
-                // eslint-disable-next-line no-await-in-loop
-                await this.compiler.add_raw_font(new Uint8Array(fontRes.buffer));
-            }
-        }
+        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMono, 'base64')));
+        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBold, 'base64')));
+        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBoldOblique, 'base64')));
+        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoOblique, 'base64')));
+        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(NotoSansSC, 'base64')));
     }
 
     compile(options): Promise<Uint8Array> {
