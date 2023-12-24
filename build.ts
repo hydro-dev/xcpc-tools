@@ -3,10 +3,6 @@ import path from 'path';
 import esbuild from 'esbuild';
 import { fs, Logger } from '@hydrooj/utils';
 
-const serverPkg = require(path.resolve(__dirname, 'packages/server/package.json'));
-const clientPkg = require(path.resolve(__dirname, 'packages/client/package.json'));
-const workspacePkg = require(path.resolve(__dirname, './package.json'));
-
 const logger = new Logger('build');
 logger.info('Building...');
 (async () => {
@@ -14,18 +10,13 @@ logger.info('Building...');
     fs.ensureDirSync(path.resolve(__dirname, 'dist/assets'));
     fs.copySync(path.resolve(__dirname, 'assets'), path.resolve(__dirname, 'dist/assets'));
     const res = await esbuild.build({
-        platform: 'node' as 'node',
+        platform: 'node',
         bundle: true,
         outdir: path.join(process.cwd(), 'dist'),
         splitting: false,
         write: false,
         minify: false,
-        external: [
-            'leveldown',
-            ...Object.keys(serverPkg.dependencies),
-            ...Object.keys(clientPkg.dependencies),
-            ...Object.keys(workspacePkg.dependencies),
-        ],
+        external: ['leveldown'],
         entryPoints: [path.resolve(__dirname, 'entry.ts')],
     });
     if (res.errors.length) console.error(res.errors);

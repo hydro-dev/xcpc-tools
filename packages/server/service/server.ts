@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import cac from 'cac';
 import { Service } from 'cordis';
-import type { Files } from 'formidable';
+import type { File, Files } from 'formidable';
 import Koa from 'koa';
 import Body from 'koa-body';
 import Compress from 'koa-compress';
@@ -34,7 +34,7 @@ export interface HydroRequest {
     headers: Koa.Request['headers'];
     cookies: any;
     body: any;
-    files: Record<string, import('formidable').File>;
+    files: Record<string, File>;
     query: any;
     querystring: string;
     path: string;

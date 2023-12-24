@@ -1,10 +1,8 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
-import { createTypstCompiler } from '@myriaddreamin/typst.ts/dist/cjs/compiler.cjs';
 import { getPrinters, print } from 'unix-print';
-import {
-    cachedFontInitOptions, fs, generateTypst, Logger, sleep,
-} from './utils';
+import { createTypstCompiler, generateTypst } from './typst';
+import { fs, Logger, sleep } from './utils';
 
 let compiler;
 
@@ -58,6 +56,5 @@ export async function printFile(doc) {
 }
 
 export async function apply() {
-    compiler = createTypstCompiler();
-    await compiler.init(await cachedFontInitOptions());
+    compiler = await createTypstCompiler();
 }

@@ -1,7 +1,8 @@
 import path from 'path';
 import * as fs from 'fs-extra';
 
-const fontFiles = {
+const assetFiles = {
+    'typst_ts_web_compiler_bg.wasm': require.resolve('@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm'),
     'DejaVuSansMono.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf'),
     'DejaVuSansMono-Bold.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-Bold.ttf'),
     'DejaVuSansMono-Oblique.ttf': require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono-Oblique.ttf'),
@@ -11,7 +12,7 @@ const fontFiles = {
 
 (async () => {
     fs.ensureDirSync(path.resolve(__dirname, 'assets'));
-    for (const font in fontFiles) {
-        fs.copyFileSync(path.resolve(__dirname, 'node_modules', fontFiles[font]), path.resolve(__dirname, 'assets', font));
+    for (const asset in assetFiles) {
+        fs.copyFileSync(path.resolve(__dirname, 'node_modules', assetFiles[asset]), path.resolve(__dirname, 'assets', asset));
     }
 })();

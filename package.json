@@ -6,10 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "node -r @hydrooj/utils/lib/register copyFonts.ts",
+    "postinstall": "node -r @hydrooj/utils/lib/register copyAssets.ts",
     "start:client": "node -r @hydrooj/utils/lib/register packages/client/index.ts",
     "start:server": "node -r @hydrooj/utils/lib/register packages/server/index.ts",
-    "build": "node -r @hydrooj/utils/lib/register build.ts && pkg dist/entry.js"
+    "build": "node -r @hydrooj/utils/lib/register build.ts && pkg dist/entry.js -t node18-linux-arm64,node18-linux-x64,node18-macos-arm64,node18-macos-x64 --out-path dist/entry"
   },
   "devDependencies": {
     "@expo-google-fonts/noto-sans-sc": "^0.2.3",

@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@myriaddreamin/typst-ts-web-compiler": "^0.4.1",
-    "@myriaddreamin/typst.ts": "^0.4.1",
     "cordis": "2.8.8",
     "superagent": "^8.1.2",
     "unix-print": "^1.3.2"
