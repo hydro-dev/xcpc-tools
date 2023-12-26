@@ -4,6 +4,9 @@ on:
     branches:
       - main
 
+env:
+  YARN_ENABLE_IMMUTABLE_INSTALLS: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
