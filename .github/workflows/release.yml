@@ -19,6 +19,20 @@ jobs:
           node-version: 18
       - run: yarn
       - name: Build
+        run: yarn build
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: yarn
+      - name: Build
         run: yarn build:pkg
       - name: Create Zip for Windows
         run: zip -r /tmp/xcpc-tools-win.zip dist/pkg/xcpc-tools-win.exe
@@ -26,9 +40,14 @@ jobs:
         run: tar -czvf /tmp/xcpc-tools-macos.tar.gz dist/pkg/xcpc-tools-macos
       - name: Create Tar for Linux
         run: tar -czvf /tmp/xcpc-tools-linux.tar.gz dist/pkg/xcpc-tools-linux
+      - name: Generate release tag
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::$(date +"%Y-%m-%d_%H-%M")"
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
           files: |
             /tmp/xcpc-tools-win.zip
             /tmp/xcpc-tools-macos.tar.gz
