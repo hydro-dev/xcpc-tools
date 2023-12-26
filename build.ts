@@ -6,6 +6,7 @@ import { fs, Logger } from '@hydrooj/utils';
 const logger = new Logger('build');
 logger.info('Building...');
 (async () => {
+    fs.ensureDirSync(path.resolve(process.cwd(), 'dist'));
     const res = await esbuild.build({
         platform: 'node',
         bundle: true,
@@ -13,7 +14,7 @@ logger.info('Building...');
         splitting: false,
         write: false,
         minify: true,
-        entryPoints: [path.resolve(__dirname, 'entry.ts')],
+        entryPoints: [path.resolve(process.cwd(), 'entry.ts')],
         loader: {
             '.frontend': 'base64',
             '.ttf': 'base64',
@@ -23,6 +24,6 @@ logger.info('Building...');
     if (res.errors.length) console.error(res.errors);
     if (res.warnings.length) console.warn(res.warnings);
     logger.info(`Resource Size: ${Math.floor((res.outputFiles[0].text.length / 1024 / 1024) * 10) / 10}MB`);
-    fs.writeFileSync(path.resolve(__dirname, 'dist/entry.js'), res.outputFiles[0].text);
-    logger.info('Saved to dist/entry.js');
+    fs.writeFileSync(path.resolve(process.cwd(), 'dist/xcpc-tools.js'), res.outputFiles[0].text);
+    logger.info('Saved to dist/xcpc-tools.js');
 })();

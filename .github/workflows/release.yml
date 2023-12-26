@@ -1,0 +1,35 @@
+name: Build and release
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: yarn
+      - run: yarn Build
+      - name: Build
+        run: pkg dist/xcpc-tools.js --out-path dist/pkg --targets linux,macos,win
+      - name: Create Zip for Windows
+        run: zip -r /tmp/xcpc-tools-win.zip dist/pkg/xcpc-tools-win.exe
+      - name: Create Tar for MacOS
+        run: tar -czvf /tmp/xcpc-tools-macos.tar.gz dist/pkg/xcpc-tools-macos
+      - name: Create Tar for Linux
+        run: tar -czvf /tmp/xcpc-tools-linux.tar.gz dist/pkg/xcpc-tools-linux
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            /tmp/xcpc-tools-win.zip
+            /tmp/xcpc-tools-macos.tar.gz
+            /tmp/xcpc-tools-linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

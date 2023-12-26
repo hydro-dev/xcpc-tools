@@ -25,9 +25,10 @@ function cssLoader() {
 }
 
 const argv = cac().parse();
+const { dev = false, watch = false, production = false } = argv.options;
 
 const compiler = webpack({
-  mode: argv.options.production ? 'production' : 'development',
+  mode: production ? 'production' : 'development',
   entry: './app/index.tsx',
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -72,7 +73,6 @@ const logger = new Logger('build');
 logger.info('Building...');
 
 (async () => {
-  const { dev = false, watch = false } = argv.options;
   if (dev) {
     const server = new WebpackDevServer({
       port: 8890,

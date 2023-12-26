@@ -8,7 +8,8 @@
   "scripts": {
     "start:client": "node -r ./register.js packages/client/index.ts",
     "start:server": "node -r ./register.js packages/server/index.ts",
-    "build": "yarn build:ui:prod && node -r ./register.js build.ts"
+    "build": "yarn build:ui:prod && node -r ./register.js build.ts",
+    "build:pkg": "yarn build:ui:prod && node -r ./register.js build.ts && pkg dist/xcpc-tools.js --targets linux,macos,win --out-path dist/pkg"
   },
   "devDependencies": {
     "@expo-google-fonts/noto-sans-sc": "^0.2.3",
