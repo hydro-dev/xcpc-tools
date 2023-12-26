@@ -19,7 +19,7 @@ jobs:
           node-version: 18
       - run: yarn
       - name: Build
-      - run: yarn build:pkg
+        run: yarn build:pkg
       - name: Create Zip for Windows
         run: zip -r /tmp/xcpc-tools-win.zip dist/pkg/xcpc-tools-win.exe
       - name: Create Tar for MacOS
