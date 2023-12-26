@@ -83,3 +83,22 @@ export function sleep(timeout: number) {
 export * as fs from 'fs-extra';
 export * as yaml from 'js-yaml';
 export { Logger };
+
+export function StaticHTML(context) {
+    return `
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@Hydro/XCPC-TOOLS</title>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        window.Context = JSON.parse('${JSON.stringify(context)}');
+    </script>
+    <script src="/main.js"></script>
+</body>
+</html>
+`;
+}

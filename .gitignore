@@ -12,6 +12,8 @@ dist/
 # Config Files
 config.yaml
 config.json
+config.*.yaml
+config.*.json
 data/
 yarn.lock
 pnpm-lock.yaml

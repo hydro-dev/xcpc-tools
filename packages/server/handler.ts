@@ -1,15 +1,26 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
 import Datastore from 'nedb-promises';
+// @ts-ignore
+import StaticFrontend from './data/static.frontend';
 import { AccessDeniedError, BadRequestError, ValidationError } from './error';
 import { Context, PrintCode } from './interface';
 import { Handler } from './service/server';
-import { fs, Logger } from './utils';
+import { fs, Logger, StaticHTML } from './utils';
 
 fs.ensureDirSync(path.resolve(process.cwd(), 'data/.db'));
 const db: Datastore<PrintCode> = Datastore.create(path.resolve(process.cwd(), 'data/.db/code.db'));
 
 const logger = new Logger('handler');
+
+class StaticHandler extends Handler {
+    async get() {
+        this.response.addHeader('Cache-Control', 'public');
+        this.response.addHeader('Expires', new Date(new Date().getTime() + 86400000).toUTCString());
+        this.response.type = 'text/javascript';
+        this.binary(Buffer.from(StaticFrontend, 'base64'), 'main.js');
+    }
+}
 
 class AuthHandler extends Handler {
     async prepare() {
@@ -26,26 +37,23 @@ class AuthHandler extends Handler {
             this.response.body = 'Authentication failed';
             return 'cleanup';
         }
-        return 'next';
+        return '';
     }
 }
 
 class HomeHandler extends AuthHandler {
     async get() {
         const codes = await db.find({}).sort({ createAt: -1 });
+        const context = {
+            tasks: codes,
+            clients: global.Tools.clients,
+            secretRoute: global.Tools.config.secretRoute,
+        };
         if (this.request.headers.accept === 'application/json') {
-            this.response.body = ({
-                tasks: codes,
-                clients: global.Tools.clients,
-                secretRoute: global.Tools.config.secretRoute,
-            });
+            this.response.body = context;
         } else {
             this.response.type = 'text/html';
-            this.response.body = fs.readFileSync(path.resolve(__dirname, 'assets/index.html')).toString().replace('<!--DATA-->', JSON.stringify({
-                tasks: codes,
-                clients: global.Tools.clients,
-                secretRoute: global.Tools.config.secretRoute,
-            }));
+            this.response.body = StaticHTML(context);
         }
     }
 
@@ -167,6 +175,7 @@ export async function apply(ctx: Context) {
     await db.ensureIndex({ fieldName: 'deleted' });
     logger.info('Code Database loaded');
     ctx.Route('home', '/', HomeHandler);
+    ctx.Route('static', '/main.js', StaticHandler);
     ctx.Route('receive_code', `/print/${global.Tools.config.secretRoute}`, CodeHandler);
     logger.info(`Code Print Route: /print/${global.Tools.config.secretRoute}`);
     ctx.Route('client_fetch', '/client/:cid', ClientConnectHandler);

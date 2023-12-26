@@ -1,0 +1,23 @@
+{
+    "name": "@hydrooj/xcpc-tools-ui",
+    "version": "0.0.1",
+    "author": "panda",
+    "main": "index.ts",
+    "scripts": {
+        "build:ui:dev": "node -r @hydrooj/utils/lib/register build.ts --dev",
+        "build:ui:prod": "node -r @hydrooj/utils/lib/register build.ts --production"
+    },
+    "preferUnplugged": true,
+    "devDependencies": {
+        "@types/react": "^18.0.28",
+        "@types/react-dom": "^18.0.11",
+        "css-loader": "^6.8.1",
+        "esbuild-loader": "^2.21.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "style-loader": "^3.3.3",
+        "webpack": "^5.89.0",
+        "webpack-dev-server": "^4.15.1",
+        "webpackbar": "^5.0.2"
+    }
+}

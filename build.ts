@@ -12,9 +12,10 @@ logger.info('Building...');
         outdir: path.join(process.cwd(), 'dist'),
         splitting: false,
         write: false,
-        minify: false,
+        minify: true,
         entryPoints: [path.resolve(__dirname, 'entry.ts')],
         loader: {
+            '.frontend': 'base64',
             '.ttf': 'base64',
             '.wasm': 'base64',
         },
