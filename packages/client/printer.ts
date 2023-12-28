@@ -8,7 +8,8 @@ let compiler;
 
 const logger = new Logger('printer');
 
-async function ConvertCodeToPDF(code, lang, filename, team, location) {
+export async function ConvertCodeToPDF(code, lang, filename, team, location) {
+    compiler ||= await createTypstCompiler();
     const typst = generateTypst(team, location, filename, lang);
     compiler.addSource(path.resolve(process.cwd(), 'main.typst'), typst);
     compiler.addSource(path.resolve(process.cwd(), filename), code);
@@ -22,11 +23,11 @@ async function ConvertCodeToPDF(code, lang, filename, team, location) {
 
 export async function printFile(doc) {
     const {
-        _id, code, lang, filename, team, location,
+        _id, tid, code, lang, filename, team, location,
     } = doc;
     try {
         const docs = await ConvertCodeToPDF(code || 'empty file', lang, filename, team, location);
-        fs.writeFileSync(path.resolve(process.cwd(), `data/${_id}.pdf`), docs);
+        fs.writeFileSync(path.resolve(process.cwd(), `data/${tid}#${_id}.pdf`), docs);
         if (global.Tools.printers.length) {
             // eslint-disable-next-line no-constant-condition
             while (true) {
@@ -35,14 +36,14 @@ export async function printFile(doc) {
                 const randomP = printers[Math.floor(Math.random() * printers.length)];
                 if (randomP.status === 'idle') {
                     logger.info(`Printing ${_id} on ${randomP.printer}`);
-                    await print(path.resolve(process.cwd(), `data/${_id}.pdf`), randomP.printer, ['-P', '1-5']);
+                    await print(path.resolve(process.cwd(), `data/${tid}#${_id}.pdf`), randomP.printer, ['-P', '1-5']);
                     return;
                 }
                 for (const printer of printers.filter((p) => p.printer !== randomP.printer)) {
                     logger.info(`Checking ${printer.printer} ${printer.status}`);
                     if (printer.status === 'idle') {
                         logger.info(`Printing ${_id} on ${printer.printer}`);
-                        await print(path.resolve(process.cwd(), `data/${_id}.pdf`), printer.printer, ['-P', '1-5']);
+                        await print(path.resolve(process.cwd(), `data/${tid}#${_id}.pdf`), printer.printer, ['-P', '1-5']);
                         return;
                     }
                 }

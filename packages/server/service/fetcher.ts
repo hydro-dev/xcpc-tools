@@ -1,5 +1,5 @@
 import superagent from 'superagent';
-import { Logger } from './utils';
+import { Logger } from '../utils';
 
 const logger = new Logger('fetcher');
 

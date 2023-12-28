@@ -1,0 +1,62 @@
+#!/bin/sh
+
+UPTIME="$(cut -d. -f1 /proc/uptime)"
+# get machine mac address
+NETDEV=$(ip route show default | awk '/default/ {print $5}')
+test -n "$NETDEV" && MACADDR="$(tr -d : < "/sys/class/net/$NETDEV/address")"
+test -z "$MACADDR" && MACADDR="00:00:00:00:00:00"
+
+test -z "$OS" && OS="$(cat /etc/issue.net | awk '{print $1}')"
+test -z "$OS" && OS="$(cat /etc/issue | awk '{print $1}')"
+test -z "$OS" && OS="$(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | sed 's/"//g')"
+test -z "$OS" && OS="$(cat /etc/os-release | grep NAME | cut -d= -f2 | sed 's/"//g')"
+test -z "$OS" && OS="unknown"
+
+test -r /etc/icpcimage-version && VERSION="$(cat /etc/icpcimage-version)"
+test -z "$VERSION" && VERSION="$(grep -Po "version=\K\S*" /proc/cmdline)"
+test -z "$VERSION" && VERSION="devel"
+
+# get machine kernel version
+KERNEL="$(uname -r)"
+
+test -r /etc/hostname && SEATS="$(cat /etc/hostname)"
+
+test -r /proc/cpuinfo && CPU="$(cat /proc/cpuinfo | grep 'model name' | uniq | awk -F: '{print $2}' | sed 's/^[ \t]*//g')"
+test -r /proc/cpuinfo && CPU="$(grep -c processor /proc/cpuinfo) x $CPU"
+test -z "$CPU" && CPU="unknown"
+# replace spaces with underscores
+CPU="$(echo $CPU | sed 's/ /_/g')"
+
+# get machine cpu used percentage
+CPUUSAGE="$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')"
+
+# get machine load average
+LOAD="$(cat /proc/loadavg | awk '{print $1" "$2" "$3}')"
+
+# get machine memory total
+MEM="$(free -h | awk 'NR==2 {print $3"/"$2}')"
+
+
+# printf "mac=$MACADDR\n"
+# printf "os=$OS\n"
+# printf "version=$VERSION\n"
+# printf "kernel=$KERNEL\n"
+# printf "uptime=$UPTIME\n"
+# printf "seats=$SEATS\n"
+# printf "cpu=$CPU\n"
+# printf "cpuused=$CPUUSED\n"
+# printf "mem=$MEM\n"
+# printf "load=$LOAD\n"
+
+
+exec curl -s $HEARTBEATURL -X POST \
+  -d "mac=$MACADDR" \
+  -d "version=$VERSION" \
+  -d "uptime=$UPTIME" \
+  -d "seats=$SEATS" \
+  -d "os=$OS" \
+  -d "kernel=$KERNEL" \
+  -d "cpu=$CPU" \
+  -d "cpuUsage=$CPUUSED" \
+  -d "mem=$MEM" \
+  -d "load=$LOAD" 

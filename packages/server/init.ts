@@ -12,7 +12,7 @@ server: \ntoken: \nusername: \npassword: \nsecretRoute: ${String.random(12)}`);
             throw new Error('Config file generated, please fill in the config.yaml');
         }
         const {
-            type, viewPass, server, token, username, password, port, cors, secretRoute,
+            type, viewPass, server, token, username, password, port, cors, secretRoute, oldMonitor,
         } = yaml.load(fs.readFileSync(configPath, 'utf8').toString()) as any;
         global.Tools = {
             config: {
@@ -23,6 +23,7 @@ server: \ntoken: \nusername: \npassword: \nsecretRoute: ${String.random(12)}`);
                 cors,
                 viewPassword: viewPass,
                 secretRoute,
+                oldMonitor,
             },
             version: require('./package.json').version,
         };

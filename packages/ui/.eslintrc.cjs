@@ -12,7 +12,7 @@ module.exports = {
   ],
   parserOptions: {
     sourceType: 'module',
-    ecmaVersion: 'latest',
+    ecmaVersion: 2020,
     ecmaFeatures: {
       impliedStrict: true,
       experimentalObjectRestSpread: true,
@@ -22,12 +22,9 @@ module.exports = {
       allowImportExportEverywhere: true,
     },
   },
-  plugins: ['react-refresh'],
   rules: {
     // FIXME A bug with eslint-parser
     // 'template-curly-spacing': 'off',
-
-    'react-refresh/only-export-components': 'warn',
 
     '@typescript-eslint/indent': [
       'warn',
@@ -42,6 +39,12 @@ module.exports = {
 
     'simple-import-sort/imports': [
       'warn',
+      {
+        groups: [
+          ['^\\u0000'],
+          ['^react$', '^react-dom/client$', '^', '^\\.'],
+        ],
+      },
     ],
   },
 };

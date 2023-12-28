@@ -18,6 +18,7 @@ export interface CompileOptions<F extends CompileFormat = any> {
 
 class TypstCompilerDriver {
     compiler: typst.TypstCompiler;
+    builder: typst.TypstCompilerBuilder;
     compilerJs: typeof typst;
     loadedFonts = new Set<string>();
 
@@ -26,12 +27,13 @@ class TypstCompilerDriver {
         await this.compilerJs.initSync(Buffer.from(wasmBinary, 'base64'));
         const TypstCompilerBuilder = this.compilerJs.TypstCompilerBuilder;
 
-        this.compiler = new TypstCompilerBuilder();
-        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMono, 'base64')));
-        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBold, 'base64')));
-        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBoldOblique, 'base64')));
-        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoOblique, 'base64')));
-        await this.compiler.add_raw_font(new Uint8Array(Buffer.from(NotoSansSC, 'base64')));
+        this.builder = new TypstCompilerBuilder();
+        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMono, 'base64')));
+        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBold, 'base64')));
+        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBoldOblique, 'base64')));
+        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoOblique, 'base64')));
+        await this.builder.add_raw_font(new Uint8Array(Buffer.from(NotoSansSC, 'base64')));
+        this.compiler = await this.builder.build();
     }
 
     compile(options): Promise<Uint8Array> {

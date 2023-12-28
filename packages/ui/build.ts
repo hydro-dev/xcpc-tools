@@ -1,10 +1,10 @@
-import path from 'path';
 import { Logger } from '@hydrooj/utils';
 import cac from 'cac';
+import fs from 'fs-extra';
+import path from 'path';
 import webpack from 'webpack';
 import WebpackDevServer from 'webpack-dev-server';
 import WebpackBar from 'webpackbar';
-import fs from 'fs-extra';
 
 function esbuildLoader() {
   return {
@@ -21,6 +21,28 @@ function cssLoader() {
   return {
     loader: 'css-loader',
     options: { importLoaders: 1 },
+  };
+}
+
+function postCssLoader() {
+  return {
+    loader: 'postcss-loader',
+    options: {
+      postcssOptions: {
+        plugins: {
+          'postcss-preset-mantine': {},
+          'postcss-simple-vars': {
+            variables: {
+              'mantine-breakpoint-xs': '36em',
+              'mantine-breakpoint-sm': '48em',
+              'mantine-breakpoint-md': '62em',
+              'mantine-breakpoint-lg': '75em',
+              'mantine-breakpoint-xl': '88em',
+            },
+          },
+        },
+      },
+    },
   };
 }
 
@@ -51,7 +73,11 @@ const compiler = webpack({
       },
       {
         test: /\.css$/,
-        use: ['style-loader', cssLoader()],
+        use: [
+          'style-loader',
+          cssLoader(),
+          postCssLoader(),
+        ],
       },
     ],
   },
@@ -81,6 +107,7 @@ logger.info('Building...');
       server: 'http',
       allowedHosts: 'all',
       proxy: {
+        context: (p) => p !== '/ws',
         target: 'http://localhost:8889',
       },
       client: {
@@ -90,7 +117,7 @@ logger.info('Building...');
     server.start();
     return;
   }
-  function compilerCallback(err, stats) {
+  function compilerCallback(err, stats: webpack.Stats) {
     if (err) {
       logger.error(err.stack || err);
       if (err.details) logger.error(err.details);
@@ -100,6 +127,7 @@ logger.info('Building...');
     if (!watch && (!stats || stats.hasErrors())) process.exit(1);
     fs.ensureDirSync(path.resolve(__dirname, '../server/data/'));
     fs.copyFileSync(path.resolve(__dirname, 'dist/main.js'), path.resolve(__dirname, '../server/data/static.frontend'));
+    logger.info('Build finished, bundle size:', ((stats?.toJson().assets?.[0]?.size || 0) / 1024 / 1024).toFixed(2), 'MB');
   }
   if (watch) compiler.watch({}, compilerCallback);
   else compiler.run(compilerCallback);

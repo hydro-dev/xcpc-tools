@@ -1,4 +1,5 @@
 import * as cordis from 'cordis';
+import Datastore from 'nedb-promises';
 
 export interface Events extends cordis.Events<any>, EventMap {
 }
@@ -12,6 +13,11 @@ export interface Context {
 export class Context extends cordis.Context {
     params: any;
     fetcher: any;
+    db: {
+        code: Datastore<PrintCodeDoc>;
+        monitor: Datastore<MonitorDoc>;
+        client: Datastore<ClientDoc>;
+    };
 }
 
 export type VoidReturn = Promise<any> | any;
@@ -36,9 +42,9 @@ export interface Tools {
     version: string;
 }
 
-export interface PrintCode {
+export interface PrintCodeDoc {
     _id: string;
-    id: string;
+    tid: string;
     team: string;
     location: string;
     filename: string;
@@ -51,6 +57,42 @@ export interface PrintCode {
     code?: string;
 }
 
+export interface MonitorDoc {
+    _id: string;
+    mac: string;
+    version: string;
+    uptime: number;
+    seats: string;
+    ip: string;
+    updateAt: number;
+    // new version collect
+    name?: string;
+    group?: string;
+    os?: string;
+    kernel?: string;
+    cpu?: string;
+    cpuUsage?: number;
+    memory?: string;
+    memoryUsage?: number;
+}
+
+export interface ClientDoc {
+    _id: string;
+    id: string;
+    name: string;
+    type: string;
+    subType?: string;
+    group?: string[];
+
+    // for print client
+    printer?: string[];
+    printersInfo?: any[];
+
+    // for ballon client
+    url?: string;
+    template?: string;
+}
+
 declare global {
     namespace NodeJS {
         interface Global {
@@ -59,9 +101,6 @@ declare global {
                 info: any,
                 id: string,
                 name: string,
-                teams: any[],
-                balloons: any[],
-                todoBalloons: any[],
             },
         }
     }

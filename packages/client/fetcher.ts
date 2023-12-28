@@ -1,6 +1,8 @@
+import path from 'path';
 import superagent from 'superagent';
+import { getPrinters } from 'unix-print';
 import { printFile } from './printer';
-import { Logger, sleep } from './utils';
+import { fs, Logger, sleep } from './utils';
 
 const logger = new Logger('fetcher');
 
@@ -10,12 +12,26 @@ async function fetchTask(c) {
     if (timer) clearTimeout(timer);
     logger.info('Fetching Task from tools server...');
     try {
-        const { body } = await superagent.get(`${c.server}/client/${c.token}`);
+        const printersInfo = await getPrinters();
+        const { body } = await superagent.post(`${c.server}/client/${c.token}`)
+            .send({
+                printers: global.Tools.printers,
+                printersInfo: JSON.stringify(await printersInfo.map((p) => ({
+                    printer: p.printer,
+                    status: p.status,
+                    description: p.description,
+                }))),
+            });
+        if (body.setPrinter) {
+            global.Tools.printers = body.setPrinter;
+            fs.writeFileSync(path.resolve(process.cwd(), 'data/printer.json'), JSON.stringify(global.Tools.printers));
+            logger.info(`Printer set to ${global.Tools.printer}`);
+        }
         if (body.code) {
-            logger.info(`Print task ${body.doc._id}...`);
+            logger.info(`Print task ${body.doc.tid}#${body.doc._id}...`);
             await printFile(body.doc);
             await superagent.post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}`);
-            logger.info(`Print task ${body.doc._id} completed.`);
+            logger.info(`Print task ${body.doc.tid}#${body.doc._id} completed.`);
         } else {
             logger.info('No print task, sleeping...');
             await sleep(5000);

@@ -18,11 +18,15 @@ async function apply(ctx: Context) {
     fs.ensureDirSync(tmpdir);
     require('./error');
     await require('./service/server').apply(ctx);
+    await require('./service/db').apply(ctx);
     if (global.Tools.config.type !== 'server') {
         logger.info('Fetch mode: ', global.Tools.config.type);
-        await require('./fetcher').apply(ctx);
+        await require('./service/fetcher').apply(ctx);
     }
-    await require('./handler').apply(ctx);
+    await require('./handler/misc').apply(ctx);
+    await require('./handler/printer').apply(ctx);
+    await require('./handler/monitor').apply(ctx);
+    await require('./handler/client').apply(ctx);
     await ctx.lifecycle.flush();
     await ctx.parallel('app/started');
     logger.success('Server started');
