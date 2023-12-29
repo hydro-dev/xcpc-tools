@@ -70,7 +70,7 @@ export function MonitorInfo({ refresh, monitor }) {
                 <Text>Name: {monitor.name || 'No Name'}</Text>
                 <Text>IP: {monitor.ip}</Text>
                 <Text>Mac: {monitor.mac}</Text>
-                <Text>Uptime: {new Date(monitor.uptime * 1000).toISOString().substring(11, 19)}</Text>
+                <Text>Uptime: {new Date((monitor.uptime || 0) * 1000).toISOString().substring(11, 19)}</Text>
                 <Text>Version: {monitor.version}</Text>
                 <Text>CPU: {monitor.cpu}</Text>
                 <Text>RAM: {monitor.mem}</Text>

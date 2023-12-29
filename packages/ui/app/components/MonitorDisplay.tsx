@@ -28,7 +28,7 @@ export function MonitorCards({ monitors, refresh }) {
                 <Text c="dimmed">{m.ip}</Text>
               </Center>
               <Center>
-                <Text size="sm">UpTime: {new Date(m.uptime * 1000).toISOString().substring(11, 19)}</Text>
+                <Text size="sm">UpTime: {new Date((m.uptime || 0) * 1000).toISOString().substring(11, 19)}</Text>
               </Center>
               <Group mt="md" justify="center">
                 <MonitorInfo refresh={refresh} monitor={m} />
@@ -43,13 +43,20 @@ export function MonitorCards({ monitors, refresh }) {
 export function MonitorTable({ monitors, refresh }) {
   const rows = monitors.map((m: any) => (
     <Table.Tr key={m._id}>
+      <Table.Td>
+        <Tooltip label={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'Online' : 'Offline'}>
+          <ThemeIcon radius="xl" size="sm" color={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'green' : 'red'}>
+            { m.updateAt ? (<IconCheck />) : (<IconX />)}
+          </ThemeIcon>
+        </Tooltip>
+      </Table.Td>
       <Table.Td>{m._id.substring(0, 6).toUpperCase()}</Table.Td>
       <Table.Td>{m.group}</Table.Td>
       <Table.Td>{m.name || 'No Name'}</Table.Td>
       <Table.Td>{m.seats}</Table.Td>
       <Table.Td>{(m.mac.includes(':') ? m.mac : m.mac.match(/.{1,2}/g).join(':'))}</Table.Td>
       <Table.Td>{m.ip}</Table.Td>
-      <Table.Td>{new Date(m.uptime * 1000).toISOString().substring(11, 19)}</Table.Td>
+      <Table.Td>{new Date((m.uptime || 0) * 1000).toISOString().substring(11, 19)}</Table.Td>
       <Table.Td>{m.version}</Table.Td>
       <Table.Td>
         { m.cpu
@@ -72,6 +79,7 @@ export function MonitorTable({ monitors, refresh }) {
     >
       <Table.Thead>
         <Table.Tr>
+          <Table.Th></Table.Th>
           <Table.Th>#</Table.Th>
           <Table.Th>Group</Table.Th>
           <Table.Th>Name</Table.Th>

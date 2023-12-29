@@ -1,7 +1,6 @@
 import React from 'react';
 import {
-  Card, Center, Group, Tabs, Text,
-  Title,
+  Card, Center, Group, LoadingOverlay, Tabs, Text, Title,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
@@ -16,8 +15,11 @@ export default function Monitor() {
     refetchInterval: 30000,
   });
 
+  const load = query.isLoading || query.isFetching || query.isRefetching;
+
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
+      <LoadingOverlay visible={load} zIndex={1000} />
       <Group justify="space-between" mb="xs">
         <Title order={3}>Computer Status</Title>
         {
@@ -41,26 +43,24 @@ export default function Monitor() {
         </Tabs.List>
 
         <Tabs.Panel value="all">
-          <MonitorTable monitors={Object.values(query.data?.monitors || {})} refresh={query.refetch} />
-          { !query.isLoading && !Object.values(query.data?.monitors || {}).length && (
+          { !load && (!Object.values(query.data?.monitors || {}).length ? (
             <Center mt="md">
               <Text c="dimmed">No monitors found</Text>
             </Center>
-          )}
+          ) : (<MonitorTable monitors={Object.values(query.data?.monitors || {})} refresh={query.refetch} />))}
         </Tabs.Panel>
 
         { Object.keys(query.data?.groups || {}).map((group) => (
           <Tabs.Panel key={group} value={group}>
-            { useTableMode ? (
-              <MonitorTable monitors={query.data?.groups[group].map((m) => query.data?.monitors[m]) || []} refresh={query.refetch} />
-            ) : (
-              <MonitorCards monitors={query.data?.groups[group].map((m) => query.data?.monitors[m]) || []} refresh={query.refetch} />
-            )}
-            { !query.isLoading && !query.data?.groups[group].length && (
+            { !load && (!query.data?.groups[group].length ? (
               <Center mt="md">
                 <Text c="dimmed">No monitors found</Text>
               </Center>
-            )}
+            ) : (useTableMode ? (
+              <MonitorTable monitors={query.data?.groups[group] || []} refresh={query.refetch} />
+            ) : (
+              <MonitorCards monitors={query.data?.groups[group] || []} refresh={query.refetch} />
+            )))}
           </Tabs.Panel>
         ))}
       </Tabs>

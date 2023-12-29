@@ -5,6 +5,8 @@ import { Context } from '../interface';
 import { Handler } from '../service/server';
 import { StaticHTML } from '../utils';
 
+const randomHash = String.random(8).toLowerCase();
+
 class StaticHandler extends Handler {
     async get() {
         this.response.addHeader('Cache-Control', 'public');
@@ -43,7 +45,7 @@ class HomeHandler extends AuthHandler {
             this.response.body = context;
         } else {
             this.response.type = 'text/html';
-            this.response.body = StaticHTML(context);
+            this.response.body = StaticHTML(context, randomHash);
         }
     }
 }
