@@ -280,12 +280,12 @@ export async function apply(pluginContext: Context) {
             if (ctx.path.startsWith(key)) return captureAllRoutes[key](ctx, next);
         }
         if (!ctx.path.startsWith('/stream/')) return await next();
-        const redirect = ctx.path.split('/stream/')[1];
+        const redirectUrl = new URL(`http://${ctx.path.replace('/stream/', '')}`);
         return await proxy('/stream', {
-            target: `http://${redirect}`,
+            target: redirectUrl.origin,
             changeOrigin: true,
             logs: false,
-            rewrite: () => '/',
+            rewrite: () => redirectUrl.pathname,
             events: {
                 proxyRes: (proxyRes, req, res) => {
                     res.setHeader('Access-Control-Allow-Origin', '*');

@@ -22,7 +22,7 @@
         "@types/react-dom": "^18.0.11",
         "css-loader": "^6.8.1",
         "esbuild-loader": "^2.21.0",
-        "flv.js": "^1.6.2",
+        "mpegts.js": "^1.7.3",
         "postcss": "^8.4.32",
         "postcss-loader": "^7.3.3",
         "postcss-preset-mantine": "^1.12.2",

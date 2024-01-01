@@ -15,8 +15,10 @@ class MonitorAdminHandler extends AuthHandler {
         const groups = {};
         for (const monitor of monitors) {
             monitorDict[monitor.name || monitor._id] = monitor;
-            groups[monitor.group] ||= [];
-            groups[monitor.group].push(monitor.name || monitor._id);
+            if (monitor.group) {
+                groups[monitor.group] ||= [];
+                groups[monitor.group].push(monitor.name || monitor._id);
+            }
         }
         this.response.body = { monitors: monitorDict, groups };
     }
@@ -30,6 +32,21 @@ class MonitorAdminHandler extends AuthHandler {
                 ...group && { group },
             },
         });
+        this.response.body = { success: true };
+    }
+
+    async postUpdateAll(params) {
+        const { monitors } = params;
+        for (const monitor of monitors) {
+            const { _id, name, group } = monitor;
+            if (!_id) throw new BadRequestError();
+            this.ctx.db.monitor.update({ _id }, {
+                $set: {
+                    ...name && { name },
+                    ...group && { group },
+                },
+            });
+        }
         this.response.body = { success: true };
     }
 }
@@ -48,7 +65,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
             ip,
             version,
             uptime,
-            seats,
+            hostname: seats,
             oldMonitor: true,
             updateAt: new Date().getTime(),
             ...os && { os },
