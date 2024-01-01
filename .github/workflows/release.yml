@@ -42,9 +42,9 @@ jobs:
         run: tar -czvf /tmp/xcpc-tools-linux.tar.gz dist/pkg/xcpc-tools-linux
       - name: Get release version and commit
         id: tag
-        run: 
-          - echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
-          - echo "::set-output name=version::$(node -p "require('packages/server/package.json').version")"
+        run: |
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+          echo "::set-output name=version::$(node -p "require('packages/server/package.json').version")"
       - name: Release
         uses: softprops/action-gh-release@v1
         with:

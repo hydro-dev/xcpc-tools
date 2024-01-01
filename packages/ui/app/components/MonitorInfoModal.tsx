@@ -1,14 +1,45 @@
 import React, { useState } from 'react';
 import {
   ActionIcon,
-  Button, Center, Fieldset, FocusTrap, Grid, LoadingOverlay, Modal, Tabs, Text,
+  Button, Fieldset, FocusTrap, Grid, LoadingOverlay, Modal, Tabs, Text,
   TextInput, Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
-  IconDeviceComputerCamera, IconDeviceComputerCameraOff, IconDeviceDesktop, IconDeviceDesktopOff, IconInfoCircle,
+  IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle,
 } from '@tabler/icons-react';
+import mpegts from 'mpegts.js';
+
+function VideoPlayer({
+  client = null, type = 'camera', active = false,
+}) {
+  const videoRef = React.useRef(null);
+  const needProxy = client && client[type].startsWith('proxy://');
+  const src = `${needProxy ? '/stream/' : 'http://'}${client.ip}${
+    client[type].startsWith('proxy://') ? client[type].substring(6) : client[type]}`;
+  React.useEffect(() => {
+    if (videoRef.current) {
+      const player = mpegts.createPlayer({
+        type: 'mpegts',
+        isLive: true,
+        url: src,
+      });
+      player.attachMediaElement(videoRef.current);
+      player.load();
+      return () => {
+        player.destroy();
+      };
+    }
+    return () => {};
+  }, [src]);
+
+  if (!active) return null;
+
+  return (
+    <video src={src} ref={videoRef} autoPlay controls style={{ width: '100%' }} />
+  );
+}
 
 export function MonitorInfo({ refresh, monitor }) {
   const [activeTab, setActiveTab] = React.useState('all');
@@ -60,8 +91,8 @@ export function MonitorInfo({ refresh, monitor }) {
         <Tabs value={activeTab} onChange={setActiveTab}>
           <Tabs.List>
             <Tabs.Tab value="info">Info</Tabs.Tab>
-            <Tabs.Tab value="camera">Camera</Tabs.Tab>
-            <Tabs.Tab value="desktop">Desktop</Tabs.Tab>
+            { monitor.camera && (<Tabs.Tab value="camera">Camera</Tabs.Tab>)}
+            { monitor.desktop && (<Tabs.Tab value="desktop">Desktop</Tabs.Tab>)}
           </Tabs.List>
 
           <Tabs.Panel value="info">
@@ -93,36 +124,35 @@ export function MonitorInfo({ refresh, monitor }) {
               </Grid.Col>
             </Grid>
           </Tabs.Panel>
-
-          <Tabs.Panel value="camera">
-            <Center>
-              <IconDeviceComputerCameraOff size={100} />
-            </Center>
-            { /* <VideoPlayer url={`http://${monitor.ip}:8080/`} /> */}
-          </Tabs.Panel>
-
-          <Tabs.Panel value="desktop">
-            <Center>
-              <IconDeviceDesktopOff size={100} />
-            </Center>
-            { /* <VideoPlayer url={`http://${monitor.ip}:9090/`} /> */}
-          </Tabs.Panel>
-
+          { monitor.camera && (
+            <Tabs.Panel value="camera">
+              <VideoPlayer client={monitor} type="camera" />
+            </Tabs.Panel>
+          )}
+          { monitor.desktop && (
+            <Tabs.Panel value="desktop">
+              <VideoPlayer client={monitor} type="desktop" />
+            </Tabs.Panel>
+          )}
         </Tabs>
       </Modal>
       <Tooltip label="Info">
         <ActionIcon variant="transparent" color="green" aria-label='Info' onClick={() => openModal('info')}><IconInfoCircle /></ActionIcon>
       </Tooltip>
-      <Tooltip label="Camera">
-        <ActionIcon variant="transparent" color="red" aria-label='Camera' onClick={() => openModal('camera')}>
-          <IconDeviceComputerCamera />
-        </ActionIcon>
-      </Tooltip>
-      <Tooltip label="Desktop">
-        <ActionIcon variant="transparent" color="blue" aria-label='Desktop' onClick={() => openModal('desktop')}>
-          <IconDeviceDesktop />
-        </ActionIcon>
-      </Tooltip>
+      { monitor.camera && (
+        <Tooltip label="Camera">
+          <ActionIcon variant="transparent" color="red" aria-label='Camera' onClick={() => openModal('camera')}>
+            <IconDeviceComputerCamera />
+          </ActionIcon>
+        </Tooltip>
+      )}
+      { monitor.desktop && (
+        <Tooltip label="Desktop">
+          <ActionIcon variant="transparent" color="blue" aria-label='Desktop' onClick={() => openModal('desktop')}>
+            <IconDeviceDesktop />
+          </ActionIcon>
+        </Tooltip>
+      )}
     </>
   );
 }
