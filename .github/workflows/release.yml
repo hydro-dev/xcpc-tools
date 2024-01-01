@@ -44,7 +44,7 @@ jobs:
         id: tag
         run: |
           echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
-          echo "::set-output name=version::$(node -p "require('packages/server/package.json').version")"
+          echo "::set-output name=version::$(node -p "require('./packages/server/package.json').version")"
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
