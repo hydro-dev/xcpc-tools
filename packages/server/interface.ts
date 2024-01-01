@@ -62,7 +62,7 @@ export interface MonitorDoc {
     mac: string;
     version: string;
     uptime: number;
-    seats: string;
+    hostname: string;
     ip: string;
     updateAt: number;
     // new version collect
@@ -74,6 +74,8 @@ export interface MonitorDoc {
     cpuUsage?: number;
     memory?: string;
     memoryUsage?: number;
+    camera?: string;
+    desktop?: string;
 }
 
 export interface ClientDoc {

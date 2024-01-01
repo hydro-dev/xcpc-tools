@@ -7,6 +7,7 @@ import type { File, Files } from 'formidable';
 import Koa from 'koa';
 import Body from 'koa-body';
 import Compress from 'koa-compress';
+import proxy from 'koa-proxies';
 import Router from 'koa-router';
 import {
     CsrfTokenError, HydroError, InvalidOperationError,
@@ -278,7 +279,23 @@ export async function apply(pluginContext: Context) {
         for (const key in captureAllRoutes) {
             if (ctx.path.startsWith(key)) return captureAllRoutes[key](ctx, next);
         }
-        return await next();
+        if (!ctx.path.startsWith('/stream/')) return await next();
+        const redirect = ctx.path.split('/stream/')[1];
+        return await proxy('/stream', {
+            target: `http://${redirect}`,
+            changeOrigin: true,
+            logs: false,
+            rewrite: () => '/',
+            events: {
+                proxyRes: (proxyRes, req, res) => {
+                    res.setHeader('Access-Control-Allow-Origin', '*');
+                    res.setHeader('Access-Control-Allow-Headers', corsAllowHeaders);
+                    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+                    res.setHeader('Access-Control-Allow-Credentials', 'true');
+                    res.setHeader('X-Proxy-By', 'Hydro/XCPC-TOOLS');
+                },
+            },
+        })(ctx, next);
     });
     app.use(Compress());
     if (process.env.DEV) {
