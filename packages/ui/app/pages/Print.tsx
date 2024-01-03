@@ -34,8 +34,8 @@ export default function Print() {
           </Card>
         </Grid.Col>
         <Grid.Col span={3}>
-          <LoadingOverlay visible={load} zIndex={1000} />
           <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <LoadingOverlay visible={load} zIndex={1000} />
             <Group justify="space-between" mb="xs">
               <Title order={3}>Print Clients</Title>
               <PrintClientAdd refresh={query.refetch} />

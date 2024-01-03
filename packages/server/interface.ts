@@ -71,9 +71,9 @@ export interface MonitorDoc {
     os?: string;
     kernel?: string;
     cpu?: string;
-    cpuUsage?: number;
+    cpuUsed?: number;
     memory?: string;
-    memoryUsage?: number;
+    memoryUsed?: number;
     camera?: string;
     desktop?: string;
 }

@@ -21,5 +21,8 @@
     "eslint-import-resolver-typescript": "^3.6.1",
     "pkg": "^5.8.1",
     "typescript": "^5.3.3"
+  },
+  "resolutions": {
+    "formidable": "patch:formidable@npm%3A2.1.2#~/.yarn/patches/formidable-npm-2.1.2-40ba18d67f.patch"
   }
 }

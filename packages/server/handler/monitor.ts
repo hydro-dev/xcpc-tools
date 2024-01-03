@@ -9,44 +9,39 @@ import { AuthHandler } from './misc';
 const logger = new Logger('handler/monitor');
 
 class MonitorAdminHandler extends AuthHandler {
-    async get() {
+    async get(params) {
+        const { nogroup } = params;
         const monitors = await this.ctx.db.monitor.find({}).sort({ group: 1, name: 1 });
         const monitorDict = {};
         const groups = {};
         for (const monitor of monitors) {
             monitorDict[monitor.name || monitor._id] = monitor;
-            if (monitor.group) {
+            if (!nogroup && monitor.group) {
                 groups[monitor.group] ||= [];
                 groups[monitor.group].push(monitor.name || monitor._id);
             }
         }
-        this.response.body = { monitors: monitorDict, groups };
+        this.response.body = { monitors: monitorDict };
+        if (!nogroup) this.response.body.groups = groups;
     }
 
     async postUpdate(params) {
-        const { _id, name, group } = params;
+        const {
+            _id, name, group, camera, desktop,
+        } = params;
         if (!_id) throw new BadRequestError();
+        const m = await this.ctx.db.monitor.findOne({ _id });
+        if (!m) throw new BadRequestError();
+        const samem = await this.ctx.db.monitor.findOne({ name });
+        if (samem && samem._id !== _id) throw new BadRequestError('Name already exists');
         this.ctx.db.monitor.update({ _id }, {
             $set: {
                 ...name && { name },
                 ...group && { group },
+                ...camera && { camera },
+                ...desktop && { desktop },
             },
         });
-        this.response.body = { success: true };
-    }
-
-    async postUpdateAll(params) {
-        const { monitors } = params;
-        for (const monitor of monitors) {
-            const { _id, name, group } = monitor;
-            if (!_id) throw new BadRequestError();
-            this.ctx.db.monitor.update({ _id }, {
-                $set: {
-                    ...name && { name },
-                    ...group && { group },
-                },
-            });
-        }
         this.response.body = { success: true };
     }
 }
@@ -54,7 +49,7 @@ class MonitorAdminHandler extends AuthHandler {
 async function saveMonitorInfo(ctx: Context, monitor: any) {
     const {
         mac, version, uptime, seats, ip,
-        os, kernel, cpu, cpuUsage, mem, load,
+        os, kernel, cpu, cpuused, mem, memused, load,
     } = monitor;
     const monitors = await ctx.db.monitor.find({ mac });
     const warn = monitors.length > 1 || (monitors.length && monitors[0].ip !== ip);
@@ -71,9 +66,9 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
             ...os && { os },
             ...kernel && { kernel },
             ...cpu && { cpu: cpu.replaceAll('_', ' ') },
-            ...cpuUsage && { cpuUsage },
-            ...mem && { mem: mem.split('/')[1] },
-            ...mem && { memUsage: mem.split('/')[0] },
+            ...cpuused && { cpuUsed: cpuused },
+            ...mem && { mem },
+            ...mem && { memUsed: memused },
             ...load && { load },
         },
     }, { upsert: true });

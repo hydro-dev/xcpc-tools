@@ -26,7 +26,7 @@ class PrintControlHandler extends AuthHandler {
         code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`)).toString();
         const doc = await ConvertCodeToPDF(code.code || 'empty file', code.lang, code.filename, code.team, code.location);
         this.response.type = 'application/pdf';
-        this.response.disposition = 'attachment; filename="a.pdf"';
+        this.response.disposition = 'attachment; filename="code.pdf"';
         this.response.body = Buffer.from(doc);
     }
 
@@ -81,7 +81,7 @@ class CodeHandler extends Handler {
         fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', `${team}#${res._id}`), code || fs.readFileSync(this.request.files.file.filepath));
         this.response.body = `The code has been submitted. Code Print ID: ${team}#${res._id}`;
         logger.info(`Team(${team}): ${tname} submitted code. Code Print ID: ${team}#${res._id}`);
-        if (tname > 40) {
+        if (tname.length > 40) {
             logger.warn(`Team ${tname} name is too long, may cause overflow!`);
             this.response.body += ', your team name is too long, may cause print failed!';
         }

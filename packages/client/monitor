@@ -28,26 +28,15 @@ test -z "$CPU" && CPU="unknown"
 CPU="$(echo $CPU | sed 's/ /_/g')"
 
 # get machine cpu used percentage
-CPUUSAGE="$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')"
+CPUUSED="$(top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}')"
 
 # get machine load average
 LOAD="$(cat /proc/loadavg | awk '{print $1" "$2" "$3}')"
 
 # get machine memory total
-MEM="$(free -h | awk 'NR==2 {print $3"/"$2}')"
-
-
-# printf "mac=$MACADDR\n"
-# printf "os=$OS\n"
-# printf "version=$VERSION\n"
-# printf "kernel=$KERNEL\n"
-# printf "uptime=$UPTIME\n"
-# printf "seats=$SEATS\n"
-# printf "cpu=$CPU\n"
-# printf "cpuused=$CPUUSED\n"
-# printf "mem=$MEM\n"
-# printf "load=$LOAD\n"
-
+MEM="$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')"
+MemFree="$(cat /proc/meminfo | grep MemFree | awk '{print $2}')"
+MEMUSED="$(($MEM-$MemFree))"
 
 exec curl -s $HEARTBEATURL -X POST \
   -d "mac=$MACADDR" \
@@ -57,6 +46,7 @@ exec curl -s $HEARTBEATURL -X POST \
   -d "os=$OS" \
   -d "kernel=$KERNEL" \
   -d "cpu=$CPU" \
-  -d "cpuUsage=$CPUUSED" \
+  -d "cpuused=$CPUUSED" \
   -d "mem=$MEM" \
+  -d "memused=$MEMUSED" \
   -d "load=$LOAD" 

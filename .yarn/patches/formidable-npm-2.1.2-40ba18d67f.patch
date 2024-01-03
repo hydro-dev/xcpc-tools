@@ -1,0 +1,28 @@
+diff --git a/src/Formidable.js b/src/Formidable.js
+index 054270084162ef4cef38f80e71c41160ce44c513..129463744d7710bb83d9fd5bc5bd3db4d6680290 100644
+--- a/src/Formidable.js
++++ b/src/Formidable.js
+@@ -32,6 +32,13 @@ const DEFAULT_OPTIONS = {
+   },
+ };
+ 
++const plugins = {
++  octetstream: require('./plugins/octetstream'),
++  querystring: require('./plugins/querystring'),
++  multipart: require('./plugins/multipart'),
++  json: require('./plugins/json'),
++};
++
+ const PersistentFile = require('./PersistentFile');
+ const VolatileFile = require('./VolatileFile');
+ const DummyParser = require('./parsers/Dummy');
+@@ -90,8 +97,7 @@ class IncomingForm extends EventEmitter {
+ 
+     this.options.enabledPlugins.forEach((pluginName) => {
+       const plgName = pluginName.toLowerCase();
+-      // eslint-disable-next-line import/no-dynamic-require, global-require
+-      this.use(require(path.join(__dirname, 'plugins', `${plgName}.js`)));
++      this.use(plugins[plgName]);
+     });
+ 
+     this._setUpMaxFields();
