@@ -17,9 +17,9 @@ export function MonitorCards({ monitors, openMonitorInfo }) {
                 <Title order={3}>
                   {m.name || 'No Name'}
                 </Title>
-                <Tooltip label={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'Online' : 'Offline'}>
-                  <ThemeIcon radius="xl" size="sm" color={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'green' : 'red'}>
-                    { m.updateAt ? (<IconCheck />) : (<IconX />)}
+                <Tooltip label={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'Online' : 'Offline'}>
+                  <ThemeIcon radius="xl" size="sm" color={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'green' : 'red'}>
+                    { m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? (<IconCheck />) : (<IconX />)}
                   </ThemeIcon>
                 </Tooltip>
               </Group>
@@ -46,9 +46,9 @@ export function MonitorTable({ monitors, openMonitorInfo }) {
   const rows = monitors.map((m: any) => (
     <Table.Tr key={m._id}>
       <Table.Td>
-        <Tooltip label={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'Online' : 'Offline'}>
-          <ThemeIcon radius="xl" size="sm" color={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'green' : 'red'}>
-            { m.updateAt ? (<IconCheck />) : (<IconX />)}
+        <Tooltip label={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'Online' : 'Offline'}>
+          <ThemeIcon radius="xl" size="sm" color={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'green' : 'red'}>
+            { m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? (<IconCheck />) : (<IconX />)}
           </ThemeIcon>
         </Tooltip>
       </Table.Td>
