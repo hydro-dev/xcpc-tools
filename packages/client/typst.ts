@@ -1,10 +1,14 @@
-// Fork from typst.ts/packages/typst.ts/src/compiler.mts
+// Class TypstCompilerDriver is fork from https://github.com/Myriad-Dreamin/typst.ts/blob/main/packages/typst.ts/src/compiler.mts
+// It use Apache License 2.0
+// See its lisense on https://github.com/Myriad-Dreamin/typst.ts/blob/main/LICENSE
+
 import type * as typst from '@myriaddreamin/typst-ts-web-compiler/pkg/wasm-pack-shim.mjs';
 import {
     DejaVuSansMono,
     DejaVuSansMonoBold,
     DejaVuSansMonoBoldOblique,
     DejaVuSansMonoOblique,
+    NotoColorEmoji,
     NotoSansSC,
     wasmBinary,
 } from './assets';
@@ -33,6 +37,7 @@ class TypstCompilerDriver {
         await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBoldOblique, 'base64')));
         await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoOblique, 'base64')));
         await this.builder.add_raw_font(new Uint8Array(Buffer.from(NotoSansSC, 'base64')));
+        await this.builder.add_raw_font(new Uint8Array(Buffer.from(NotoColorEmoji, 'base64')));
         this.compiler = await this.builder.build();
     }
 
