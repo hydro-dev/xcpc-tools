@@ -11,14 +11,18 @@ const logger = new Logger('handler/monitor');
 class MonitorAdminHandler extends AuthHandler {
     async get(params) {
         const { nogroup } = params;
-        const monitors = await this.ctx.db.monitor.find({}).sort({ group: 1, name: 1 });
+        const monitors = await this.ctx.db.monitor.find({}).sort({ name: 1 });
         const monitorDict = {};
         const groups = {};
+        groups['#ErrMachine'] = [];
         for (const monitor of monitors) {
             monitorDict[monitor.name || monitor._id] = monitor;
             if (!nogroup && monitor.group) {
                 groups[monitor.group] ||= [];
                 groups[monitor.group].push(monitor.name || monitor._id);
+            }
+            if (monitor.updateAt < new Date().getTime() - 120 * 1000) {
+                groups['#ErrMachine'].push(monitor.name || monitor._id);
             }
         }
         this.response.body = { monitors: monitorDict };
@@ -42,6 +46,38 @@ class MonitorAdminHandler extends AuthHandler {
                 ...desktop && { desktop },
             },
         });
+        this.response.body = { success: true };
+    }
+
+    async postUpdateAll(params) {
+        const {
+            name, group, camera, desktop, ips,
+        } = params;
+        const monitors = await this.ctx.db.monitor.find({ ...ips ? { ip: { $in: ips.split('\n').map((ip) => ip.trim()) } } : {} });
+        for (const monitor of monitors) {
+            this.ctx.db.monitor.update({ _id: monitor._id }, {
+                $set: {
+                    ...name && name !== 'del' && { name: name.replace(/\[(.+?)]/g, (_, key) => monitor[key]) },
+                    ...group && group !== 'del' && {
+                        group: group.replace(/\[(.+?)]/g, (_, key) => {
+                            key = key.split(':');
+                            if (key.length === 1) return monitor[key[0]];
+                            if (!(monitor[key[0]] ?? '')) return '';
+                            if ((monitor[key[0]] ?? '').length <= key[1]) return monitor[key[0]];
+                            return monitor[key[0]].substring(0, key[1]);
+                        }),
+                    },
+                    ...camera && camera !== 'del' && { camera: camera.replace(/\[(.+?)]/g, (_, key) => monitor[key]) },
+                    ...desktop && desktop !== 'del' && { desktop: desktop.replace(/\[(.+?)]/g, (_, key) => monitor[key]) },
+                },
+                $unset: {
+                    ...name === 'del' && { name: '' },
+                    ...group === 'del' && { group: '' },
+                    ...camera === 'del' && { camera: '' },
+                    ...desktop === 'del' && { desktop: '' },
+                },
+            });
+        }
         this.response.body = { success: true };
     }
 }
