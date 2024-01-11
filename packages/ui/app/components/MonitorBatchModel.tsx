@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Button, LoadingOverlay, Modal, TextInput, Textarea,
+  Button, LoadingOverlay, Modal, Textarea,
+  TextInput,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';

@@ -4,6 +4,7 @@ import {
   Card, Center, Group, LoadingOverlay, Tabs, Text, Title,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
 import { MonitorInfo } from '../components/MonitorInfo';
 
@@ -47,7 +48,7 @@ export default function Monitor() {
                   </Button>
                 )
               }
-              <Button variant="outline">Batch Operation</Button>
+              <MonitorBatchModal refresh={query.refetch} />
             </Group>
           </Group>
           <Tabs value={activeTab} onChange={setActiveTab}>
