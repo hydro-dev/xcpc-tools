@@ -76,8 +76,8 @@ export function MonitorTable({ monitors, openMonitorInfo }) {
               <Text size="sm">Memory: {(m.mem / 1024 / 1024).toFixed(2)}GB</Text>
               <Text size="sm">OS: {m.os}</Text>
               <Text size="sm">Kernel: {m.kernel}</Text>
-              <Text size="sm">CPU Used: {m.cpuUsed ? (m.cpuUsed).toFixed(2) : 0}%</Text>
-              <Text size="sm">Memory Used: {m.memUsed ? (m.memUsed / m.mem).toFixed(2) : 0}%</Text>
+              <Text size="sm">CPU Used: {m.cpuUsed ? parseInt(m.cpuUsed, 10).toFixed(2) : 0}%</Text>
+              <Text size="sm">Memory Used: {m.memUsed ? (parseInt(m.memUsed, 10) / parseInt(m.mem, 10)).toFixed(2) : 0}%</Text>
               <Text size="sm">Load: {m.load}</Text>
             </HoverCard.Dropdown>
           </HoverCard>) : 'No Info' }
