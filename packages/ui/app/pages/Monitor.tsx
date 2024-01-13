@@ -53,9 +53,9 @@ export default function Monitor() {
           </Group>
           <Tabs value={activeTab} onChange={setActiveTab}>
             <Tabs.List>
-              <Tabs.Tab value="all">All</Tabs.Tab>
+              <Tabs.Tab value="all">All({ query.data?.monitors ? Object.values(query.data?.monitors || {}).length : 0 })</Tabs.Tab>
               { Object.keys(query.data?.groups || {}).map((group) => (
-                <Tabs.Tab key={group} value={group}>{group}</Tabs.Tab>
+                <Tabs.Tab key={group} value={group}>{group}({ query.data?.groups[group].length })</Tabs.Tab>
               ))}
             </Tabs.List>
 
