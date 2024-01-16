@@ -29,20 +29,43 @@ class DomJudgeFetcher {
         logger.info(`Found ${teams.length} teams`);
     }
 
-    async balloonInfo() {
-        const { id } = global.Contest;
-        const { body } = await superagent.get(`${global.Tools.config.server}/api/v4/contests/${id}/balloons`)
+    async balloonInfo(all) {
+        if (all) logger.info('Sync all balloons...');
+        const { id } = global.Tools.contest;
+        const { body } = await superagent.get(`${global.Tools.config.server}/api/v4/contests/${id}/balloons?todo=${all ? 'false' : 'true'}`)
             .set('Authorization', global.Tools.config.token)
             .set('Accept', 'application/json');
         if (!body || !body.length) return;
         const balloons = body;
-        global.Contest.balloons = balloons;
-        global.Contest.todoBalloons = balloons.filter((b) => !b.done);
+        for (const balloon of balloons) {
+            const teamTotal = await global.Tools.db.balloon.find({ teamid: balloon.teamid, time: { $lt: (balloon.time * 1000).toFixed(0) } });
+            const totalDict = {};
+            for (const t of teamTotal) {
+                totalDict[t.problem] = t.contestproblem;
+            }
+            if (!balloon.done) await this.setBalloonDone(balloon.balloonid);
+            await global.Tools.db.balloon.update({ balloonid: balloon.balloonid }, {
+                $set: {
+                    balloonid: balloon.balloonid,
+                    time: (balloon.time * 1000).toFixed(0),
+                    problem: balloon.problem,
+                    contestproblem: balloon.contestproblem,
+                    team: balloon.team,
+                    teamid: balloon.teamid,
+                    location: balloon.location,
+                    affiliation: balloon.affiliation,
+                    awards: balloon.awards,
+                    done: balloon.done,
+                    total: totalDict,
+                    printDone: balloon.done ? 1 : 0,
+                },
+            }, { upsert: true });
+        }
         logger.info(`Found ${balloons.length} balloons`);
     }
 
     async setBalloonDone(bid) {
-        const { id } = global.Contest;
+        const { id } = global.Tools.contest;
         await superagent.post(`${global.Tools.config.server}/api/v4/contests/${id}/balloons/${bid}/done`)
             .set('Authorization', global.Tools.config.token)
             .set('Accept', 'application/json');
