@@ -17,6 +17,8 @@ export class Context extends cordis.Context {
         code: Datastore<PrintCodeDoc>;
         monitor: Datastore<MonitorDoc>;
         client: Datastore<ClientDoc>;
+        balloon: Datastore<BalloonDoc>;
+        teams: Datastore<TeamDoc>;
     };
 }
 
@@ -40,6 +42,18 @@ export interface ToolsConfig {
 export interface Tools {
     config: ToolsConfig;
     version: string;
+    contest: {
+        info: any,
+        id: string,
+        name: string,
+    },
+    db: {
+        code: Datastore<PrintCodeDoc>;
+        monitor: Datastore<MonitorDoc>;
+        client: Datastore<ClientDoc>;
+        balloon: Datastore<BalloonDoc>;
+        teams: Datastore<TeamDoc>;
+    };
 }
 
 export interface PrintCodeDoc {
@@ -95,15 +109,39 @@ export interface ClientDoc {
     template?: string;
 }
 
+export interface BalloonDoc {
+    _id: string;
+    balloonid: string;
+    time: number;
+    problem: string;
+    contestproblem: any;
+    team: string;
+    teamid: string;
+    location: string;
+    awards: string;
+    done: boolean;
+    printDone: boolean;
+    receivedAt?: number;
+    printAt?: number;
+}
+
+export interface TeamDoc {
+    _id: string;
+    id: string;
+    organization_id: string;
+    hidden: boolean;
+    group_ids: string[];
+    affiliation: string;
+    name: string;
+    display_name: string;
+    public_description: string;
+    romm: string;
+}
+
 declare global {
     namespace NodeJS {
         interface Global {
             Tools: Tools,
-            Contest: {
-                info: any,
-                id: string,
-                name: string,
-            },
         }
     }
 }
