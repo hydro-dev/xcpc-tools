@@ -10,7 +10,7 @@ import {
   IconCheck, IconEye, IconHourglassEmpty, IconPrinter, IconRefresh, IconX,
 } from '@tabler/icons-react';
 
-export function PrintTasksTable({ codes, refresh }) {
+function PrintTaskRow({ task, refresh }) {
   const [loading, setLoading] = React.useState(false);
 
   const codeActions = async (_id, operation) => {
@@ -43,12 +43,12 @@ export function PrintTasksTable({ codes, refresh }) {
         console.error(e);
         notifications.show({ title: 'Error', message: 'Failed to update code', color: 'red' });
       }
+      refresh();
     }
     setLoading(false);
-    refresh();
   };
 
-  const rows = codes.map((task: any) => (
+  return (
     <Table.Tr key={task._id}>
       <Table.Td>
         <ThemeIcon radius="xl" size="sm" color={task.done ? 'green' : task.printer ? 'blue' : 'gray'}>
@@ -90,8 +90,10 @@ export function PrintTasksTable({ codes, refresh }) {
         </Group>
       </Table.Td>
     </Table.Tr>
-  ));
+  );
+}
 
+export function PrintTasksTable({ codes, refresh }) {
   return (
     <Table
       horizontalSpacing="md" verticalSpacing="xs" miw={700}
@@ -106,7 +108,7 @@ export function PrintTasksTable({ codes, refresh }) {
           <Table.Th>Actions</Table.Th>
         </Table.Tr>
       </Table.Thead>
-      <Table.Tbody>{rows}</Table.Tbody>
+      <Table.Tbody>{ codes.map((task) => <PrintTaskRow key={task._id} task={task} refresh={refresh} />) }</Table.Tbody>
     </Table>
   );
 }
