@@ -35,7 +35,7 @@ class ClientControlHandler extends AuthHandler {
     }
 }
 
-class ClientConnectHandler extends Handler {
+class ClientPrintConnectHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });
         if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
@@ -84,8 +84,37 @@ class ClientPrintDoneHandler extends Handler {
     }
 }
 
+class ClientBallloonConnectHandler extends Handler {
+    async post(params) {
+        const client = await this.ctx.db.client.findOne({ id: params.cid });
+        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        const ip = this.request.ip.replace('::ffff:', '');
+        logger.info(`Client ${client.name}(${ip}) connected.`);
+        const balloons = await this.ctx.db.balloon.find({ printDone: 0, shouldPrint: true }).sort({ time: 1 });
+        this.response.body = { balloons };
+        logger.info(`Client ${client.name} connected, print ${balloons.length} tasks sent.`);
+        await this.ctx.db.client.updateOne({ id: params.cid }, { $set: { updateAt: new Date().getTime(), ip } });
+        await this.ctx.db.balloon.update({ balloonid: { $in: balloons.map((b) => b.balloonid) } },
+            { $set: { receivedAt: new Date().getTime() } }, { multi: true });
+    }
+}
+class ClientBalloonDoneHandler extends Handler {
+    async post(params) {
+        const client = await this.ctx.db.client.findOne({ id: params.cid });
+        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        const balloon = await this.ctx.db.balloon.findOne({ balloonid: +params.tid });
+        if (!balloon) throw new ValidationError('Balloon', params.tid, 'Balloon not found');
+        await this.ctx.db.balloon.updateOne({ balloonid: +params.tid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
+        if (!balloon.done) await this.ctx.fetcher.setBalloonDone(balloon.balloonid);
+        this.response.body = { code: 1 };
+        logger.info(`Client ${client.name} connected, print task ${balloon.teamid}#${balloon.balloonid} completed.`);
+    }
+}
+
 export async function apply(ctx: Context) {
     ctx.Route('client_control', '/client', ClientControlHandler);
-    ctx.Route('client_fetch', '/client/:cid', ClientConnectHandler);
+    ctx.Route('client_print_fetch', '/client/:cid/print', ClientPrintConnectHandler);
     ctx.Route('client_print_done', '/client/:cid/doneprint/:tid', ClientPrintDoneHandler);
+    ctx.Route('client_balloon_fetch', '/client/:cid/balloon', ClientBallloonConnectHandler);
+    ctx.Route('client_balloon_done', '/client/:cid/doneballoon/:tid', ClientBalloonDoneHandler);
 }

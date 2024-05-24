@@ -37,3 +37,9 @@ ${status}
 =
 `);
 }
+
+const receipt = receiptGenerate(1, 'A1', '氢气', '白色', '无', 'XCPC-TOOLS', '氢气: 10个, 氦气: 10个');
+
+console.log(receipt);
+
+fs.writeFileSync('/dev/usb/lp0', receipt);

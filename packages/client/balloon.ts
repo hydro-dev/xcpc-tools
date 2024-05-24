@@ -1,0 +1,1 @@
+import { receiptline } from 'receiptline';

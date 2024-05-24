@@ -1,7 +1,7 @@
 import path from 'path';
 import Datastore from 'nedb-promises';
 import {
-    ClientDoc, Context, MonitorDoc, PrintCodeDoc,
+    BalloonDoc, ClientDoc, Context, MonitorDoc, PrintCodeDoc,
 } from '../interface';
 import { fs, Logger } from '../utils';
 
@@ -11,6 +11,8 @@ fs.ensureDirSync(path.resolve(process.cwd(), 'data/.db'));
 const codeDB: Datastore<PrintCodeDoc> = Datastore.create(path.resolve(process.cwd(), 'data/.db/code.db'));
 const clientDB: Datastore<ClientDoc> = Datastore.create(path.resolve(process.cwd(), 'data/.db/client.db'));
 const monitorDB: Datastore<MonitorDoc> = Datastore.create(path.resolve(process.cwd(), 'data/.db/monitor.db'));
+const balloonDB: Datastore<BalloonDoc> = Datastore.create(path.resolve(process.cwd(), 'data/.db/balloon.db'));
+const teamsDB: Datastore<any> = Datastore.create(path.resolve(process.cwd(), 'data/.db/teams.db'));
 
 export async function apply(ctx: Context) {
     await codeDB.load();
@@ -32,9 +34,23 @@ export async function apply(ctx: Context) {
     await clientDB.ensureIndex({ fieldName: 'type' });
     await clientDB.ensureIndex({ fieldName: 'group' });
     logger.info('Client Database loaded');
+    await balloonDB.load();
+    await balloonDB.ensureIndex({ fieldName: 'id' });
+    await balloonDB.ensureIndex({ fieldName: 'time' });
+    await balloonDB.ensureIndex({ fieldName: 'problem' });
+    await balloonDB.ensureIndex({ fieldName: 'teamid' });
+    await balloonDB.ensureIndex({ fieldName: 'awards' });
+    await balloonDB.ensureIndex({ fieldName: 'done' });
+    await balloonDB.ensureIndex({ fieldName: 'printDone' });
+    logger.info('Balloon Database loaded');
+    await teamsDB.load();
     ctx.db = {
         code: codeDB,
         monitor: monitorDB,
         client: clientDB,
+        balloon: balloonDB,
+        teams: teamsDB,
     };
+
+    global.Tools.db = ctx.db;
 }

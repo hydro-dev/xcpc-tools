@@ -13,7 +13,7 @@ async function fetchTask(c) {
     logger.info('Fetching Task from tools server...');
     try {
         const printersInfo = await getPrinters();
-        const { body } = await superagent.post(`${c.server}/client/${c.token}`)
+        const { body } = await superagent.post(`${c.server}/client/${c.token}/print`)
             .send({
                 printers: global.Tools.printers,
                 printersInfo: JSON.stringify(await printersInfo.map((p) => ({
@@ -27,7 +27,7 @@ async function fetchTask(c) {
             fs.writeFileSync(path.resolve(process.cwd(), 'data/printer.json'), JSON.stringify(global.Tools.printers));
             logger.info(`Printer set to ${global.Tools.printer}`);
         }
-        if (body.code) {
+        if (body.doc) {
             logger.info(`Print task ${body.doc.tid}#${body.doc._id}...`);
             await printFile(body.doc);
             await superagent.post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}`);

@@ -4,6 +4,7 @@ import {
   Card, Center, Group, LoadingOverlay, Tabs, Text, Title,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
 import { MonitorInfo } from '../components/MonitorInfo';
 
@@ -47,14 +48,14 @@ export default function Monitor() {
                   </Button>
                 )
               }
-              <Button variant="outline">Batch Operation</Button>
+              <MonitorBatchModal refresh={query.refetch} />
             </Group>
           </Group>
           <Tabs value={activeTab} onChange={setActiveTab}>
             <Tabs.List>
-              <Tabs.Tab value="all">All</Tabs.Tab>
+              <Tabs.Tab value="all">All({ query.data?.monitors ? Object.values(query.data?.monitors || {}).length : 0 })</Tabs.Tab>
               { Object.keys(query.data?.groups || {}).map((group) => (
-                <Tabs.Tab key={group} value={group}>{group}</Tabs.Tab>
+                <Tabs.Tab key={group} value={group}>{group}({ query.data?.groups[group].length })</Tabs.Tab>
               ))}
             </Tabs.List>
 

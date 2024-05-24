@@ -2,7 +2,7 @@
 
 UPTIME="$(cut -d. -f1 /proc/uptime)"
 # get machine mac address
-NETDEV=$(ip route show default | awk '/default/ {print $5}')
+NETDEV=$(ip route show default | awk '/default/ {print $5}' | head -n 1)
 test -n "$NETDEV" && MACADDR="$(tr -d : < "/sys/class/net/$NETDEV/address")"
 test -z "$MACADDR" && MACADDR="00:00:00:00:00:00"
 

@@ -17,9 +17,9 @@ export function MonitorCards({ monitors, openMonitorInfo }) {
                 <Title order={3}>
                   {m.name || 'No Name'}
                 </Title>
-                <Tooltip label={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'Online' : 'Offline'}>
-                  <ThemeIcon radius="xl" size="sm" color={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'green' : 'red'}>
-                    { m.updateAt ? (<IconCheck />) : (<IconX />)}
+                <Tooltip label={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'Online' : 'Offline'}>
+                  <ThemeIcon radius="xl" size="sm" color={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'green' : 'red'}>
+                    { m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? (<IconCheck />) : (<IconX />)}
                   </ThemeIcon>
                 </Tooltip>
               </Group>
@@ -46,9 +46,9 @@ export function MonitorTable({ monitors, openMonitorInfo }) {
   const rows = monitors.map((m: any) => (
     <Table.Tr key={m._id}>
       <Table.Td>
-        <Tooltip label={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'Online' : 'Offline'}>
-          <ThemeIcon radius="xl" size="sm" color={m.updateAt || m.updateAt > new Date().getTime() - 1000 * 60 ? 'green' : 'red'}>
-            { m.updateAt ? (<IconCheck />) : (<IconX />)}
+        <Tooltip label={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'Online' : 'Offline'}>
+          <ThemeIcon radius="xl" size="sm" color={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'green' : 'red'}>
+            { m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? (<IconCheck />) : (<IconX />)}
           </ThemeIcon>
         </Tooltip>
       </Table.Td>
@@ -76,8 +76,8 @@ export function MonitorTable({ monitors, openMonitorInfo }) {
               <Text size="sm">Memory: {(m.mem / 1024 / 1024).toFixed(2)}GB</Text>
               <Text size="sm">OS: {m.os}</Text>
               <Text size="sm">Kernel: {m.kernel}</Text>
-              <Text size="sm">CPU Used: {m.cpuUsed ? (m.cpuUsed).toFixed(2) : 0}%</Text>
-              <Text size="sm">Memory Used: {m.memUsed ? (m.memUsed / m.mem).toFixed(2) : 0}%</Text>
+              <Text size="sm">CPU Used: {m.cpuUsed ? parseInt(m.cpuUsed, 10).toFixed(2) : 0}%</Text>
+              <Text size="sm">Memory Used: {m.memUsed ? (parseInt(m.memUsed, 10) / parseInt(m.mem, 10)).toFixed(2) : 0}%</Text>
               <Text size="sm">Load: {m.load}</Text>
             </HoverCard.Dropdown>
           </HoverCard>) : 'No Info' }

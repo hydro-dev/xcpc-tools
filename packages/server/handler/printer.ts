@@ -9,9 +9,9 @@ import { AuthHandler } from './misc';
 
 const logger = new Logger('handler/print');
 
-class PrintControlHandler extends AuthHandler {
+class PrintAdminHandler extends AuthHandler {
     async get() {
-        const codes = await this.ctx.db.code.find({ deleted: { $ne: 1 } }).sort({ createAt: 1 });
+        const codes = await this.ctx.db.code.find({ deleted: { $ne: 1 } }).sort({ createAt: -1 });
         const clients = await this.ctx.db.client.find({ type: 'printer' }).sort({ createAt: 1 });
         this.response.body = { codes, clients };
     }
@@ -89,7 +89,7 @@ class CodeHandler extends Handler {
 }
 
 export async function apply(ctx: Context) {
-    ctx.Route('print_control', '/print', PrintControlHandler);
+    ctx.Route('print_admin', '/print', PrintAdminHandler);
     ctx.Route('receive_code', `/print/${global.Tools.config.secretRoute}`, CodeHandler);
     logger.info(`Code Print Route: /print/${global.Tools.config.secretRoute}`);
 }

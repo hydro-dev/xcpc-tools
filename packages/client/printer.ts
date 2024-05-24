@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
 import { getPrinters, print } from 'unix-print';
+// https://www.sumatrapdfreader.org//dl//rel/3.1.2/SumatraPDF-3.1.2.zip
 import { createTypstCompiler, generateTypst } from './typst';
 import { fs, Logger, sleep } from './utils';
 

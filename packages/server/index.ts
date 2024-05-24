@@ -27,6 +27,7 @@ async function apply(ctx: Context) {
     await require('./handler/printer').apply(ctx);
     await require('./handler/monitor').apply(ctx);
     await require('./handler/client').apply(ctx);
+    await require('./handler/balloon').apply(ctx);
     await ctx.lifecycle.flush();
     await ctx.parallel('app/started');
     logger.success('Server started');
