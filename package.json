@@ -14,8 +14,8 @@
   "devDependencies": {
     "@expo-google-fonts/noto-color-emoji": "^0.2.3",
     "@expo-google-fonts/noto-sans-sc": "^0.2.3",
-    "@hydrooj/eslint-config": "^1.0.7",
-    "@hydrooj/utils": "^1.4.17",
+    "@hydrooj/eslint-config": "^1.0.10",
+    "@hydrooj/utils": "^1.4.23",
     "@types/node": "^20.10.5",
     "dejavu-fonts-ttf": "^2.37.3",
     "eslint": "^8.56.0",

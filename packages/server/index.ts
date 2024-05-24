@@ -28,6 +28,7 @@ async function apply(ctx: Context) {
     await require('./handler/monitor').apply(ctx);
     await require('./handler/client').apply(ctx);
     await require('./handler/balloon').apply(ctx);
+    await require('./handler/commands').apply(ctx);
     await ctx.lifecycle.flush();
     await ctx.parallel('app/started');
     logger.success('Server started');

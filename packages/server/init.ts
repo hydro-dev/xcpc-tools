@@ -7,25 +7,24 @@ export function load() {
         logger.info('Loading config');
         const configPath = path.resolve(process.cwd(), 'config.server.yaml');
         if (!fs.existsSync(configPath)) {
-            fs.writeFileSync(configPath, `type: \nviewPass: ${String.random(8)}
-server: \ntoken: \nusername: \npassword: \nsecretRoute: ${String.random(12)}`);
+            fs.writeFileSync(configPath, `type: 
+viewPass: ${String.random(8)}
+server: 
+token: 
+username: 
+password: 
+secretRoute: ${String.random(12)}
+seatFile: /home/icpc/Desktop/seat.txt`);
             throw new Error('Config file generated, please fill in the config.yaml');
         }
-        const {
-            type, viewPass, server, token, username, password, port, cors, secretRoute, oldMonitor, videoProxy, freezeEncourage,
-        } = yaml.load(fs.readFileSync(configPath, 'utf8').toString()) as any;
+        const data = yaml.load(fs.readFileSync(configPath, 'utf8').toString()) as Record<string, string>;
         global.Tools = {
             config: {
-                server,
-                type,
-                token: token ? `Barer ${token}` : (username && password ? `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}` : ''),
-                port,
-                cors,
-                viewPassword: viewPass,
-                secretRoute,
-                oldMonitor,
-                videoProxy,
-                freezeEncourage,
+                ...data,
+                token: data.token
+                    ? `Barer ${data.token}`
+                    : (data.username && data.password ? `Basic ${Buffer.from(`${data.username}:${data.password}`).toString('base64')}` : ''),
+                viewPassword: data.viewPass,
             },
             version: require('./package.json').version,
         };

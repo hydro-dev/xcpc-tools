@@ -21,7 +21,7 @@
   "dependencies": {
     "@hydrooj/xcpc-tools-client": "workspace:*",
     "cordis": "2.8.8",
-    "koa": "^2.14.2",
+    "koa": "^2.15.3",
     "koa-body": "^6.0.1",
     "koa-compress": "^5.1.1",
     "koa-proxies": "^0.12.4",
@@ -29,6 +29,7 @@
     "koa-static-cache": "^5.1.4",
     "lodash": "^4.17.21",
     "nedb-promises": "^6.2.3",
-    "superagent": "^8.1.2"
+    "superagent": "^8.1.2",
+    "ws": "^8.17.0"
   }
 }
