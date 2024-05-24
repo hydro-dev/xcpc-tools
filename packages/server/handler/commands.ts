@@ -17,7 +17,7 @@ async function asyncCommand(command: string | string[], timeout = 10000) {
         result += d.toString();
     });
     proc.stderr?.on('data', (d: Buffer) => {
-        console.log(' STDERR ', d.toString());
+        logger.error(' STDERR ', d.toString());
     });
     if (!timeout) {
         proc.on('exit', () => { });
@@ -43,6 +43,7 @@ async function asyncCommand(command: string | string[], timeout = 10000) {
 const keyfile = fs.existsSync(homedir() + '.ssh/id_rsa') ? '.ssh/id_rsa' : '.ssh/id_ed25519';
 
 async function executeOnHost(host: string, command: string, timeout = 10000) {
+    logger.info('executing', command, 'on', host);
     return await asyncCommand([
         'ssh', '-o', 'StrictHostKeyChecking no', '-o', 'IdentityFile ~/' + keyfile,
         `root@${host}`,
@@ -68,10 +69,6 @@ class CommandsHandler extends AuthHandler {
             fail: result.filter((i) => i.status === 'rejected').length,
             result: result.map((i) => i.status === 'fulfilled' ? i.value : i.reason),
         };
-    }
-
-    async post() {
-
     }
 
     async postShowIds() {
