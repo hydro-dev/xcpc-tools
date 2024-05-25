@@ -1,4 +1,4 @@
-import receiptline from 'receiptline';
+import { transform } from 'receiptline';
 import Logger from 'reggol';
 
 Logger.levels.base = process.env.DEV ? 3 : 2;
@@ -19,7 +19,7 @@ export function sleep(timeout: number) {
 export { Logger };
 
 export function receiptGenerate(id, location, problem, color, comment, teamname, status) {
-    return receiptline.transform(`"^^^^ ID: ${id}
+    return transform(`"^^^^ ID: ${id}
 
 "^^^^ 气球运输单
 
@@ -35,5 +35,9 @@ export function receiptGenerate(id, location, problem, color, comment, teamname,
 ${status}
 
 =
-`);
+`, {
+    cpl: 80,
+    encoding: 'multilingual',
+    command: "escpos",
+});
 }

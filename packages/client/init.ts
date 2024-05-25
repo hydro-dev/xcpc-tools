@@ -8,16 +8,17 @@ export async function load() {
         logger.info('Loading config');
         const configPath = path.resolve(process.cwd(), 'config.client.yaml');
         if (!fs.existsSync(configPath)) {
-            fs.writeFileSync(configPath, 'server: \ntype: \ntoken: \n');
+            fs.writeFileSync(configPath, 'server: \nballoon: \nprinter: \ntoken: \n');
             throw new Error('Config file generated, please fill in the config.yaml');
         }
         const {
-            server, type, token, fonts,
+            server, balloon, printer, token, fonts,
         } = yaml.load(fs.readFileSync(configPath, 'utf8').toString()) as any;
         global.Tools = {
             config: {
                 server,
-                type,
+                balloon,
+                printer,
                 token,
                 fonts,
             },

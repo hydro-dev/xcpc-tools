@@ -98,6 +98,7 @@ class ClientBallloonConnectHandler extends Handler {
             { $set: { receivedAt: new Date().getTime() } }, { multi: true });
     }
 }
+
 class ClientBalloonDoneHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });

@@ -16,9 +16,8 @@ const tmpdir = path.resolve(os.tmpdir(), 'xcpc-tools');
 
 async function apply(ctx: Context) {
     fs.ensureDirSync(tmpdir);
-    await require('./printer').apply(ctx);
-    // await require('./receipt').apply(ctx);
-    await require('./fetcher').apply(ctx);
+    if (global.Tools.config.printer) await require('./printer').apply(ctx);
+    if (global.Tools.config.balloon) await require('./balloon').apply(ctx);
     await ctx.lifecycle.flush();
     await ctx.parallel('app/started');
     process.send?.('ready');
