@@ -36,8 +36,8 @@ ${status}
 
 =
 `, {
-    cpl: 80,
-    encoding: 'multilingual',
-    command: "escpos",
-});
+        cpl: 80,
+        encoding: 'multilingual',
+        command: 'escpos',
+    });
 }

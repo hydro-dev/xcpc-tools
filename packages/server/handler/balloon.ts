@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
-import { ValidationError } from '../error';
-import { Context } from '../interface';
+import { Context } from 'cordis';
+import { ValidationError } from '@hydrooj/framework';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
 

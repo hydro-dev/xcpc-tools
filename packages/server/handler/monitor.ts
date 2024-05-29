@@ -1,8 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import http from 'http';
-import { BadRequestError } from '../error';
-import { Context } from '../interface';
-import { Handler } from '../service/server';
+import { Context } from 'cordis';
+import { BadRequestError, Handler } from '@hydrooj/framework';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
 
@@ -137,7 +136,7 @@ export async function apply(ctx: Context) {
                     const [key, value] = item.split('=');
                     result[key] = value;
                 }
-                result.ip = req.socket.remoteAddress.replace('::ffff:', '');
+                result.ip = req.socket.remoteAddress!.replace('::ffff:', '');
                 if (!result.mac) {
                     res.writeHead(400, { 'Content-Type': 'text/plain' });
                     res.end('Bad Request');

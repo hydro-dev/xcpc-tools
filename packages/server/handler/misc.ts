@@ -1,8 +1,8 @@
 /* eslint-disable no-await-in-loop */
 // @ts-ignore
+import { Context } from 'cordis';
+import { Handler } from '@hydrooj/framework';
 import StaticFrontend from '../data/static.frontend';
-import { Context } from '../interface';
-import { Handler } from '../service/server';
 import { StaticHTML } from '../utils';
 
 const randomHash = String.random(8).toLowerCase();

@@ -1,8 +1,9 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
-import { getPrinters, print } from 'unix-print';
-import winPrint from '@myteril/node-win-printer';
 // https://www.sumatrapdfreader.org//dl//rel/3.1.2/SumatraPDF-3.1.2.zip
+import winPrint from '@myteril/node-win-printer';
+import superagent from 'superagent';
+import { getPrinters, print } from 'unix-print';
 import { createTypstCompiler, generateTypst } from './typst';
 import { fs, Logger, sleep } from './utils';
 
@@ -20,7 +21,7 @@ async function fetchTask(c) {
         const { body } = await superagent.post(`${c.server}/client/${c.token}/print`)
             .send({
                 printers: global.Tools.printers,
-                printersInfo: JSON.stringify(await printersInfo.map((p) => ({
+                printersInfo: JSON.stringify(printersInfo.map((p) => ({
                     printer: p.printer,
                     status: p.status,
                     description: p.description,

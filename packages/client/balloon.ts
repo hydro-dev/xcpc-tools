@@ -1,6 +1,8 @@
 import path from 'path';
 import superagent from 'superagent';
-import { fs, Logger, sleep, receiptGenerate } from './utils';
+import {
+    fs, Logger, receiptGenerate, sleep,
+} from './utils';
 
 const logger = new Logger('fetcher');
 

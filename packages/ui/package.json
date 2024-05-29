@@ -4,8 +4,8 @@
     "author": "panda",
     "main": "index.ts",
     "scripts": {
-        "build:ui:dev": "node -r @hydrooj/utils/lib/register build.ts --watch --dev",
-        "build:ui:prod": "node -r @hydrooj/utils/lib/register build.ts --production"
+        "build:ui:dev": "node -r @hydrooj/register build.ts --watch --dev",
+        "build:ui:prod": "node -r @hydrooj/register build.ts --production"
     },
     "preferUnplugged": true,
     "devDependencies": {
@@ -18,8 +18,8 @@
         "@mantine/nprogress": "^7.10.0",
         "@tabler/icons-react": "^2.44.0",
         "@tanstack/react-query": "^5.15.0",
-        "@types/react": "^18.0.28",
-        "@types/react-dom": "^18.0.11",
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
         "css-loader": "^6.8.1",
         "esbuild-loader": "^2.21.0",
         "mpegts.js": "^1.7.3",
@@ -27,12 +27,12 @@
         "postcss-loader": "^7.3.3",
         "postcss-preset-mantine": "^1.12.2",
         "postcss-simple-vars": "^7.0.1",
-        "react": "^18.2.0",
+        "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-router-dom": "^6.23.1",
-        "style-loader": "^3.3.3",
-        "webpack": "^5.89.0",
-        "webpack-dev-server": "^4.15.1",
+        "style-loader": "^3.3.4",
+        "webpack": "^5.91.0",
+        "webpack-dev-server": "^4.15.2",
         "webpackbar": "^5.0.2"
     }
 }

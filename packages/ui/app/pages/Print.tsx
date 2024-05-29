@@ -11,7 +11,7 @@ export default function Print() {
   const query = useQuery({
     queryKey: ['tasks'],
     queryFn: () => fetch('/print').then((res) => res.json()),
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 
   const load = query.isLoading || query.isFetching || query.isRefetching;
@@ -26,7 +26,7 @@ export default function Print() {
               <Title order={3}>Print Tasks</Title>
               <PrintTaskAdd refresh={query.refetch} />
             </Group>
-            { !load && (!(query.data?.codes || []).length ? (
+            {(!(query.isLoading || query.isFetching) && (!(query.data?.codes || []).length) ? (
               <Center mt="md">
                 <Text c="dimmed">No tasks found</Text>
               </Center>
@@ -40,7 +40,7 @@ export default function Print() {
               <Title order={3}>Print Clients</Title>
               <PrintClientAdd refresh={query.refetch} />
             </Group>
-            { !load && (!(query.data?.clients || []).length ? (
+            {(!(query.isLoading || query.isFetching) && (!(query.data?.clients || []).length) ? (
               <Center mt="md">
                 <Text c="dimmed">No clients found</Text>
               </Center>

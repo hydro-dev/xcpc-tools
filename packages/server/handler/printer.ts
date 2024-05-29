@@ -1,9 +1,8 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
+import { Context } from 'cordis';
+import { BadRequestError, Handler, ValidationError } from '@hydrooj/framework';
 import { ConvertCodeToPDF } from '@hydrooj/xcpc-tools-client/printer';
-import { BadRequestError, ValidationError } from '../error';
-import { Context } from '../interface';
-import { Handler } from '../service/server';
 import { fs, Logger } from '../utils';
 import { AuthHandler } from './misc';
 

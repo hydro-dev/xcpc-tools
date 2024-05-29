@@ -1,5 +1,5 @@
 const fs = require('fs-extra');
-require('@hydrooj/utils/lib/register');
+require('@hydrooj/register');
 
 function fileLoader(module, filename) {
     const content = fs.readFileSync(filename);

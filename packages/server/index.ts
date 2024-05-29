@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { Context } from './interface';
+import { Context } from 'cordis';
 import { fs, Logger } from './utils';
 
 Logger.levels.base = 3;

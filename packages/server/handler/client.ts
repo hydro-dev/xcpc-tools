@@ -1,7 +1,8 @@
 import path from 'path';
-import { AccessDeniedError, BadRequestError, ValidationError } from '../error';
-import { Context } from '../interface';
-import { Handler } from '../service/server';
+import { Context } from 'cordis';
+import {
+    BadRequestError, ForbiddenError, Handler, ValidationError,
+} from '@hydrooj/framework';
 import { fs, Logger } from '../utils';
 import { AuthHandler } from './misc';
 
@@ -38,7 +39,7 @@ class ClientControlHandler extends AuthHandler {
 class ClientPrintConnectHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
         const ip = this.request.ip.replace('::ffff:', '');
         logger.info(`Client ${client.name}(${ip}) connected.`);
         if (params.printersInfo) {
@@ -74,7 +75,7 @@ class ClientPrintConnectHandler extends Handler {
 class ClientPrintDoneHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
         const code = await this.ctx.db.code.findOne({ _id: params.tid });
         if (!code) throw new ValidationError('Code', null, 'Code not found');
         if (code.printer !== params.cid) throw new BadRequestError('Client', null, 'Client not match');
@@ -87,7 +88,7 @@ class ClientPrintDoneHandler extends Handler {
 class ClientBallloonConnectHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
         const ip = this.request.ip.replace('::ffff:', '');
         logger.info(`Client ${client.name}(${ip}) connected.`);
         const balloons = await this.ctx.db.balloon.find({ printDone: 0, shouldPrint: true }).sort({ time: 1 });
@@ -102,7 +103,7 @@ class ClientBallloonConnectHandler extends Handler {
 class ClientBalloonDoneHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new AccessDeniedError('Client', null, 'Client not found');
+        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
         const balloon = await this.ctx.db.balloon.findOne({ balloonid: +params.tid });
         if (!balloon) throw new ValidationError('Balloon', params.tid, 'Balloon not found');
         await this.ctx.db.balloon.updateOne({ balloonid: +params.tid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });

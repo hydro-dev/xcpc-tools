@@ -2,11 +2,11 @@
 /* eslint-disable no-await-in-loop */
 import child from 'child_process';
 import fs from 'fs';
-import { Context } from '../interface';
+import { homedir } from 'os';
+import { Context } from 'cordis';
+import { param, Types } from '@hydrooj/framework';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
-import { homedir } from 'os';
-import { Types, param } from '../service/server';
 
 const logger = new Logger('handler/commands');
 
@@ -40,12 +40,12 @@ async function asyncCommand(command: string | string[], timeout = 10000) {
     });
 }
 
-const keyfile = fs.existsSync(homedir() + '.ssh/id_rsa') ? '.ssh/id_rsa' : '.ssh/id_ed25519';
+const keyfile = fs.existsSync(`${homedir()}.ssh/id_rsa`) ? '.ssh/id_rsa' : '.ssh/id_ed25519';
 
 async function executeOnHost(host: string, command: string, timeout = 10000) {
     logger.info('executing', command, 'on', host);
     return await asyncCommand([
-        'ssh', '-o', 'StrictHostKeyChecking no', '-o', 'IdentityFile ~/' + keyfile,
+        'ssh', '-o', 'StrictHostKeyChecking no', '-o', `IdentityFile ~/${keyfile}`,
         `root@${host}`,
         'bash', '-c', `'echo $(echo ${Buffer.from(command).toString('base64')} | base64 -d | bash)'`,
     ], timeout);
@@ -67,7 +67,7 @@ class CommandsHandler extends AuthHandler {
         return {
             success: result.filter((i) => i.status === 'fulfilled').length,
             fail: result.filter((i) => i.status === 'rejected').length,
-            result: result.map((i) => i.status === 'fulfilled' ? i.value : i.reason),
+            result: result.map((i) => (i.status === 'fulfilled' ? i.value : i.reason)),
         };
     }
 

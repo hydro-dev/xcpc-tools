@@ -25,7 +25,7 @@ export default function Print() {
           <BalloonsClient clients={query.data?.clients || []} refresh={query.refetch} />
         </Group>
       </Group>
-      { !load && (!(query.data?.balloons || []).length ? (
+      {(!(query.isLoading || query.isFetching) && (!(query.data?.balloons || []).length) ? (
         <Center mt="md">
           <Text c="dimmed">No balloons found</Text>
         </Center>
