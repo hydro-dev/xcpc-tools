@@ -1,4 +1,4 @@
-import { transform } from 'receiptline';
+import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import Logger from 'reggol';
 
 Logger.levels.base = process.env.DEV ? 3 : 2;
@@ -18,26 +18,32 @@ export function sleep(timeout: number) {
 }
 export { Logger };
 
-export function receiptGenerate(id, location, problem, color, comment, teamname, status) {
-    return transform(`"^^^^ ID: ${id}
+const encoder = new EscPosEncoder();
 
-"^^^^ 气球运输单
-
-|^^^座位| ^^^${location} |
-|^^^气球| ^^^${problem} |
-|^^^颜色| ^^^${color} |
-|^^^备注| ^^^${comment} |
-
--
-
-队伍:${teamname}
-队伍当前气球状态:
-${status}
-
-=
-`, {
-        cpl: 80,
-        encoding: 'multilingual',
-        command: 'escpos',
-    });
-}
+export const receiptText = (
+    id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string,
+) => encoder
+    .initialize()
+    .codepage('cp936')
+    .align('center')
+    .bold(true)
+    .size(2, 2)
+    .line('气球打印单')
+    .line(`ID: ${id}`)
+    .bold(false)
+    .size(0)
+    .line('================================')
+    .line(`座位: ${location}`)
+    .line(`气球: ${problem}`)
+    .line(`颜色: ${color}`)
+    .line(`备注: ${comment}`)
+    .line('================================')
+    .emptyLine(2)
+    .line(`队伍: ${teamname}`)
+    .line('队伍当前气球状态:')
+    .line(`${status}`)
+    .emptyLine(2)
+    .line('Powered by hydro-dev/xcpc-tools')
+    .emptyLine(3)
+    .cut()
+    .encode();
