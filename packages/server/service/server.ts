@@ -6,7 +6,7 @@ export * from '@hydrooj/framework/decorators';
 
 export async function apply(pluginContext: Context) {
     pluginContext.plugin(WebService, {
-        port: 5283,
+        port: config.port,
     });
     pluginContext.inject(['server'], ({ server }) => {
         server.addServerLayer('stream', async (ctx, next) => {

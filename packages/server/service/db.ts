@@ -26,23 +26,24 @@ export default class DBService extends Service {
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/.db'));
         super(ctx, 'dbservice', true);
         ctx.mixin('dbservice', ['db']);
+        this.start();
     }
 
-    db: { [T in keyof Collections]: Datastore<Collections[T]> };
+    db: { [T in keyof Collections]: Datastore<Collections[T]> } = {} as any;
 
     async initDatabase(key: string, fields: string[]) {
         this.db[key] = Datastore.create(path.resolve(process.cwd(), `data/.db/${key}.db`));
-        await this[key].load();
+        await this.db[key].load();
         // eslint-disable-next-line no-await-in-loop
-        for (const field of fields) await this[key].ensureIndex({ fieldName: field });
+        for (const field of fields) await this.db[key].ensureIndex({ fieldName: field });
         this.ctx.logger('db').info(`${key} Database loaded`);
     }
 
     async start() {
-        await this.initDatabase('codeDB', ['_id', 'createAt', 'done', 'printer', 'deleted']);
-        await this.initDatabase('monitorDB', ['_id', 'mac', 'name', 'group']);
-        await this.initDatabase('clientDB', ['id', 'name', 'type', 'group']);
-        await this.initDatabase('balloonDB', ['id', 'time', 'problem', 'teamid', 'awards', 'done', 'printDone']);
-        await this.initDatabase('teamsDB', []);
+        await this.initDatabase('code', ['_id', 'createAt', 'done', 'printer', 'deleted']);
+        await this.initDatabase('monitor', ['_id', 'mac', 'name', 'group']);
+        await this.initDatabase('client', ['id', 'name', 'type', 'group']);
+        await this.initDatabase('balloon', ['id', 'time', 'problem', 'teamid', 'awards', 'done', 'printDone']);
+        await this.initDatabase('teams', []);
     }
 }

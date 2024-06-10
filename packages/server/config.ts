@@ -18,8 +18,8 @@ if (!fs.existsSync(configPath)) {
     // eslint-disable-next-line no-promise-executor-return
     exit = new Promise((resolve) => (async () => {
         const serverConfigDefault = `\
-type: 
-viewPass: ${String.random(8)}
+type: server # server | domjudge | hydro
+viewPass: ${String.random(8)} # use admin / viewPass to login
 server: 
 token: 
 username: 
@@ -45,22 +45,29 @@ const serverSchema = Schema.intersect([
     Schema.object({
         type: Schema.union([
             Schema.const('server'),
-            Schema.const('client'),
+            Schema.const('domjudge'),
+            Schema.const('hydro'),
         ] as const).description('server type').required(),
+        port: Schema.number().default(5283),
         viewPass: Schema.string().default(String.random(8)),
         secretRoute: Schema.string().default(String.random(12)),
         seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),
-    }).description('setting_file'),
+    }).description('Basic Config'),
     Schema.union([
         Schema.object({
-            type: Schema.const('server'),
-            token: Schema.string().required(),
-        }),
-        Schema.object({
-            type: Schema.const('client'),
+            type: Schema.const('domjudge').required(),
+            server: Schema.string().role('url').required(),
             username: Schema.string().required(),
             password: Schema.string().required(),
-        }),
+        }).description('DomJudge Fetcher Config'),
+        Schema.object({
+            type: Schema.const('hydro').required(),
+            server: Schema.string().role('url').required(),
+            token: Schema.string().required(),
+        }).description('Hydro Fetcher Config'),
+        Schema.object({
+            type: Schema.const('server').required(),
+        }).description('Server Mode Config'),
     ]),
 ]);
 const clientSchema = Schema.object({

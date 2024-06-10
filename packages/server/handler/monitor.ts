@@ -1,5 +1,4 @@
 /* eslint-disable no-await-in-loop */
-import http from 'http';
 import { Context } from 'cordis';
 import { BadRequestError, Handler } from '@hydrooj/framework';
 import { Logger } from '../utils';
