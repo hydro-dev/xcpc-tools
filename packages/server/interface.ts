@@ -1,16 +1,7 @@
-import Datastore from 'nedb-promises';
-
 declare module 'cordis' {
     interface Context {
         params: any;
         fetcher: any;
-        db: {
-            code: Datastore<PrintCodeDoc>;
-            monitor: Datastore<MonitorDoc>;
-            client: Datastore<ClientDoc>;
-            balloon: Datastore<BalloonDoc>;
-            teams: Datastore<TeamDoc>;
-        };
     }
     interface Events {
         'app/started': () => void
@@ -31,20 +22,11 @@ export interface ToolsConfig {
 }
 
 export interface Tools {
-    config: ToolsConfig;
-    version: string;
     contest: {
         info: any,
         id: string,
         name: string,
     },
-    db: {
-        code: Datastore<PrintCodeDoc>;
-        monitor: Datastore<MonitorDoc>;
-        client: Datastore<ClientDoc>;
-        balloon: Datastore<BalloonDoc>;
-        teams: Datastore<TeamDoc>;
-    };
 }
 
 export interface PrintCodeDoc {

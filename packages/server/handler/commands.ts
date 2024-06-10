@@ -5,6 +5,7 @@ import fs from 'fs';
 import { homedir } from 'os';
 import { Context } from 'cordis';
 import { param, Types } from '@hydrooj/framework';
+import { config } from '../config';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
 
@@ -80,11 +81,11 @@ else
     export DISPLAY=:0
 fi
 export XAUTHORITY=/run/user/1000/gdm/Xauthority
-zenity --info --text "<span font='256'>$(cat ${global.Tools.config.seatFile})</span>"`);
+zenity --info --text "<span font='256'>$(cat ${config.seatFile})</span>"`);
     }
 
     async postSetHostname() {
-        this.response.body = await this.executeForAll(`hostnamectl hostname $(cat ${global.Tools.config.seatFile})`);
+        this.response.body = await this.executeForAll(`hostnamectl hostname $(cat ${config.seatFile})`);
     }
 
     async postAutologin({ }, autologin = false) {

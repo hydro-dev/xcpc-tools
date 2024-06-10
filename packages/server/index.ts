@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { Context } from 'cordis';
+import { config } from './config';
 import { fs, Logger } from './utils';
 
 Logger.levels.base = 3;
@@ -16,11 +17,10 @@ const tmpdir = path.resolve(os.tmpdir(), 'xcpc-tools');
 
 async function apply(ctx: Context) {
     fs.ensureDirSync(tmpdir);
-    require('./error');
     await require('./service/server').apply(ctx);
     await require('./service/db').apply(ctx);
-    if (global.Tools.config.type !== 'server') {
-        logger.info('Fetch mode: ', global.Tools.config.type);
+    if (config.type !== 'server') {
+        logger.info('Fetch mode: ', config.type);
         await require('./service/fetcher').apply(ctx);
     }
     await require('./handler/misc').apply(ctx);

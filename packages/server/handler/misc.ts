@@ -2,6 +2,7 @@
 // @ts-ignore
 import { Context } from 'cordis';
 import { Handler } from '@hydrooj/framework';
+import { config } from '../config';
 import StaticFrontend from '../data/static.frontend';
 import { StaticHTML } from '../utils';
 
@@ -25,7 +26,7 @@ export class AuthHandler extends Handler {
             return 'cleanup';
         }
         const [uname, pass] = Buffer.from(this.request.headers.authorization.split(' ')[1], 'base64').toString().split(':');
-        if (uname !== 'admin' || pass !== global.Tools.config.viewPassword.toString()) {
+        if (uname !== 'admin' || pass !== config.viewPass.toString()) {
             this.response.status = 401;
             this.response.addHeader('WWW-Authenticate', 'Basic realm="XCPC Tools"');
             this.response.body = 'Authentication failed';
@@ -38,8 +39,8 @@ export class AuthHandler extends Handler {
 class HomeHandler extends AuthHandler {
     async get() {
         const context = {
-            secretRoute: global.Tools.config.secretRoute,
-            contest: global.Tools.contest || { name: 'Server Mode' },
+            secretRoute: config.secretRoute,
+            contest: this.ctx.fetcher?.contest || { name: 'Server Mode' },
         };
         if (this.request.headers.accept === 'application/json') {
             this.response.body = context;

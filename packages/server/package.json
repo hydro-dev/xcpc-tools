@@ -21,6 +21,7 @@
     "koa-proxies": "^0.12.4",
     "lodash": "^4.17.21",
     "nedb-promises": "^6.2.3",
+    "schemastery": "^3.14.6",
     "superagent": "^8.1.2",
     "ws": "^8.17.0"
   }
