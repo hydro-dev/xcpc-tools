@@ -41,16 +41,28 @@ seatFile: /home/icpc/Desktop/seat.txt
     throw new Error('no-config');
 }
 
-const serverSchema = Schema.object({
-    viewPass: Schema.string().default(String.random(8)),
-    server: Schema.string().role('url').required(),
-    type: Schema.union(['server', 'client']).required(),
-    token: Schema.string().required(),
-    username: Schema.string().required(),
-    password: Schema.string().required(),
-    secretRoute: Schema.string().default(String.random(12)),
-    seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),
-});
+const serverSchema = Schema.intersect([
+    Schema.object({
+        type: Schema.union([
+            Schema.const('server'),
+            Schema.const('client'),
+        ] as const).description('server type').required(),
+        viewPass: Schema.string().default(String.random(8)),
+        secretRoute: Schema.string().default(String.random(12)),
+        seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),
+    }).description('setting_file'),
+    Schema.union([
+        Schema.object({
+            type: Schema.const('server'),
+            token: Schema.string().required(),
+        }),
+        Schema.object({
+            type: Schema.const('client'),
+            username: Schema.string().required(),
+            password: Schema.string().required(),
+        }),
+    ]),
+]);
 const clientSchema = Schema.object({
     server: Schema.string().role('url').required(),
     balloon: Schema.string().required(),
@@ -66,4 +78,4 @@ export const saveConfig = () => {
 
 logger.info(`Config loaded from ${configPath}`);
 logger.info(`xcpc-tools version: ${version}`);
-if (!isClient && !exit) logger.info(`Server View User Info: admin/${config.viewPassword}`);
+if (!isClient && !exit) logger.info(`Server View User Info: admin/${config.viewPass}`);
