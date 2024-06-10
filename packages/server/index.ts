@@ -22,23 +22,26 @@ try {
 }
 
 async function applyServer(ctx: Context) {
-    ctx.plugin(await import('./service/server'));
-    ctx.plugin((await import('./service/db')).default);
+    ctx.plugin(require('./service/server'));
+    ctx.plugin((require('./service/db')).default);
     if (config.type !== 'server') {
         logger.info('Fetch mode: ', config.type);
-        ctx.plugin(await import('./service/fetcher'));
+        ctx.plugin(require('./service/fetcher'));
     }
-    ctx.plugin(await import('./handler/misc'));
-    ctx.plugin(await import('./handler/printer'));
-    ctx.plugin(await import('./handler/monitor'));
-    ctx.plugin(await import('./handler/client'));
-    ctx.plugin(await import('./handler/balloon'));
-    ctx.plugin(await import('./handler/commands'));
+    ctx.plugin(require('./handler/misc'));
+    ctx.plugin(require('./handler/printer'));
+    ctx.plugin(require('./handler/monitor'));
+    ctx.plugin(require('./handler/client'));
+    ctx.plugin(require('./handler/balloon'));
+    ctx.plugin(require('./handler/commands'));
+    ctx.inject(['server'], (c) => {
+        c.server.listen();
+    });
 }
 
 async function applyClient(ctx: Context) {
-    if (config.printers?.length) ctx.plugin(await import('./client/printer'));
-    if (config.balloon) ctx.plugin(await import('./client/balloon'));
+    if (config.printers?.length) ctx.plugin(require('./client/printer'));
+    if (config.balloon) ctx.plugin(require('./client/balloon'));
 }
 
 async function apply(ctx) {
@@ -48,9 +51,9 @@ async function apply(ctx) {
         await applyServer(ctx);
     }
     await ctx.lifecycle.flush();
-    await ctx.parallel('app/started');
-    process.send?.('ready');
+    await ctx.parallel('app/listen');
     logger.success('Server started');
+    process.send?.('ready');
     await ctx.parallel('app/ready');
 }
 
