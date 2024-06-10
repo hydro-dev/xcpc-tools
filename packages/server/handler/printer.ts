@@ -2,7 +2,7 @@
 import path from 'path';
 import { Context } from 'cordis';
 import { BadRequestError, Handler, ValidationError } from '@hydrooj/framework';
-import { ConvertCodeToPDF } from '@hydrooj/xcpc-tools-client/printer';
+import { ConvertCodeToPDF } from '../client/printer';
 import { config } from '../config';
 import { fs, Logger } from '../utils';
 import { AuthHandler } from './misc';

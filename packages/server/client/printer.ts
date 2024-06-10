@@ -4,8 +4,9 @@ import path from 'path';
 import winPrint from '@myteril/node-win-printer';
 import superagent from 'superagent';
 import { getPrinters, print } from 'unix-print';
+import { config, saveConfig } from '../config';
+import { fs, Logger, sleep } from '../utils';
 import { createTypstCompiler, generateTypst } from './typst';
-import { fs, Logger, sleep } from './utils';
 
 let compiler;
 
@@ -20,7 +21,7 @@ async function fetchTask(c) {
         const printersInfo = await getPrinters();
         const { body } = await superagent.post(`${c.server}/client/${c.token}/print`)
             .send({
-                printers: global.Tools.printers,
+                printers: config.printers,
                 printersInfo: JSON.stringify(printersInfo.map((p) => ({
                     printer: p.printer,
                     status: p.status,
@@ -28,9 +29,9 @@ async function fetchTask(c) {
                 }))),
             });
         if (body.setPrinter) {
-            global.Tools.printers = body.setPrinter;
-            fs.writeFileSync(path.resolve(process.cwd(), 'data/printer.json'), JSON.stringify(global.Tools.printers));
-            logger.info(`Printer set to ${global.Tools.printer}`);
+            config.printers = body.setPrinter;
+            saveConfig();
+            logger.info(`Printer set to ${config.printers}`);
         }
         if (body.doc) {
             logger.info(`Print task ${body.doc.tid}#${body.doc._id}...`);
@@ -68,11 +69,11 @@ export async function printFile(doc) {
     try {
         const docs = await ConvertCodeToPDF(code || 'empty file', lang, filename, team, location);
         fs.writeFileSync(path.resolve(process.cwd(), `data/${tid}#${_id}.pdf`), docs);
-        if (global.Tools.printers.length) {
+        if (config.printers.length) {
             // eslint-disable-next-line no-constant-condition
             while (true) {
                 const printersInfo = await getPrinters();
-                const printers = printersInfo.filter((p) => global.Tools.printers.includes(p.printer));
+                const printers = printersInfo.filter((p) => config.printers.includes(p.printer));
                 const randomP = printers[Math.floor(Math.random() * printers.length)];
                 if (randomP.status === 'idle') {
                     logger.info(`Printing ${_id} on ${randomP.printer}`);
@@ -98,10 +99,5 @@ export async function printFile(doc) {
 
 export async function apply() {
     compiler = await createTypstCompiler();
-    const { config } = global.Tools;
-    if (!config) {
-        logger.error('config not found');
-        return;
-    }
-    if (config.token && config.server && config.printer) await fetchTask(config);
+    if (config.token && config.server && config.printers?.length) await fetchTask(config);
 }

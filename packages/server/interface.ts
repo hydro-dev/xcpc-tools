@@ -110,11 +110,3 @@ export interface TeamDoc {
     public_description: string;
     romm: string;
 }
-
-declare global {
-    namespace NodeJS {
-        interface Global {
-            Tools: Tools,
-        }
-    }
-}

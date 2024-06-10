@@ -14,7 +14,7 @@ logger.info('Building...');
         splitting: false,
         write: false,
         minify: true,
-        entryPoints: [path.resolve(process.cwd(), 'entry.ts')],
+        entryPoints: [path.resolve(process.cwd(), 'packages/server/index.ts')],
         loader: {
             '.frontend': 'base64',
             '.ttf': 'base64',

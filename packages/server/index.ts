@@ -8,14 +8,14 @@ Logger.levels.base = 3;
 
 const logger = new Logger('tools');
 
-require('./config');
 process.on('unhandledRejection', (e) => { logger.error(e); });
 process.on('uncaughtException', (e) => { logger.error(e); });
 Error.stackTraceLimit = 50;
-global.app = new Context();
+const app = new Context();
 const tmpdir = path.resolve(os.tmpdir(), 'xcpc-tools');
+fs.ensureDirSync(tmpdir);
 
-async function apply(ctx: Context) {
+async function applyServer(ctx: Context) {
     fs.ensureDirSync(tmpdir);
     await require('./service/server').apply(ctx);
     await require('./service/db').apply(ctx);
@@ -29,11 +29,24 @@ async function apply(ctx: Context) {
     await require('./handler/client').apply(ctx);
     await require('./handler/balloon').apply(ctx);
     await require('./handler/commands').apply(ctx);
+}
+
+async function applyClient(ctx: Context) {
+    if (config.printers?.length) await require('./client/printer').apply(ctx);
+    if (config.balloon) await require('./client/balloon').apply(ctx);
+}
+
+async function apply(ctx) {
+    if (process.argv.includes('--client')) {
+        await applyClient(ctx);
+    } else {
+        await applyServer(ctx);
+    }
     await ctx.lifecycle.flush();
     await ctx.parallel('app/started');
-    logger.success('Server started');
     process.send?.('ready');
+    logger.success('Server started');
     await ctx.parallel('app/ready');
 }
 
-apply(global.app);
+apply(app);
