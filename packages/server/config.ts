@@ -11,8 +11,13 @@ const isClient = process.argv.includes('--client');
 const configPath = path.resolve(process.cwd(), `config.${isClient ? 'client' : 'server'}.yaml`);
 fs.ensureDirSync(path.resolve(process.cwd(), 'data'));
 
+// eslint-disable-next-line import/no-mutable-exports
+export let exit: Promise<void> | null = null;
+
 if (!fs.existsSync(configPath)) {
-    const serverConfigDefault = `\
+    // eslint-disable-next-line no-promise-executor-return
+    exit = new Promise((resolve) => (async () => {
+        const serverConfigDefault = `\
 type: 
 viewPass: ${String.random(8)}
 server: 
@@ -23,18 +28,19 @@ secretRoute: ${String.random(12)}
 seatFile: /home/icpc/Desktop/seat.txt
 `;
 
-    const clientConfigDefault = yaml.dump({
-        server: '',
-        balloon: '',
-        printers: (await getPrinters()).map((p) => p.printer),
-        token: '',
-    });
-    fs.writeFileSync(configPath, isClient ? clientConfigDefault : serverConfigDefault);
-    logger.error('Config file generated, please fill in the config.yaml');
-    process.exit(1);
+        const clientConfigDefault = yaml.dump({
+            server: '',
+            balloon: '',
+            printers: await getPrinters().then((r) => r.map((p) => p.printer)).catch(() => []),
+            token: '',
+        });
+        fs.writeFileSync(configPath, isClient ? clientConfigDefault : serverConfigDefault);
+        logger.error('Config file generated, please fill in the config.yaml');
+        resolve();
+    })());
+    throw new Error();
 }
 
-const data = yaml.load(fs.readFileSync(configPath, 'utf8').toString());
 const serverSchema = Schema.object({
     viewPass: Schema.string().default(String.random(8)),
     server: Schema.string().role('url').required(),
@@ -52,12 +58,12 @@ const clientSchema = Schema.object({
     token: Schema.string().required().description('Token generated on server'),
     fonts: Schema.array(Schema.string()).default([]),
 });
-export const config = (isClient ? clientSchema : serverSchema)(data as any);
 
+export const config = (isClient ? clientSchema : serverSchema)(yaml.load(fs.readFileSync(configPath, 'utf8')) as any);
 export const saveConfig = () => {
     fs.writeFileSync(configPath, yaml.dump(config));
 };
 
 logger.info(`Config loaded from ${configPath}`);
 logger.info(`xcpc-tools version: ${version}`);
-if (!isClient) logger.info(`Server View User Info: admin/${config.viewPassword}`);
+if (!isClient && !exit) logger.info(`Server View User Info: admin/${config.viewPassword}`);

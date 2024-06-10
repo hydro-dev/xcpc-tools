@@ -13,12 +13,17 @@ logger.info('Building...');
         outdir: path.join(process.cwd(), 'dist'),
         splitting: false,
         write: false,
-        minify: true,
+        tsconfig: path.resolve(process.cwd(), 'tsconfig.json'),
+        minify: false,
         entryPoints: [path.resolve(process.cwd(), 'packages/server/index.ts')],
         loader: {
             '.frontend': 'base64',
             '.ttf': 'base64',
             '.wasm': 'base64',
+        },
+        alias: {
+            ws: `${path.dirname(require.resolve('ws/package.json'))}/index.js`,
+            saslprep: path.resolve(__dirname, 'saslprep.js'),
         },
     });
     if (res.errors.length) console.error(res.errors);

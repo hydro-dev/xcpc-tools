@@ -1,7 +1,6 @@
 import os from 'os';
 import path from 'path';
 import { Context } from 'cordis';
-import { config } from './config';
 import { fs, Logger } from './utils';
 
 Logger.levels.base = 3;
@@ -15,25 +14,29 @@ const app = new Context();
 const tmpdir = path.resolve(os.tmpdir(), 'xcpc-tools');
 fs.ensureDirSync(tmpdir);
 
+let config;
+try {
+    config = require('./config').config;
+} catch (e) { }
+
 async function applyServer(ctx: Context) {
-    fs.ensureDirSync(tmpdir);
-    await require('./service/server').apply(ctx);
-    await require('./service/db').apply(ctx);
+    ctx.plugin(await import('./service/server'));
+    ctx.plugin((await import('./service/db')).default);
     if (config.type !== 'server') {
         logger.info('Fetch mode: ', config.type);
-        await require('./service/fetcher').apply(ctx);
+        ctx.plugin(await import('./service/fetcher'));
     }
-    await require('./handler/misc').apply(ctx);
-    await require('./handler/printer').apply(ctx);
-    await require('./handler/monitor').apply(ctx);
-    await require('./handler/client').apply(ctx);
-    await require('./handler/balloon').apply(ctx);
-    await require('./handler/commands').apply(ctx);
+    ctx.plugin(await import('./handler/misc'));
+    ctx.plugin(await import('./handler/printer'));
+    ctx.plugin(await import('./handler/monitor'));
+    ctx.plugin(await import('./handler/client'));
+    ctx.plugin(await import('./handler/balloon'));
+    ctx.plugin(await import('./handler/commands'));
 }
 
 async function applyClient(ctx: Context) {
-    if (config.printers?.length) await require('./client/printer').apply(ctx);
-    if (config.balloon) await require('./client/balloon').apply(ctx);
+    if (config.printers?.length) ctx.plugin(await import('./client/printer'));
+    if (config.balloon) ctx.plugin(await import('./client/balloon'));
 }
 
 async function apply(ctx) {
@@ -49,4 +52,4 @@ async function apply(ctx) {
     await ctx.parallel('app/ready');
 }
 
-apply(app);
+if (config) apply(app);

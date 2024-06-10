@@ -13,22 +13,6 @@ declare module 'cordis' {
 
 export type VoidReturn = Promise<any> | any;
 
-export interface ToolsConfig {
-    type: string;
-    endpoint: string;
-    contestId: string;
-    uname: string;
-    password: string;
-}
-
-export interface Tools {
-    contest: {
-        info: any,
-        id: string,
-        name: string,
-    },
-}
-
 export interface PrintCodeDoc {
     _id: string;
     tid: string;
