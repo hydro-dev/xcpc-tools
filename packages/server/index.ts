@@ -8,7 +8,7 @@ Logger.levels.base = 3;
 
 const logger = new Logger('tools');
 
-require('./init').load();
+require('./config');
 process.on('unhandledRejection', (e) => { logger.error(e); });
 process.on('uncaughtException', (e) => { logger.error(e); });
 Error.stackTraceLimit = 50;
