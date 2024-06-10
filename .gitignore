@@ -17,8 +17,6 @@ config.*.json
 data/
 yarn.lock
 pnpm-lock.yaml
-tsconfig.json
-tsconfig.*.json
 
 .yarn/cache
 .yarn/build-state.yml
