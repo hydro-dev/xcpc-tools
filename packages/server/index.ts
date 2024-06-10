@@ -17,7 +17,9 @@ fs.ensureDirSync(tmpdir);
 let config;
 try {
     config = require('./config').config;
-} catch (e) { }
+} catch (e) {
+    if (e.message !== 'no-config') throw e;
+}
 
 async function applyServer(ctx: Context) {
     ctx.plugin(await import('./service/server'));

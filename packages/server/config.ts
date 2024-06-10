@@ -38,7 +38,7 @@ seatFile: /home/icpc/Desktop/seat.txt
         logger.error('Config file generated, please fill in the config.yaml');
         resolve();
     })());
-    throw new Error();
+    throw new Error('no-config');
 }
 
 const serverSchema = Schema.object({
