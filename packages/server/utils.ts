@@ -133,6 +133,7 @@ export async function remoteRunner(user: string, target: string, targetPort: str
 }
 
 export function decodeBinary(file: string) {
+    if (process.env.NODE_ENV === 'development') return Buffer.from(file, 'base64');
     const buf = decode(file);
     return gunzipSync(buf);
 }

@@ -24,11 +24,8 @@ try {
 async function applyServer(ctx: Context) {
     ctx.plugin(require('./service/server'));
     ctx.plugin((require('./service/db')).default);
-    if (config.type !== 'server') {
-        logger.info('Fetch mode: ', config.type);
-        ctx.plugin(require('./service/fetcher').fetchers[config.type]);
-    }
-    ctx.inject(['server', 'dbservice'], (c) => {
+    ctx.plugin(require('./service/fetcher'));
+    ctx.inject(['server', 'dbservice', 'fetcher'], (c) => {
         c.plugin(require('./handler/misc'));
         c.plugin(require('./handler/printer'));
         c.plugin(require('./handler/monitor'));

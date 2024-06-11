@@ -7,8 +7,15 @@ import { Logger } from '../utils';
 const logger = new Logger('fetcher');
 const fetch = (url: string, type: 'get' | 'post' = 'get') => superagent[type](new URL(url, config.server).toString())
     .set('Authorization', config.token).set('Accept', 'application/json');
-
-class DomJudgeFetcher extends Service {
+export interface IBasicFetcher {
+    contest: Record<string, any>
+    cron(): Promise<void>
+    contestInfo(): Promise<boolean>
+    teamInfo?(): Promise<void>
+    balloonInfo?(all: boolean): Promise<void>
+    setBalloonDone?(bid: string): Promise<void>
+}
+class BasicFetcher extends Service implements IBasicFetcher {
     contest: any;
     constructor(ctx: Context) {
         super(ctx, 'fetcher', true);
@@ -23,6 +30,27 @@ class DomJudgeFetcher extends Service {
         await this.balloonInfo(first);
     }
 
+    async contestInfo() {
+        const old = this?.contest?.id;
+        this.contest = { name: 'No Contest', id: 'server-mode' };
+        return old === this.contest.id;
+    }
+
+    async teamInfo() {
+        logger.debug('Found 0 teams');
+    }
+
+    async balloonInfo(all) {
+        logger.debug(all ? 'Sync all balloons...' : 'Sync new balloons...');
+        logger.debug('Found 0 balloons in Server Mode');
+    }
+
+    async setBalloonDone(bid) {
+        logger.debug(`Balloon ${bid} set done`);
+    }
+}
+
+class DomJudgeFetcher extends BasicFetcher {
     async contestInfo() {
         const { body } = await fetch('/api/v4/contests?onlyActive=true');
         if (!body || !body.length) {
@@ -46,7 +74,7 @@ class DomJudgeFetcher extends Service {
         for (const team of teams) {
             await this.ctx.db.teams.update({ id: team.id }, { $set: team }, { upsert: true });
         }
-        logger.info(`Found ${teams.length} teams`);
+        logger.debug(`Found ${teams.length} teams`);
     }
 
     async balloonInfo(all) {
@@ -84,19 +112,25 @@ class DomJudgeFetcher extends Service {
                 },
             }, { upsert: true });
         }
-        logger.info(`Found ${balloons.length} balloons`);
+        logger.debug(`Found ${balloons.length} balloons`);
     }
 
     async setBalloonDone(bid) {
         await fetch(`/api/v4/contests/${this.contest.id}/balloons/${bid}/done`, 'post');
-        logger.info(`Balloon ${bid} set done`);
+        logger.debug(`Balloon ${bid} set done`);
     }
 }
 
 const fetcherList = {
+    server: BasicFetcher,
     domjudge: DomJudgeFetcher,
+    hydro: BasicFetcher, // TODO: HydroFetcher
 };
 
 export async function apply(ctx) {
-    if (config.token && config.server) ctx.plugin(fetcherList[config.type]);
+    if (config.type !== 'server') {
+        logger.info('Fetch mode: ', config.type);
+    }
+    ctx.provide('fetcher', undefined, true);
+    ctx.fetcher = await new fetcherList[config.type](ctx);
 }

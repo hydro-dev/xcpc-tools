@@ -85,4 +85,4 @@ export const saveConfig = () => {
 
 logger.info(`Config loaded from ${configPath}`);
 logger.info(`xcpc-tools version: ${version}`);
-if (!isClient && !exit) logger.info(`Server View User Info: admin/${config.viewPass}`);
+if (!isClient && !exit) logger.info(`Server View User Info: admin / ${config.viewPass}`);
