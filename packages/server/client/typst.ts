@@ -28,16 +28,16 @@ class TypstCompilerDriver {
 
     async init(): Promise<void> {
         this.compilerJs = await import('@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler.mjs');
-        await this.compilerJs.initSync(Buffer.from(wasmBinary, 'base64'));
+        await this.compilerJs.initSync(wasmBinary);
         const TypstCompilerBuilder = this.compilerJs.TypstCompilerBuilder;
 
         this.builder = new TypstCompilerBuilder();
-        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMono, 'base64')));
-        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBold, 'base64')));
-        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoBoldOblique, 'base64')));
-        await this.builder.add_raw_font(new Uint8Array(Buffer.from(DejaVuSansMonoOblique, 'base64')));
-        await this.builder.add_raw_font(new Uint8Array(Buffer.from(NotoSansSC, 'base64')));
-        await this.builder.add_raw_font(new Uint8Array(Buffer.from(NotoColorEmoji, 'base64')));
+        await this.builder.add_raw_font(new Uint8Array(DejaVuSansMono));
+        await this.builder.add_raw_font(new Uint8Array(DejaVuSansMonoBold));
+        await this.builder.add_raw_font(new Uint8Array(DejaVuSansMonoBoldOblique));
+        await this.builder.add_raw_font(new Uint8Array(DejaVuSansMonoOblique));
+        await this.builder.add_raw_font(new Uint8Array(NotoSansSC));
+        await this.builder.add_raw_font(new Uint8Array(NotoColorEmoji));
         this.compiler = await this.builder.build();
     }
 

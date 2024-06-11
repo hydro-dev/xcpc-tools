@@ -4,16 +4,17 @@ import { Context } from 'cordis';
 import { Handler } from '@hydrooj/framework';
 import { config } from '../config';
 import StaticFrontend from '../data/static.frontend';
-import { StaticHTML } from '../utils';
+import { decodeBinary, StaticHTML } from '../utils';
 
 const randomHash = String.random(8).toLowerCase();
+const buf = decodeBinary(StaticFrontend);
 
 class StaticHandler extends Handler {
     async get() {
         this.response.addHeader('Cache-Control', 'public');
         this.response.addHeader('Expires', new Date(new Date().getTime() + 86400000).toUTCString());
         this.response.type = 'text/javascript';
-        this.binary(Buffer.from(StaticFrontend, 'base64'), 'main.js');
+        this.binary(buf, 'main.js');
     }
 }
 

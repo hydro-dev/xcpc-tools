@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-loop-func */
 /* eslint-disable no-await-in-loop */
 import { spawn } from 'child_process';
+import { gunzipSync } from 'zlib';
+import { decode } from 'base16384';
 import Logger from 'reggol';
 
 Logger.levels.base = process.env.DEV ? 3 : 2;
@@ -128,4 +130,9 @@ export async function remoteRunner(user: string, target: string, targetPort: str
         });
     }
     return { success: false, log };
+}
+
+export function decodeBinary(file: string) {
+    const buf = decode(file);
+    return gunzipSync(buf);
 }
