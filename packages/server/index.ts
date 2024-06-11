@@ -23,7 +23,7 @@ try {
 
 async function applyServer(ctx: Context) {
     ctx.plugin(require('./service/server'));
-    ctx.plugin((require('./service/db')).default);
+    ctx.plugin(require('./service/db'));
     ctx.plugin(require('./service/fetcher'));
     ctx.inject(['server', 'dbservice', 'fetcher'], (c) => {
         c.plugin(require('./handler/misc'));
