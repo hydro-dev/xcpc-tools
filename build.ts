@@ -16,6 +16,8 @@ logger.info('Building...');
         tsconfig: path.resolve(process.cwd(), 'tsconfig.json'),
         minify: false,
         entryPoints: [path.resolve(process.cwd(), 'packages/server/index.ts')],
+        charset: 'utf8',
+        sourcemap: 'inline',
         loader: {
             '.frontend': 'base64',
             '.ttf': 'base64',

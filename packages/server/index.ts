@@ -26,15 +26,15 @@ async function applyServer(ctx: Context) {
     ctx.plugin((require('./service/db')).default);
     if (config.type !== 'server') {
         logger.info('Fetch mode: ', config.type);
-        ctx.plugin(require('./service/fetcher'));
+        ctx.plugin(require('./service/fetcher').fetchers[config.type]);
     }
-    ctx.plugin(require('./handler/misc'));
-    ctx.plugin(require('./handler/printer'));
-    ctx.plugin(require('./handler/monitor'));
-    ctx.plugin(require('./handler/client'));
-    ctx.plugin(require('./handler/balloon'));
-    ctx.plugin(require('./handler/commands'));
-    ctx.inject(['server'], (c) => {
+    ctx.inject(['server', 'dbservice'], (c) => {
+        c.plugin(require('./handler/misc'));
+        c.plugin(require('./handler/printer'));
+        c.plugin(require('./handler/monitor'));
+        c.plugin(require('./handler/client'));
+        c.plugin(require('./handler/balloon'));
+        c.plugin(require('./handler/commands'));
         c.server.listen();
     });
 }
