@@ -1,8 +1,9 @@
 import React from 'react';
+import { Button, Card, Divider, Group, Textarea, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 
 export default function Commands() {
-  const [command, setCommand] = React.useState('')
+  const [command, setCommand] = React.useState('');
 
   const operation = async (op: string) => {
     try {
@@ -20,15 +21,30 @@ export default function Commands() {
       console.error(e);
       notifications.show({ title: 'Error', message: 'Failed to update balloon', color: 'red' });
     }
-  }
+  };
 
   return (
-    <div>
-      <textarea rows={10} cols={100} style={{ fontFamily: 'monospace' }} value={command} onChange={(ev) => setCommand(ev.target.value)} />
-      <button onClick={() => fetch('/commands', { method: 'POST', body: JSON.stringify({ command }) })}>Send</button>
-      <button onClick={() => operation('reboot')}>Reboot All</button>
-      <button onClick={() => operation('set_hostname')}>Update Hostname</button>
-      <button onClick={() => operation('show_ids')}>Show IDS</button>
-    </div >
+    <Card shadow="sm" padding="lg" radius="md" withBorder>
+      <Title order={3}>Send Commands to Monitoring Computer</Title>
+      <Textarea
+        label="Command"
+        my="md"
+        rows={10}
+        cols={100}
+        style={{ fontFamily: 'monospace' }}
+        value={command}
+        onChange={(ev) => setCommand(ev.target.value)}
+      />
+      <Group justify="center" my="md">
+        <Button onClick={() => fetch('/commands', { method: 'POST', body: JSON.stringify({ command }) })}>Send</Button>
+      </Group>
+      <Divider my="md" />
+      <Title order={3}>Quick Commands</Title>
+      <Group my="md" justify="space-start">
+        <Button onClick={() => operation('reboot')}>Reboot All</Button>
+        <Button onClick={() => operation('set_hostname')}>Update Hostname</Button>
+        <Button onClick={() => operation('show_ids')}>Show IDS</Button>
+      </Group>
+    </Card>
   );
 }

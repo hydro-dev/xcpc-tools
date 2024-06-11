@@ -20,12 +20,13 @@ if (!fs.existsSync(configPath)) {
         const serverConfigDefault = `\
 type: server # server | domjudge | hydro
 viewPass: ${String.random(8)} # use admin / viewPass to login
+secretRoute: ${String.random(12)}
+seatFile: /home/icpc/Desktop/seat.txt
+# if type is server, the following is not needed
 server: 
 token: 
 username: 
 password: 
-secretRoute: ${String.random(12)}
-seatFile: /home/icpc/Desktop/seat.txt
 `;
 
         const clientConfigDefault = yaml.dump({
@@ -55,16 +56,15 @@ const serverSchema = Schema.intersect([
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
-            type: Schema.const('domjudge').required(),
+            type: Schema.union([
+                Schema.const('domjudge'),
+                Schema.const('hydro'),
+            ] as const).required(),
             server: Schema.string().role('url').required(),
-            username: Schema.string().required(),
-            password: Schema.string().required(),
-        }).description('DomJudge Fetcher Config'),
-        Schema.object({
-            type: Schema.const('hydro').required(),
-            server: Schema.string().role('url').required(),
-            token: Schema.string().required(),
-        }).description('Hydro Fetcher Config'),
+            token: Schema.string(),
+            username: Schema.string(),
+            password: Schema.string(),
+        }).description('Fetcher Config'),
         Schema.object({
             type: Schema.const('server').required(),
         }).description('Server Mode Config'),

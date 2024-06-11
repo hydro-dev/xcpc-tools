@@ -11,6 +11,7 @@ export interface IBasicFetcher {
     contest: Record<string, any>
     cron(): Promise<void>
     contestInfo(): Promise<boolean>
+    getToken?(username: string, password: string): Promise<void>
     teamInfo?(): Promise<void>
     balloonInfo?(all: boolean): Promise<void>
     setBalloonDone?(bid: string): Promise<void>
@@ -24,7 +25,12 @@ class BasicFetcher extends Service implements IBasicFetcher {
     }
 
     async cron() {
+        if (config.type === 'server') return;
         logger.info('Fetching contest info...');
+        if (!config.token) {
+            if (config.username && config.password) await this.getToken(config.username, config.password);
+            else throw new Error('No token or username/password provided');
+        }
         const first = await this.contestInfo();
         if (first) await this.teamInfo();
         await this.balloonInfo(first);
@@ -34,6 +40,10 @@ class BasicFetcher extends Service implements IBasicFetcher {
         const old = this?.contest?.id;
         this.contest = { name: 'No Contest', id: 'server-mode' };
         return old === this.contest.id;
+    }
+
+    async getToken(username, password) {
+        config.token = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
     }
 
     async teamInfo() {
