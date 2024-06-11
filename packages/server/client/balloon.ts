@@ -49,6 +49,30 @@ const logger = new Logger('fetcher');
 let timer = null;
 let printer = null;
 
+async function getReceiptStatus(receipt) {
+    const lp = receipt.split('/').pop();
+    const oldPrinter = printer;
+    printer = {
+        printer: lp,
+        info: fs.readFileSync(`/sys/class/usb/${lp}/device/ieee1284_id`, 'utf8').trim(),
+    };
+    if (!oldPrinter || oldPrinter.info === printer.info) return;
+    logger.info('Printer changed:', printer.printer, printer.info);
+    const usbDevices = fs.readdirSync('/dev/usb');
+    for (const f of usbDevices) {
+        if (f.startsWith('lp')) {
+            const lpid = fs.readFileSync(`/sys/class/usb/${f}/device/ieee1284_id`, 'utf8').trim();
+            if (lpid === oldPrinter.info) {
+                logger.info('Printer found:', f, ':', lpid);
+                oldPrinter.printer = f;
+                printer = oldPrinter;
+                break;
+            }
+        }
+    }
+    if (oldPrinter.info !== printer.info) throw Error('Printer not found, please check the printer connection.');
+}
+
 async function printBalloon(doc) {
     const bReceipt = receiptText(
         doc.balloonid,
@@ -60,6 +84,7 @@ async function printBalloon(doc) {
         doc.total ? Object.keys(doc.total).map((k) => `- ${k}: ${doc.total[k].color}`).join('\n') : 'N/A',
     );
     if (printer) {
+        await getReceiptStatus(printer.printer);
         fs.writeFileSync(path.resolve(printer), bReceipt);
     }
 }
@@ -86,6 +111,6 @@ async function fetchTask(c) {
 }
 
 export async function apply() {
-    printer = config.balloon;
+    await getReceiptStatus(config.balloon);
     if (config.token && config.server && config.balloon) await fetchTask(config);
 }
