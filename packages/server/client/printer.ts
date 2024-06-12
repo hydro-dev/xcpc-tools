@@ -16,11 +16,11 @@ let timer = null;
 export async function ConvertCodeToPDF(code, lang, filename, team, location) {
     compiler ||= await createTypstCompiler();
     const typst = generateTypst(team, location, filename, lang);
-    compiler.addSource(path.resolve(process.cwd(), 'main.typst'), typst);
-    compiler.addSource(path.resolve(process.cwd(), filename), code);
+    compiler.addSource('/main.typst', typst);
+    compiler.addSource(`/${filename}`, code);
     const docs = await compiler.compile({
         format: 'pdf',
-        mainFilePath: path.resolve(process.cwd(), 'main.typst'),
+        mainFilePath: '/main.typst',
     });
     logger.info(`Convert ${filename} to PDF`);
     return docs;
@@ -32,7 +32,7 @@ export async function printFile(doc) {
     } = doc;
     try {
         const docs = await ConvertCodeToPDF(code || 'empty file', lang, filename, team, location);
-        fs.writeFileSync(path.resolve(process.cwd(), `data/${tid}#${_id}.pdf`), docs);
+        fs.writeFileSync(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`), docs);
         if (config.printers.length) {
             // eslint-disable-next-line no-constant-condition
             while (true) {

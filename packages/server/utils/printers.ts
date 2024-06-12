@@ -1,9 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import winPrint from '@myteril/node-win-printer';
+import { getPrinters as wingetPrinters, PDFPrinter as WinPDFPrint } from '@myteril/node-win-printer';
 import { getPrinters as unixgetPrinters, print as unixPrint } from 'unix-print';
+import { Logger } from '.';
 
-let winPrinter: winPrint.PDFPrinter;
+const logger = new Logger('printer');
+
+let winPrinter: WinPDFPrint;
 
 export interface Printer {
     printer: string;
@@ -14,6 +17,7 @@ export interface Printer {
 }
 
 export function initWinPrinter() {
+    if (winPrinter) return;
     const execPath = [
         './SumatraPDF.exe',
         path.resolve(__dirname, 'SumatraPDF.exe'),
@@ -23,10 +27,11 @@ export function initWinPrinter() {
     ];
     const sumatraPdfPath = execPath.find((p) => fs.existsSync(p));
     if (!sumatraPdfPath) {
-        throw new Error(`SumatraPDF not found, please install it on https://www.sumatrapdfreader.org/download-free-pdf-viewer,
-or direct download from https://www.sumatrapdfreader.org/dl/rel/3.1.2/SumatraPDF-3.1.2.zip`);
+        // eslint-disable-next-line max-len
+        throw new Error('SumatraPDF not found, please install it on https://www.sumatrapdfreader.org/download-free-pdf-viewer, or direct download from https://www.sumatrapdfreader.org/dl/rel/3.1.2/SumatraPDF-3.1.2.zip');
     }
-    winPrinter = new winPrint.PDFPrinter({
+    logger.info(`SumatraPDF found at ${sumatraPdfPath}`);
+    winPrinter = new WinPDFPrint({
         sumatraPdfPath,
     });
 }
@@ -38,9 +43,9 @@ const windowsPrinterStatus = {
 
 export async function getPrinters(): Promise<Printer[]> {
     if (process.platform === 'win32') {
-        const winprinters = await winPrint.getPrinters();
-        return winprinters.map((p: any) => ({
-            printer: p.DriverName,
+        const winprinters = await wingetPrinters();
+        return winprinters.filter((p: any) => p.DeviceID).map((p: any) => ({
+            printer: p.DeviceID,
             description: p.Caption,
             status: windowsPrinterStatus[p.PrinterStatus] ? windowsPrinterStatus[p.PrinterStatus] : 'unknown',
         }));
@@ -48,7 +53,7 @@ export async function getPrinters(): Promise<Printer[]> {
     return await unixgetPrinters();
 }
 
-export async function print(printer: string, file: string, startPage?: number, endPage?: number) {
+export async function print(file: string, printer: string, startPage?: number, endPage?: number) {
     if (process.platform === 'win32') {
         return winPrinter.print({
             file,
@@ -56,5 +61,5 @@ export async function print(printer: string, file: string, startPage?: number, e
             pages: startPage && endPage ? [{ start: startPage, end: endPage }] : undefined,
         });
     }
-    return unixPrint(printer, file, startPage && endPage ? ['-P', `${startPage}-${endPage}`] : []);
+    return unixPrint(file, printer, startPage && endPage ? ['-P', `${startPage}-${endPage}`] : []);
 }

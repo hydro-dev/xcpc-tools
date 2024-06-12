@@ -17,7 +17,7 @@
   "dependencies": {
     "@freedom_sky/esc-pos-encoder": "^5.8.0",
     "@hydrooj/framework": "0.0.3",
-    "@myriaddreamin/typst-ts-web-compiler": "^0.4.1",
+    "@myriaddreamin/typst-ts-web-compiler": "^0.5.0-rc4",
     "@myteril/node-win-printer": "^1.1.5",
     "base16384": "^1.0.0",
     "cordis": "3.16.0",
