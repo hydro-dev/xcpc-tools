@@ -1,27 +1,51 @@
 import os from 'os';
 import path from 'path';
-import { Context } from './interface';
+import { Context } from 'cordis';
 import { fs, Logger } from './utils';
 
 Logger.levels.base = 3;
 
 const logger = new Logger('tools');
 
-require('./init').load();
 process.on('unhandledRejection', (e) => { logger.error(e); });
 process.on('uncaughtException', (e) => { logger.error(e); });
 Error.stackTraceLimit = 50;
-global.app = new Context();
+const app = new Context();
 const tmpdir = path.resolve(os.tmpdir(), 'xcpc-tools');
+fs.ensureDirSync(tmpdir);
 
-async function apply(ctx: Context) {
-    fs.ensureDirSync(tmpdir);
-    require('./error');
-    await require('./service/server').apply(ctx);
-    await require('./service/db').apply(ctx);
-    if (global.Tools.config.type !== 'server') {
-        logger.info('Fetch mode: ', global.Tools.config.type);
-        await require('./service/fetcher').apply(ctx);
+let config;
+try {
+    config = require('./config').config;
+} catch (e) {
+    if (e.message !== 'no-config') throw e;
+}
+
+async function applyServer(ctx: Context) {
+    ctx.plugin(require('./service/server'));
+    ctx.plugin(require('./service/db'));
+    ctx.plugin(require('./service/fetcher'));
+    ctx.inject(['server', 'dbservice', 'fetcher'], (c) => {
+        c.plugin(require('./handler/misc'));
+        c.plugin(require('./handler/printer'));
+        c.plugin(require('./handler/monitor'));
+        c.plugin(require('./handler/client'));
+        c.plugin(require('./handler/balloon'));
+        c.plugin(require('./handler/commands'));
+        c.server.listen();
+    });
+}
+
+async function applyClient(ctx: Context) {
+    if (config.printers?.length) ctx.plugin(require('./client/printer'));
+    if (config.balloon) ctx.plugin(require('./client/balloon'));
+}
+
+async function apply(ctx) {
+    if (process.argv.includes('--client')) {
+        await applyClient(ctx);
+    } else {
+        await applyServer(ctx);
     }
     await require('./handler/misc').apply(ctx);
     await require('./handler/printer').apply(ctx);
@@ -29,10 +53,10 @@ async function apply(ctx: Context) {
     await require('./handler/client').apply(ctx);
     await require('./handler/balloon').apply(ctx);
     await ctx.lifecycle.flush();
-    await ctx.parallel('app/started');
-    logger.success('Server started');
+    await ctx.parallel('app/listen');
+    logger.success('Tools started');
     process.send?.('ready');
     await ctx.parallel('app/ready');
 }
 
-apply(global.app);
+if (config) apply(app);

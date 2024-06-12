@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { convertToChinese, convertToColor } from '@hydrooj/xcpc-tools/utils/color';
 import {
   Accordion,
   ActionIcon,
@@ -8,7 +9,6 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconCopy, IconX } from '@tabler/icons-react';
-import { convertToChinese, convertToColor } from '../utils';
 
 export function BalloonsClient({ clients, refresh }) {
   const [adding, setAdding] = useState(false);
@@ -59,7 +59,7 @@ export function BalloonsClient({ clients, refresh }) {
             {clients.map((item) => (
               <Accordion.Item key={item.id} value={item.name}>
                 <Accordion.Control
-                  icon={(<Tooltip label={item.updateAt && item.updateAt > new Date().getTime() - 1000 * 60 ? 'Online' : 'Offline'}>
+                  icon={(<Tooltip label={item.updateAt || item.updateAt > new Date().getTime() - 1000 * 60 ? 'Online' : 'Offline'}>
                     <ThemeIcon radius="xl" size="sm" color={item.updateAt ? 'green' : 'red'}>
                       { item.updateAt ? (<IconCheck />) : (<IconX />)}
                     </ThemeIcon>

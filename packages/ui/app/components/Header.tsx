@@ -16,6 +16,7 @@ const mainLinks = [
   { link: '/print', label: 'Print', icon: <IconPrinter style={iconStyle} /> },
   { link: '/balloon', label: 'Balloon', icon: <IconBalloonFilled style={iconStyle} /> },
   { link: '/monitor', label: 'Monitor', icon: <IconDeviceHeartMonitor style={iconStyle} /> },
+  { link: '/commands', label: 'Commands', icon: <IconDeviceHeartMonitor style={iconStyle} /> },
 ];
 
 export function Header() {
@@ -35,7 +36,7 @@ export function Header() {
           <Title order={4}>Hydro/XCPC-TOOLS</Title>
 
           <Group visibleFrom="sm">
-            <Text>{ window.Context.contest.name }</Text>
+            <Text>{window.Context.contest.name}</Text>
           </Group>
 
           <Group h="100%" gap={0} visibleFrom="sm">

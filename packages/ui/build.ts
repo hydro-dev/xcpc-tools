@@ -108,7 +108,7 @@ logger.info('Building...');
       allowedHosts: 'all',
       proxy: {
         context: (p) => p !== '/ws',
-        target: 'http://localhost:8889',
+        target: process.env.TOOLS_API || 'http://localhost:8889',
       },
       client: {
         webSocketURL: 'auto://0.0.0.0:0/ws',

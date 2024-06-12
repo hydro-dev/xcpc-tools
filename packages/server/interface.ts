@@ -1,60 +1,17 @@
-import * as cordis from 'cordis';
-import Datastore from 'nedb-promises';
-
-export interface Events extends cordis.Events<any>, EventMap {
-}
-
-export interface Context {
-    [Context.events]: Events;
-    Route: typeof import('./service/server').Route;
-    broadcast: Context['emit'];
-}
-
-export class Context extends cordis.Context {
-    params: any;
-    fetcher: any;
-    db: {
-        code: Datastore<PrintCodeDoc>;
-        monitor: Datastore<MonitorDoc>;
-        client: Datastore<ClientDoc>;
-        balloon: Datastore<BalloonDoc>;
-        teams: Datastore<TeamDoc>;
-    };
+declare module 'cordis' {
+    interface Context {
+        params: any;
+        fetcher: any;
+    }
+    interface Events {
+        'app/started': () => void
+        'app/listen': () => void
+        'app/ready': () => VoidReturn
+        'app/exit': () => VoidReturn
+    }
 }
 
 export type VoidReturn = Promise<any> | any;
-
-export interface EventMap {
-    'app/started': () => void
-    'app/listen': () => void
-    'app/ready': () => VoidReturn
-    'app/exit': () => VoidReturn
-}
-
-export interface ToolsConfig {
-    type: string;
-    endpoint: string;
-    contestId: string;
-    uname: string;
-    password: string;
-}
-
-export interface Tools {
-    config: ToolsConfig;
-    version: string;
-    contest: {
-        info: any,
-        id: string,
-        name: string,
-    },
-    db: {
-        code: Datastore<PrintCodeDoc>;
-        monitor: Datastore<MonitorDoc>;
-        client: Datastore<ClientDoc>;
-        balloon: Datastore<BalloonDoc>;
-        teams: Datastore<TeamDoc>;
-    };
-}
 
 export interface PrintCodeDoc {
     _id: string;
@@ -136,12 +93,4 @@ export interface TeamDoc {
     display_name: string;
     public_description: string;
     romm: string;
-}
-
-declare global {
-    namespace NodeJS {
-        interface Global {
-            Tools: Tools,
-        }
-    }
 }

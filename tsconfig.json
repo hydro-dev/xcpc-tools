@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "commonjs",
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "jsx": "react",
+        "sourceMap": false,
+        "composite": true,
+        "strictBindCallApply": true,
+        "resolveJsonModule": true,
+        "experimentalDecorators": true,
+        "incremental": true,
+    },
+    "include": [
+        "packages/**/*.ts"
+    ]
+}

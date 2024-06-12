@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-loop-func */
 /* eslint-disable no-await-in-loop */
-import { spawn } from 'child_process';
+import { gunzipSync } from 'zlib';
+import { decode } from 'base16384';
 import Logger from 'reggol';
 
 Logger.levels.base = process.env.DEV ? 3 : 2;
@@ -92,40 +93,12 @@ export function StaticHTML(context, randomHash) {
     return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=JSON.parse('${JSON.stringify(context)}')</script><script src="/main.js?${randomHash}"></script></body></html>`;
 }
 
-// wait for undefined to write
-export async function remoteRunner(user: string, target: string, targetPort: string, timeout = 10, RETRY = 3, command) {
-    let log = '';
-    const defaultCommand = `-o ConnectTimeout=${timeout} -o StrictHostKeyChecking=no -P ${targetPort}`;
-    const cmds = {
-        exec: [defaultCommand, `${user}@${target}`, command],
-        upload: [defaultCommand, command.from, `${user}@${target}:${command.to}`],
-        download: [defaultCommand, `${user}@${target}:${command.from.replace('{target}', target)}`, command.to.replace('{target}', target)],
-    };
-    let retry = 0;
-    while (retry < RETRY) {
-        const child = spawn(command.type === 'exec' ? 'ssh' : 'scp', cmds[command.type]);
-        // 输出命令行执行的结果
-        let success = false;
-        child.stdout.on('data', (data) => {
-            success = true;
-            log += data;
-        });
-        child.stderr.on('data', (data) => {
-            success = false;
-            log += data;
-        });
-        // 执行命令行错误
-        child.on('error', (err) => {
-            log += err;
-            return { success: false, log };
-        });
-        // 命令行执行结束
-        child.on('close', (e) => {
-            if (e === 0) return { success: true, log };
-            if (success) return { success: true, log };
-            log += `retry ${retry} times`;
-            retry++;
-        });
-    }
-    return { success: false, log };
+export function decodeBinary(file: string) {
+    if (process.env.NODE_ENV === 'development') return Buffer.from(file, 'base64');
+    const buf = decode(file);
+    return gunzipSync(buf);
 }
+
+export * from './commandRunner';
+export * from './printers';
+export * from './color';

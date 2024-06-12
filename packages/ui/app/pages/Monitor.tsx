@@ -1,7 +1,6 @@
 import React from 'react';
 import {
-  Button,
-  Card, Center, Group, LoadingOverlay, Tabs, Text, Title,
+  Button, Card, Center, Group, LoadingOverlay, Tabs, Text, Title,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
@@ -29,7 +28,7 @@ export default function Monitor() {
 
   return (
     <>
-      { detailM ? (
+      {detailM ? (
         <MonitorInfo monitor={detailM} refresh={query.refetch} back={() => setDetailM(null)} tab={infoTab} />
       ) : (
         <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -37,39 +36,37 @@ export default function Monitor() {
           <Group justify="space-between" mb="xs">
             <Title order={3}>Computer Status</Title>
             <Group>
-              {
-                activeTab !== 'all' && (
-                  <Button
-                    variant="outline"
-                    color="gray"
-                    onClick={() => setUseTableMode(!useTableMode)}
-                  >
-                    { useTableMode ? 'Cards View' : 'Table View' }
-                  </Button>
-                )
-              }
+              {activeTab !== 'all' && (
+                <Button
+                  variant="outline"
+                  color="gray"
+                  onClick={() => setUseTableMode(!useTableMode)}
+                >
+                  {useTableMode ? 'Cards View' : 'Table View'}
+                </Button>
+              )}
               <MonitorBatchModal refresh={query.refetch} />
             </Group>
           </Group>
           <Tabs value={activeTab} onChange={setActiveTab}>
             <Tabs.List>
-              <Tabs.Tab value="all">All({ query.data?.monitors ? Object.values(query.data?.monitors || {}).length : 0 })</Tabs.Tab>
-              { Object.keys(query.data?.groups || {}).map((group) => (
-                <Tabs.Tab key={group} value={group}>{group}({ query.data?.groups[group].length })</Tabs.Tab>
+              <Tabs.Tab value="all">All({query.data?.monitors ? Object.values(query.data?.monitors || {}).length : 0})</Tabs.Tab>
+              {Object.keys(query.data?.groups || {}).map((group) => (
+                <Tabs.Tab key={group} value={group}>{group}({query.data?.groups[group].length})</Tabs.Tab>
               ))}
             </Tabs.List>
 
             <Tabs.Panel value="all">
-              { !load && (!Object.values(query.data?.monitors || {}).length ? (
+              {(!(query.isLoading || query.isFetching) && (!Object.values(query.data?.monitors || {}).length) ? (
                 <Center mt="md">
                   <Text c="dimmed">No monitors found</Text>
                 </Center>
               ) : (<MonitorTable monitors={Object.values(query.data?.monitors || {})} openMonitorInfo={openMonitorInfo} />))}
             </Tabs.Panel>
 
-            { Object.keys(query.data?.groups || {}).map((group) => (
+            {Object.keys(query.data?.groups || {}).map((group) => (
               <Tabs.Panel key={group} value={group}>
-                { !load && (!query.data?.groups[group].length ? (
+                {(!(query.isLoading || query.isFetching) && (!query.data?.groups[group].length) ? (
                   <Center mt="md">
                     <Text c="dimmed">No monitors found</Text>
                   </Center>

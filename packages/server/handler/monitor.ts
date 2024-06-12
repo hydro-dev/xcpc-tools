@@ -1,8 +1,6 @@
 /* eslint-disable no-await-in-loop */
-import http from 'http';
-import { BadRequestError } from '../error';
-import { Context } from '../interface';
-import { Handler } from '../service/server';
+import { Context } from 'cordis';
+import { BadRequestError, Handler } from '@hydrooj/framework';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
 
@@ -124,32 +122,6 @@ class MonitorReportHandler extends Handler {
 }
 
 export async function apply(ctx: Context) {
-    if (global.Tools.config.oldMonitor) {
-        http.createServer((req, res) => {
-            const postData = [];
-            req.on('data', (chunk) => {
-                postData.push(chunk);
-            });
-            req.on('end', async () => {
-                const result: any = {};
-                const data = Buffer.concat(postData).toString().split('&');
-                for (const item of data) {
-                    const [key, value] = item.split('=');
-                    result[key] = value;
-                }
-                result.ip = req.socket.remoteAddress.replace('::ffff:', '');
-                if (!result.mac) {
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end('Bad Request');
-                    return;
-                }
-                await saveMonitorInfo(ctx, result);
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                res.end('Monitor server is running');
-            });
-        }).listen(3000);
-        logger.info('Monitor forward server start at :3000');
-    }
     ctx.Route('monitor_report', '/report', MonitorReportHandler);
     ctx.Route('monitor_admin', '/monitor', MonitorAdminHandler);
 }
