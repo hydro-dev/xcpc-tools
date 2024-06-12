@@ -77,6 +77,7 @@ const serverSchema = Schema.intersect([
                 Schema.const('hydro'),
             ] as const).required(),
             server: Schema.string().role('url').required(),
+            contestId: Schema.string(),
             token: Schema.string(),
             username: Schema.string(),
             password: Schema.string(),

@@ -62,12 +62,22 @@ class BasicFetcher extends Service implements IBasicFetcher {
 
 class DomJudgeFetcher extends BasicFetcher {
     async contestInfo() {
-        const { body } = await fetch('/api/v4/contests?onlyActive=true');
-        if (!body || !body.length) {
-            logger.error('Contest not found');
-            return false;
+        let contest;
+        if (!config.contestId) {
+            const { body } = await fetch('/api/v4/contests?onlyActive=true');
+            if (!body || !body.length) {
+                logger.error('Contest not found');
+                return false;
+            }
+            contest = body[0];
+        } else {
+            const { body } = await fetch(`/api/v4/contests/${config.contestId}`);
+            if (!body || !body.id) {
+                logger.error(`Contest ${config.contestId} not found`);
+                return false;
+            }
+            contest = body;
         }
-        const contest = body[0];
         let freeze = contest.scoreboard_freeze_duration.split(':');
         freeze = parseInt(freeze[0], 10) * 3600 + parseInt(freeze[1], 10) * 60 + parseInt(freeze[2], 10);
         contest.freeze_time = new Date(contest.end_time).getTime() - freeze * 1000;
