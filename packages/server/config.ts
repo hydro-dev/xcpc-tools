@@ -2,7 +2,8 @@ import path from 'path';
 import Schema from 'schemastery';
 import { version } from './package.json';
 import {
-    fs, getPrinters, Logger, yaml,
+    fs, getPrinters, getWinReceiptPrinter,
+    Logger, yaml,
 } from './utils';
 
 const logger = new Logger('init');
@@ -42,7 +43,15 @@ password:
                         logger.info(`If you want to use this printer for balloon print, please set balloon: /dev/usb/${f} in config.yaml.`);
                     }
                 }
-            } else logger.info('If you want to use balloon client, please run this on linux.');
+                if (!usbDevices.length) logger.info('If you want to use balloon client, please connect your receipt printer first.');
+            } else if (process.platform === 'win32') {
+                const printerList = await getWinReceiptPrinter();
+                for (const printer of printerList) {
+                    logger.info(`Receipt Printer ${printer.printer}(${printer.device})) found: ${printer.description}`);
+                    logger.info(`If you want to use this printer for balloon print, please set balloon: ${printer.printer} in config.yaml.`);
+                }
+                if (!printers.length) logger.info('If you want to use balloon client, please share your receipt printer on settings first.');
+            } else logger.info('If you want to use balloon client, please run this on Linux/Windows.');
         }
         const clientConfigDefault = yaml.dump({
             server: '',

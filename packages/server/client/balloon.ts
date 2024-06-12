@@ -1,4 +1,5 @@
 /* eslint-disable no-await-in-loop */
+import { exec } from 'child_process';
 import path from 'path';
 import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import superagent from 'superagent';
@@ -73,6 +74,7 @@ let timer = null;
 let printer = null;
 
 async function getReceiptStatus(receipt) {
+    if (process.platform === 'win32') printer = { printer: receipt };
     const lp = receipt.split('/').pop();
     const oldPrinter = printer;
     printer = {
@@ -109,7 +111,14 @@ async function printBalloon(doc, lang) {
     );
     if (printer) {
         await getReceiptStatus(printer.printer);
-        fs.writeFileSync(path.resolve(printer.printer), bReceipt);
+        if (process.platform === 'win32') {
+            fs.writeFileSync(path.resolve(process.cwd(), 'data', 'balloon.txt'), bReceipt);
+            exec(`COPY /B "${path.resolve(process.cwd(), 'data', 'balloon.txt')}" "${printer.printer}"`, (err, stdout, stderr) => {
+                if (err) logger.error(err);
+                if (stdout) logger.info(stdout);
+                if (stderr) logger.error(stderr);
+            });
+        } else fs.writeFileSync(path.resolve(printer.printer), bReceipt);
     }
 }
 

@@ -63,3 +63,13 @@ export async function print(file: string, printer: string, startPage?: number, e
     }
     return unixPrint(file, printer, startPage && endPage ? ['-P', `${startPage}-${endPage}`] : []);
 }
+
+export async function getWinReceiptPrinter() {
+    const winprinters = await wingetPrinters();
+    return winprinters.filter((p: any) => p.DeviceID).filter((p: any) => p.ShareName).map((p: any) => ({
+        printer: `\\\\${p.SystemName}\\${p.ShareName}`,
+        device: p.DeviceID,
+        description: p.Caption,
+        status: windowsPrinterStatus[p.PrinterStatus] ? windowsPrinterStatus[p.PrinterStatus] : 'unknown',
+    }));
+}
