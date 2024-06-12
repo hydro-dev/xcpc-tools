@@ -1,0 +1,37 @@
+#!/bin/bash -e
+# SPDX-License-Identifier: MIT
+
+if [ $# -lt 7 ]; then
+    echo "Something went wrong. Please contact the contest staff."
+    echo "Error: not enough arguments" >&2
+    echo "Usage: $0 <filename> <origname> <language> <username> <teamname> <teamid> <location>" >&2
+    echo "Set print command to: $0 [file] [original] [language] [username] [teamname] [teamid] [location]" >&2
+    exit 1
+fi
+
+PRINT_SERVER=https://print.icpc/
+
+filename=$1; shift
+origname=$1; shift
+language=$1; shift
+username=$1; shift
+teamname=$1; shift
+teamid=$1; shift
+location=$1; shift
+
+
+echo "Filename: $origname"
+echo "Language: $language"
+echo "Username: $username"
+[ -n "$teamname" ] && echo "Team Name: $teamname" || teamname="$username"
+[ -n "$teamid" ] && echo "Team ID: $teamid"
+[ -n "$location" ] && echo "Location: $location"
+
+exec curl -fsS \
+    -F file=@"$filename" \
+    -F filename="$origname" \
+    -F lang="$language" \
+    -F tname="$teamname" \
+    -F team="$teamid"  \
+    -F location="$location" \
+    $PRINT_SERVER 2>&1
