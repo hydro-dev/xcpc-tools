@@ -101,3 +101,4 @@ export function decodeBinary(file: string) {
 
 export * from './commandRunner';
 export * from './printers';
+export * from './color';

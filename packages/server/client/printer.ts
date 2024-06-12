@@ -107,4 +107,5 @@ export async function apply() {
         }
     }
     if (config.token && config.server && config.printers?.length) await fetchTask(config);
+    else logger.error('Config not found, please check the config.yaml');
 }

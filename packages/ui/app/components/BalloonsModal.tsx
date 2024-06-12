@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { convertToChinese, convertToColor } from '@hydrooj/xcpc-tools/utils/color';
 import {
   Accordion,
   ActionIcon,
@@ -8,7 +9,6 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconCopy, IconX } from '@tabler/icons-react';
-import { convertToChinese, convertToColor } from '../utils';
 
 export function BalloonsClient({ clients, refresh }) {
   const [adding, setAdding] = useState(false);

@@ -1,8 +1,9 @@
 import path from 'path';
 import Schema from 'schemastery';
-import { getPrinters } from 'unix-print';
 import { version } from './package.json';
-import { fs, Logger, yaml } from './utils';
+import {
+    fs, getPrinters, Logger, yaml,
+} from './utils';
 
 const logger = new Logger('init');
 
@@ -31,14 +32,14 @@ password:
         let printers = [];
         if (isClient) {
             printers = await getPrinters().then((r) => r.map((p) => p.printer)).catch(() => []);
-            logger.info(printers.length, 'printers found:', printers.map((p) => p.printer).join(', '));
+            logger.info(printers.length, 'printers found:', printers.join(', '));
             if (process.platform === 'linux') {
                 const usbDevices = fs.readdirSync('/dev/usb');
                 for (const f of usbDevices) {
                     if (f.startsWith('lp')) {
                         const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
-                        logger.info('USB Printer found:', f, ':', lpid);
-                        logger.info('If you want to use this printer for balloon print, set balloon:', f, 'in config.yaml.');
+                        logger.info(`USB Printer ${f} found: ${lpid}`);
+                        logger.info(`If you want to use this printer for balloon print, please set balloon: /dev/usb/${f} in config.yaml.`);
                     }
                 }
             } else logger.info('If you want to use balloon client, please run this on linux.');
@@ -46,6 +47,7 @@ password:
         const clientConfigDefault = yaml.dump({
             server: '',
             balloon: '',
+            balloonLang: 'zh',
             printers,
             token: '',
         });
@@ -86,7 +88,8 @@ const serverSchema = Schema.intersect([
 ]);
 const clientSchema = Schema.object({
     server: Schema.string().role('url').required(),
-    balloon: Schema.string().required(),
+    balloon: Schema.string(),
+    balloonLang: Schema.union(['zh', 'en']).default('zh').required(),
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'),
     token: Schema.string().required().description('Token generated on server'),
     fonts: Schema.array(Schema.string()).default([]),

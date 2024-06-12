@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import winPrint from '@myteril/node-win-printer';
-import unixPrint from 'unix-print';
+import { getPrinters as unixgetPrinters, print as unixPrint } from 'unix-print';
 
 let winPrinter: winPrint.PDFPrinter;
 
@@ -45,7 +45,7 @@ export async function getPrinters(): Promise<Printer[]> {
             status: windowsPrinterStatus[p.PrinterStatus] ? windowsPrinterStatus[p.PrinterStatus] : 'unknown',
         }));
     }
-    return unixPrint.getPrinters();
+    return await unixgetPrinters();
 }
 
 export async function print(printer: string, file: string, startPage?: number, endPage?: number) {
@@ -56,5 +56,5 @@ export async function print(printer: string, file: string, startPage?: number, e
             pages: startPage && endPage ? [{ start: startPage, end: endPage }] : undefined,
         });
     }
-    return unixPrint.print(printer, file, startPage && endPage ? ['-P', `${startPage}-${endPage}`] : []);
+    return unixPrint(printer, file, startPage && endPage ? ['-P', `${startPage}-${endPage}`] : []);
 }

@@ -4,8 +4,8 @@ import { HashRouter, Route, Routes } from 'react-router-dom';
 import { Header } from './components/Header';
 import Balloon from './pages/Balloon';
 import Commands from './pages/Commands';
-import Logs from './pages/Logs';
 import Dashboard from './pages/Dashboard';
+import Logs from './pages/Logs';
 import Monitor from './pages/Monitor';
 import Print from './pages/Print';
 

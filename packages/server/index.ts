@@ -49,7 +49,7 @@ async function apply(ctx) {
     }
     await ctx.lifecycle.flush();
     await ctx.parallel('app/listen');
-    logger.success('Server started');
+    logger.success('Tools started');
     process.send?.('ready');
     await ctx.parallel('app/ready');
 }

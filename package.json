@@ -6,10 +6,11 @@
     "packages/*"
   ],
   "scripts": {
-    "start:client": "node -r ./register.js packages/client/index.ts --debug",
+    "start:client": "node -r ./register.js packages/server/index.ts --client --debug",
     "start:server": "node -r ./register.js packages/server/index.ts --debug",
     "lint": "eslint packages --ext js,ts,tsx,jsx",
     "build": "yarn build:ui:prod && node -r ./register.js build.ts",
+    "build:server": "node -r ./register.js build.ts",
     "build:pkg": "yarn build:ui:prod && node -r ./register.js build.ts && pkg dist/xcpc-tools.js --targets linux,macos,win --out-path dist/pkg"
   },
   "devDependencies": {
@@ -17,12 +18,12 @@
     "@expo-google-fonts/noto-sans-sc": "^0.2.3",
     "@hydrooj/eslint-config": "^1.0.10",
     "@hydrooj/register": "^1.0.1",
-    "@hydrooj/utils": "^1.4.23",
-    "@types/node": "^20.12.13",
+    "@hydrooj/utils": "^1.4.24",
+    "@types/node": "^20.14.2",
+    "@yao-pkg/pkg": "^5.12.0",
     "dejavu-fonts-ttf": "^2.37.3",
     "eslint": "^8.57.0",
     "eslint-import-resolver-typescript": "^3.6.1",
-    "pkg": "^5.8.1",
     "typescript": "^5.3.3"
   },
   "resolutions": {

@@ -34,6 +34,8 @@ jobs:
       - run: yarn
       - name: Build
         run: yarn build:pkg
+      - name: Copy Origin Bundle to Dist
+        run: cp dist/xcpc-tools.js /tmp/xcpc-tools-bundle.js
       - name: Create Zip for Windows
         run: zip -r /tmp/xcpc-tools-win.zip dist/pkg/xcpc-tools-win.exe
       - name: Create Tar for MacOS
@@ -50,6 +52,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.version }}-${{ steps.tag.outputs.sha_short }}
           files: |
+            /tmp/xcpc-tools-bundle.js
             /tmp/xcpc-tools-win.zip
             /tmp/xcpc-tools-macos.tar.gz
             /tmp/xcpc-tools-linux.tar.gz

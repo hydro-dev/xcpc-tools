@@ -1,15 +1,38 @@
+/* eslint-disable no-await-in-loop */
 import path from 'path';
 import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import superagent from 'superagent';
 import { config } from '../config';
 import {
+    convertToChinese,
     fs, Logger, sleep,
 } from '../utils';
 
 const encoder = new EscPosEncoder();
 
+const i18n = {
+    zh: {
+        receipt: '气球打印单',
+        location: '座位',
+        problem: '题目',
+        color: '颜色',
+        comment: '备注',
+        team: '队伍',
+        status: '队伍当前气球状态',
+    },
+    en: {
+        receipt: 'Balloon Receipt',
+        location: 'Location',
+        problem: 'Balloon',
+        color: 'Color',
+        comment: 'Comment',
+        team: 'Team',
+        status: 'Team Balloon Status',
+    },
+};
+
 export const receiptText = (
-    id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string,
+    id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
 ) => encoder
     .initialize()
     .codepage('cp936')
@@ -17,7 +40,7 @@ export const receiptText = (
     .align('center')
     .bold(true)
     .size(2)
-    .line('气球打印单')
+    .line(i18n[lang].receipt)
     .emptyLine(1)
     .line(`ID: ${id}`)
     .emptyLine(1)
@@ -25,18 +48,18 @@ export const receiptText = (
     .size(1)
     .line('===========================================')
     .emptyLine(1)
-    .oneLine('座位', location)
-    .oneLine('气球', problem)
-    .oneLine('颜色', color)
-    .oneLine('备注', comment)
+    .oneLine(i18n[lang].location, location)
+    .oneLine(i18n[lang].problem, problem)
+    .oneLine(i18n[lang].color, color)
+    .oneLine(i18n[lang].comment, comment)
     .emptyLine(1)
     .align('center')
     .bold(true)
     .line('===========================================')
     .emptyLine(2)
     .size(0)
-    .line(`队伍: ${teamname}`)
-    .line('队伍当前气球状态:')
+    .line(`${i18n[lang].team}: ${teamname}`)
+    .line(`${i18n[lang].status}:`)
     .line(`${status}`)
     .emptyLine(2)
     .line('Powered by hydro-dev/xcpc-tools')
@@ -44,7 +67,7 @@ export const receiptText = (
     .cut()
     .encode();
 
-const logger = new Logger('fetcher');
+const logger = new Logger('balloon');
 
 let timer = null;
 let printer = null;
@@ -53,18 +76,18 @@ async function getReceiptStatus(receipt) {
     const lp = receipt.split('/').pop();
     const oldPrinter = printer;
     printer = {
-        printer: lp,
-        info: fs.readFileSync(`/sys/class/usb/${lp}/device/ieee1284_id`, 'utf8').trim(),
+        printer: receipt,
+        info: fs.readFileSync(`/sys/class/usbmisc/${lp}/device/ieee1284_id`, 'utf8').trim(),
     };
     if (!oldPrinter || oldPrinter.info === printer.info) return;
     logger.info('Printer changed:', printer.printer, printer.info);
     const usbDevices = fs.readdirSync('/dev/usb');
     for (const f of usbDevices) {
         if (f.startsWith('lp')) {
-            const lpid = fs.readFileSync(`/sys/class/usb/${f}/device/ieee1284_id`, 'utf8').trim();
+            const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
             if (lpid === oldPrinter.info) {
                 logger.info('Printer found:', f, ':', lpid);
-                oldPrinter.printer = f;
+                oldPrinter.printer = `/dev/usb/${f}`;
                 printer = oldPrinter;
                 break;
             }
@@ -73,34 +96,37 @@ async function getReceiptStatus(receipt) {
     if (oldPrinter.info !== printer.info) throw Error('Printer not found, please check the printer connection.');
 }
 
-async function printBalloon(doc) {
+async function printBalloon(doc, lang) {
     const bReceipt = receiptText(
         doc.balloonid,
         doc.location ? doc.location : 'N/A',
         doc.problem,
-        doc.contestproblem.color,
+        lang === 'zh' ? convertToChinese(doc.contestproblem.color) : doc.contestproblem.color,
         doc.awards ? doc.awards : 'N/A',
         doc.team,
         doc.total ? Object.keys(doc.total).map((k) => `- ${k}: ${doc.total[k].color}`).join('\n') : 'N/A',
+        lang,
     );
     if (printer) {
         await getReceiptStatus(printer.printer);
-        fs.writeFileSync(path.resolve(printer), bReceipt);
+        fs.writeFileSync(path.resolve(printer.printer), bReceipt);
     }
 }
 
 async function fetchTask(c) {
     if (timer) clearTimeout(timer);
-    logger.info('Fetching Task from tools server...');
+    logger.info('Fetching balloon task from tools server...');
     try {
         const { body } = await superagent.post(`${c.server}/client/${c.token}/balloon`).send();
-        if (body.doc) {
-            logger.info(`Print task ${body.doc.tid}#${body.doc._id}...`);
-            await printBalloon(body.doc);
-            await superagent.post(`${c.server}/client/${c.token}/doneballoon/${body.doc._id}`);
-            logger.info(`Print task ${body.doc.tid}#${body.doc._id} completed.`);
+        if (body.balloons) {
+            for (const doc of body.balloons) {
+                logger.info(`Print balloon task ${doc.teamid}#${doc.balloonid}...`);
+                await printBalloon(doc, config.receiptLang);
+                await superagent.post(`${c.server}/client/${c.token}/doneballoon/${doc.balloonid}`);
+                logger.info(`Print task ${doc.teamid}#${doc.balloonid} completed.`);
+            }
         } else {
-            logger.info('No print task, sleeping...');
+            logger.info('No balloon task, sleeping...');
             await sleep(5000);
         }
     } catch (e) {
@@ -113,4 +139,5 @@ async function fetchTask(c) {
 export async function apply() {
     await getReceiptStatus(config.balloon);
     if (config.token && config.server && config.balloon) await fetchTask(config);
+    else logger.error('Config not found, please check the config.yaml');
 }
