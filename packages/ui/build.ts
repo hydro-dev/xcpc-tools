@@ -101,14 +101,14 @@ logger.info('Building...');
 (async () => {
   if (dev) {
     const server = new WebpackDevServer({
-      port: 8890,
+      port: 8080,
       compress: true,
       hot: true,
       server: 'http',
       allowedHosts: 'all',
       proxy: {
         context: (p) => p !== '/ws',
-        target: process.env.TOOLS_API || 'http://localhost:8889',
+        target: process.env.TOOLS_API || 'http://localhost:5283',
       },
       client: {
         webSocketURL: 'auto://0.0.0.0:0/ws',

@@ -4,8 +4,8 @@
     "author": "panda",
     "main": "index.ts",
     "scripts": {
-        "build:ui:dev": "node -r @hydrooj/register build.ts --watch --dev",
-        "build:ui:prod": "node -r @hydrooj/register build.ts --production"
+        "dev:ui": "node -r @hydrooj/register build.ts --watch --dev",
+        "build:ui": "node -r @hydrooj/register build.ts --production"
     },
     "preferUnplugged": true,
     "devDependencies": {
