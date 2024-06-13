@@ -1,12 +1,9 @@
 /* eslint-disable no-await-in-loop */
-import { exec } from 'child_process';
-import path from 'path';
 import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import superagent from 'superagent';
 import { config } from '../config';
 import {
-    convertToChinese,
-    fs, Logger, sleep,
+    checkReceiptStatus, convertToChinese, Logger, receiptPrint, sleep,
 } from '../utils';
 
 const encoder = new EscPosEncoder();
@@ -73,31 +70,6 @@ const logger = new Logger('balloon');
 let timer = null;
 let printer = null;
 
-async function getReceiptStatus(receipt) {
-    if (process.platform === 'win32') printer = { printer: receipt };
-    const lp = receipt.split('/').pop();
-    const oldPrinter = printer;
-    printer = {
-        printer: receipt,
-        info: fs.readFileSync(`/sys/class/usbmisc/${lp}/device/ieee1284_id`, 'utf8').trim(),
-    };
-    if (!oldPrinter || oldPrinter.info === printer.info) return;
-    logger.info('Printer changed:', printer.printer, printer.info);
-    const usbDevices = fs.readdirSync('/dev/usb');
-    for (const f of usbDevices) {
-        if (f.startsWith('lp')) {
-            const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
-            if (lpid === oldPrinter.info) {
-                logger.info('Printer found:', f, ':', lpid);
-                oldPrinter.printer = `/dev/usb/${f}`;
-                printer = oldPrinter;
-                break;
-            }
-        }
-    }
-    if (oldPrinter.info !== printer.info) throw Error('Printer not found, please check the printer connection.');
-}
-
 async function printBalloon(doc, lang) {
     const bReceipt = receiptText(
         doc.balloonid,
@@ -109,17 +81,8 @@ async function printBalloon(doc, lang) {
         doc.total ? Object.keys(doc.total).map((k) => `- ${k}: ${doc.total[k].color}`).join('\n') : 'N/A',
         lang,
     );
-    if (printer) {
-        await getReceiptStatus(printer.printer);
-        if (process.platform === 'win32') {
-            fs.writeFileSync(path.resolve(process.cwd(), 'data', 'balloon.txt'), bReceipt);
-            exec(`COPY /B "${path.resolve(process.cwd(), 'data', 'balloon.txt')}" "${printer.printer}"`, (err, stdout, stderr) => {
-                if (err) logger.error(err);
-                if (stdout) logger.info(stdout);
-                if (stderr) logger.error(stderr);
-            });
-        } else fs.writeFileSync(path.resolve(printer.printer), bReceipt);
-    }
+    printer = await checkReceiptStatus(printer);
+    await receiptPrint(printer, bReceipt);
 }
 
 async function fetchTask(c) {
@@ -146,7 +109,7 @@ async function fetchTask(c) {
 }
 
 export async function apply() {
-    await getReceiptStatus(config.balloon);
+    printer = config.balloon;
     if (config.token && config.server && config.balloon) await fetchTask(config);
     else logger.error('Config not found, please check the config.yaml');
 }

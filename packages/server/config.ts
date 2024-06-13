@@ -2,8 +2,8 @@ import path from 'path';
 import Schema from 'schemastery';
 import { version } from './package.json';
 import {
-    fs, getPrinters, getWinReceiptPrinter,
-    Logger, yaml,
+    checkReceiptPrinter,
+    fs, getPrinters, Logger, yaml,
 } from './utils';
 
 const logger = new Logger('init');
@@ -32,32 +32,15 @@ password:
 `;
         let printers = [];
         if (isClient) {
-            printers = await getPrinters().then((r) => r.map((p) => p.printer)).catch(() => []);
+            printers = await getPrinters(true).catch(() => []);
             logger.info(printers.length, 'printers found:', printers.join(', '));
-            if (process.platform === 'linux') {
-                const usbDevices = fs.readdirSync('/dev/usb');
-                for (const f of usbDevices) {
-                    if (f.startsWith('lp')) {
-                        const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
-                        logger.info(`USB Printer ${f} found: ${lpid}`);
-                        logger.info(`If you want to use this printer for balloon print, please set balloon: /dev/usb/${f} in config.yaml.`);
-                    }
-                }
-                if (!usbDevices.length) logger.info('If you want to use balloon client, please connect your receipt printer first.');
-            } else if (process.platform === 'win32') {
-                const printerList = await getWinReceiptPrinter();
-                for (const printer of printerList) {
-                    logger.info(`Receipt Printer ${printer.printer}(${printer.device})) found: ${printer.description}`);
-                    logger.info(`If you want to use this printer for balloon print, please set balloon: ${printer.printer} in config.yaml.`);
-                }
-                if (!printers.length) logger.info('If you want to use balloon client, please share your receipt printer on settings first.');
-            } else logger.info('If you want to use balloon client, please run this on Linux/Windows.');
+            await checkReceiptPrinter(printers);
         }
         const clientConfigDefault = yaml.dump({
             server: '',
             balloon: '',
             balloonLang: 'zh',
-            printers,
+            printers: printers.map((p) => p.printer),
             token: '',
         });
         fs.writeFileSync(configPath, isClient ? clientConfigDefault : serverConfigDefault);
@@ -90,6 +73,7 @@ const serverSchema = Schema.intersect([
             token: Schema.string(),
             username: Schema.string(),
             password: Schema.string(),
+            freezeEncourage: Schema.number().default(0),
         }).description('Fetcher Config'),
         Schema.object({
             type: Schema.const('server').required(),

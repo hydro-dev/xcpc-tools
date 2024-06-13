@@ -2,15 +2,14 @@
 
 A tool for CN XCPC contests
 
-- 全平台远程代码打印
-- 支持封榜期间发放鼓励气球的小票机
+- 代码打印和小票机打印（全平台支持）
+- 支持封榜期间发放鼓励气球
+- 支持连接 DOMjudge 与 Hydro 系统，同时亦可独立运行
 - 选手机赛时数据监控与屏幕监控
 
 TODO Features：
 
 - [ ] 更好的选手机座位绑定
-- [ ] 支持多平台参赛系统
-- [ ] Windows 小票机支持
 - [ ] 优化 UI 顺畅度
 - [ ] 使用 WebSocket 返回指令执行情况
 - [ ] 支持全考场监视
@@ -51,7 +50,7 @@ const serverSchema = Schema.intersect([
                 Schema.const('hydro'),
             ] as const).required(), // 赛事系统类型
             server: Schema.string().role('url').required(), // 赛事系统地址
-            contestId: Schema.string(), // 赛事ID，如无则自动获取（Domjudge），hydro 请使用 domainId/contestId 作为ID
+            contestId: Schema.string(), // 赛事ID，如无则自动获取（DOMjudge），hydro 请使用 domainId/contestId 作为ID
             token: Schema.string(), // 赛事系统 Token 如无可使用用户名密码登录
             username: Schema.string(), // 赛事系统用户名
             password: Schema.string(), // 赛事系统密码
@@ -72,7 +71,7 @@ const serverSchema = Schema.intersect([
 `print [file] [original] [language] [username] [teamname] [teamid] [location]` 为打印命令，其中 `file` 为代码文件路径，`original` 为原文件名，`language` 为语言，`username` 为用户名，`teamname` 为队伍名，`teamid` 为队伍ID，`location` 为选手位置。
 
 #### Balloon
-服务支持 `Fetch Mode` 下的气球推送，支持 `Domjudge` 与 `Hydro` 系统，支持 `Domjudge` 与 `Hydro` 系统的 `Balloon` 推送，同时若赛事在封榜后仍然推送气球，则支持自定义鼓励气球数，高于设定值则不推送，为所有队伍打造优质赛场体验。
+服务支持 `Fetch Mode` 下的气球推送，支持 `DOMjudge` 与 `Hydro` 系统，支持 `DOMjudge` 与 `Hydro` 系统的 `Balloon` 推送，同时若赛事在封榜后仍然推送气球，则支持自定义鼓励气球数，高于设定值则不推送，为所有队伍打造优质赛场体验。
 
 #### Monitor
 服务支持监控选手机情况和监控服务器桌面，如您需要选手机监控，可通过设置 Systemd 定时执行任务等多种方式定时执行 `monitor` 命令，如需监控服务器桌面，请在选手机上提前运行 `vlc-camera` 和 `vlc-desktop` 服务， CAICPC 镜像已经内置了这三两个服务，您只需在选手机上运行即可，如您为自己的镜像，可从 `https://github.com/hydro-dev/xcpc-tools/blob/main/scripts/monitor` 下载 `monitor` 服务。
