@@ -36,15 +36,15 @@ export function initWinPrinter() {
     });
 }
 
-const windowsPrinterStatus = {
+export const windowsPrinterStatus = {
     3: 'idle',
     4: 'printing',
 };
 
-export async function getPrinters(): Promise<Printer[]> {
+export async function getPrinters(raw = false): Promise<object[]> {
     if (process.platform === 'win32') {
         const winprinters = await wingetPrinters();
-        return winprinters.filter((p: any) => p.DeviceID).map((p: any) => ({
+        return raw ? winprinters : winprinters.filter((p: any) => p.DeviceID).map((p: any) => ({
             printer: p.DeviceID,
             description: p.Caption,
             status: windowsPrinterStatus[p.PrinterStatus] ? windowsPrinterStatus[p.PrinterStatus] : 'unknown',

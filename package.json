@@ -6,12 +6,12 @@
     "packages/*"
   ],
   "scripts": {
-    "start:client": "node -r ./register.js packages/server/index.ts --client --debug",
-    "start:server": "node -r ./register.js packages/server/index.ts --debug",
+    "dev:client": "node -r ./register.js packages/server/index.ts --client --debug",
+    "dev:server": "node -r ./register.js packages/server/index.ts --debug",
     "lint": "eslint packages --ext js,ts,tsx,jsx",
-    "build": "yarn build:ui:prod && node -r ./register.js build.ts",
+    "build": "yarn build:ui && node -r ./register.js build.ts",
     "build:server": "node -r ./register.js build.ts",
-    "build:pkg": "yarn build:ui:prod && node -r ./register.js build.ts && pkg dist/xcpc-tools.js --targets linux,macos,win --out-path dist/pkg"
+    "build:pkg": "yarn build:ui && node -r ./register.js build.ts && pkg dist/xcpc-tools.js --targets linux,macos,win --out-path dist/pkg"
   },
   "devDependencies": {
     "@expo-google-fonts/noto-color-emoji": "^0.2.3",
