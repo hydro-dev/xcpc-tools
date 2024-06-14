@@ -9,6 +9,7 @@ import { createTypstCompiler, generateTypst } from './typst';
 
 let compiler;
 
+const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
 const logger = new Logger('printer');
 
 let timer = null;
@@ -36,7 +37,7 @@ export async function printFile(doc) {
         if (config.printers.length) {
             // eslint-disable-next-line no-constant-condition
             while (true) {
-                const printersInfo = await getPrinters();
+                const printersInfo: any[] = await getPrinters();
                 const printers = printersInfo.filter((p) => config.printers.includes(p.printer));
                 const randomP = printers[Math.floor(Math.random() * printers.length)];
                 if (randomP.status === 'idle') {
@@ -65,8 +66,8 @@ async function fetchTask(c) {
     if (timer) clearTimeout(timer);
     logger.info('Fetching Task from tools server...');
     try {
-        const printersInfo = await getPrinters();
-        const { body } = await superagent.post(`${c.server}/client/${c.token}/print`)
+        const printersInfo: any[] = await getPrinters();
+        const { body } = await post(`${c.server}/client/${c.token}/print`)
             .send({
                 printers: config.printers,
                 printersInfo: JSON.stringify(printersInfo.map((p) => ({
@@ -83,7 +84,7 @@ async function fetchTask(c) {
         if (body.doc) {
             logger.info(`Print task ${body.doc.tid}#${body.doc._id}...`);
             await printFile(body.doc);
-            await superagent.post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}`);
+            await post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}`);
             logger.info(`Print task ${body.doc.tid}#${body.doc._id} completed.`);
         } else {
             logger.info('No print task, sleeping...');

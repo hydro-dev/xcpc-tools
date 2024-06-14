@@ -239,4 +239,5 @@ export async function apply(ctx) {
     }
     ctx.provide('fetcher', undefined, true);
     ctx.fetcher = await new fetcherList[config.type](ctx);
+    ctx.fetcher.cron();
 }

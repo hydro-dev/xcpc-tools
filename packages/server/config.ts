@@ -32,15 +32,15 @@ password:
 `;
         let printers = [];
         if (isClient) {
-            printers = await getPrinters(true).catch(() => []);
-            logger.info(printers.length, 'printers found:', printers.join(', '));
-            await checkReceiptPrinter(printers);
+            printers = (await getPrinters().catch(() => [])).map((p: any) => p.printer);
+            logger.info(printers.length, 'printers found:', JSON.stringify(printers));
+            await checkReceiptPrinter(await getPrinters(true));
         }
         const clientConfigDefault = yaml.dump({
             server: '',
             balloon: '',
             balloonLang: 'zh',
-            printers: printers.map((p) => p.printer),
+            printers,
             token: '',
         });
         fs.writeFileSync(configPath, isClient ? clientConfigDefault : serverConfigDefault);

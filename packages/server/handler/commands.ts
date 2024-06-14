@@ -39,7 +39,7 @@ zenity --info --text "<span font='256'>$(cat ${config.seatFile})</span>"`);
     }
 
     async postSetHostname() {
-        this.response.body = await this.executeForAll(`hostnamectl hostname $(cat ${config.seatFile})`);
+        this.response.body = await this.executeForAll(`hostnamectl hostname $(cat -- ${config.seatFile})`);
     }
 
     async postAutologin({ }, autologin = false) {

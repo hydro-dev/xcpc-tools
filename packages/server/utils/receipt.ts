@@ -36,7 +36,7 @@ export async function checkReceiptPrinter(printers: object[]) {
 export async function checkReceiptStatus(printer) {
     if (process.platform !== 'linux') {
         printer = { printer: printer.printer };
-        return;
+        return printer;
     }
     const lp = printer.printer.split('/').pop();
     const oldPrinter = printer;
@@ -44,7 +44,7 @@ export async function checkReceiptStatus(printer) {
         printer: printer.printer,
         info: fs.readFileSync(`/sys/class/usbmisc/${lp}/device/ieee1284_id`, 'utf8').trim(),
     };
-    if (!oldPrinter || oldPrinter.info === printer.info) return;
+    if (!oldPrinter || oldPrinter.info === printer.info) return printer;
     logger.info('Printer changed:', printer.printer, printer.info);
     const usbDevices = fs.readdirSync('/dev/usb');
     for (const f of usbDevices) {
@@ -54,14 +54,15 @@ export async function checkReceiptStatus(printer) {
                 logger.info('Printer found:', f, ':', lpid);
                 oldPrinter.printer = `/dev/usb/${f}`;
                 printer = oldPrinter;
-                break;
+                return printer;
             }
         }
     }
     if (oldPrinter.info !== printer.info) throw Error('Printer not found, please check the printer connection.');
+    return printer;
 }
 
-export async function receiptPrint(text, printer) {
+export async function receiptPrint(printer, text) {
     fs.writeFileSync(path.resolve(process.cwd(), 'data', 'balloon.txt'), text);
     if (process.platform === 'win32') {
         exec(`COPY /B "${path.resolve(process.cwd(), 'data', 'balloon.txt')}" "${printer.printer}"`, (err, stdout, stderr) => {

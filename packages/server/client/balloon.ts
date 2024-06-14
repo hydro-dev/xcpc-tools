@@ -6,6 +6,7 @@ import {
     checkReceiptStatus, convertToChinese, Logger, receiptPrint, sleep,
 } from '../utils';
 
+const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
 const encoder = new EscPosEncoder();
 
 const i18n = {
@@ -89,12 +90,12 @@ async function fetchTask(c) {
     if (timer) clearTimeout(timer);
     logger.info('Fetching balloon task from tools server...');
     try {
-        const { body } = await superagent.post(`${c.server}/client/${c.token}/balloon`).send();
+        const { body } = await post(`${c.server}/client/${c.token}/balloon`).send();
         if (body.balloons) {
             for (const doc of body.balloons) {
                 logger.info(`Print balloon task ${doc.teamid}#${doc.balloonid}...`);
                 await printBalloon(doc, config.receiptLang);
-                await superagent.post(`${c.server}/client/${c.token}/doneballoon/${doc.balloonid}`);
+                await post(`${c.server}/client/${c.token}/doneballoon/${doc.balloonid}`);
                 logger.info(`Print task ${doc.teamid}#${doc.balloonid} completed.`);
             }
         } else {
@@ -109,7 +110,7 @@ async function fetchTask(c) {
 }
 
 export async function apply() {
-    printer = config.balloon;
+    printer = { printer: config.balloon };
     if (config.token && config.server && config.balloon) await fetchTask(config);
     else logger.error('Config not found, please check the config.yaml');
 }
