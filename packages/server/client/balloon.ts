@@ -79,7 +79,8 @@ async function printBalloon(doc, lang) {
         lang === 'zh' ? await convertToChinese(doc.contestproblem.color) : doc.contestproblem.color,
         doc.awards ? doc.awards : 'N/A',
         doc.team,
-        doc.total ? Object.keys(doc.total).map((k) => `- ${k}: ${doc.total[k].color}`).join('\n') : 'N/A',
+        doc.total ? Object.keys(doc.total).map(async (k) =>
+            `- ${k}: ${lang === 'zh' ? await convertToChinese(doc.total[k].color) : doc.total[k].color}`).join('\n') : 'N/A',
         lang,
     );
     printer = await checkReceiptStatus(printer);
