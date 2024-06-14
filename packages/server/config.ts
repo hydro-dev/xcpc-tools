@@ -40,6 +40,7 @@ password:
             server: '',
             balloon: '',
             balloonLang: 'zh',
+            balloonType: 80,
             printers,
             token: '',
         });
@@ -84,6 +85,7 @@ const clientSchema = Schema.object({
     server: Schema.string().role('url').required(),
     balloon: Schema.string(),
     balloonLang: Schema.union(['zh', 'en']).default('zh').required(),
+    balloonType: Schema.union([58, 80]).default(80),
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'),
     token: Schema.string().required().description('Token generated on server'),
     fonts: Schema.array(Schema.string()).default([]),

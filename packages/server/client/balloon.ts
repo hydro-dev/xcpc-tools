@@ -35,7 +35,7 @@ export const receiptText = (
 ) => encoder
     .initialize()
     .codepage('cp936')
-    .setPinterType(80) // wrong typo in the library
+    .setPinterType(config.balloonType ?? 80) // wrong typo in the library
     .align('center')
     .bold(true)
     .size(2)
@@ -45,7 +45,7 @@ export const receiptText = (
     .emptyLine(1)
     .bold(false)
     .size(1)
-    .line('===========================================')
+    .line('===============================')
     .emptyLine(1)
     .oneLine(i18n[lang].location, location)
     .oneLine(i18n[lang].problem, problem)
@@ -54,7 +54,7 @@ export const receiptText = (
     .emptyLine(1)
     .align('center')
     .bold(true)
-    .line('===========================================')
+    .line('================================')
     .emptyLine(2)
     .size(0)
     .line(`${i18n[lang].team}: ${teamname}`)
@@ -76,7 +76,7 @@ async function printBalloon(doc, lang) {
         doc.balloonid,
         doc.location ? doc.location : 'N/A',
         doc.problem,
-        lang === 'zh' ? convertToChinese(doc.contestproblem.color) : doc.contestproblem.color,
+        lang === 'zh' ? await convertToChinese(doc.contestproblem.color) : doc.contestproblem.color,
         doc.awards ? doc.awards : 'N/A',
         doc.team,
         doc.total ? Object.keys(doc.total).map((k) => `- ${k}: ${doc.total[k].color}`).join('\n') : 'N/A',
@@ -94,7 +94,7 @@ async function fetchTask(c) {
         if (body.balloons) {
             for (const doc of body.balloons) {
                 logger.info(`Print balloon task ${doc.teamid}#${doc.balloonid}...`);
-                await printBalloon(doc, config.receiptLang);
+                await printBalloon(doc, config.balloonLang);
                 await post(`${c.server}/client/${c.token}/doneballoon/${doc.balloonid}`);
                 logger.info(`Print task ${doc.teamid}#${doc.balloonid} completed.`);
             }
