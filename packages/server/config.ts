@@ -68,7 +68,7 @@ const serverSchema = Schema.intersect([
                 Schema.const('domjudge'),
                 Schema.const('hydro'),
             ] as const).required(),
-            server: Schema.string().role('url').required(),
+            server: Schema.transform(String, (i) => (i.endsWith('/') ? i : `${i}/`)).role('url').required(),
             contestId: Schema.string(),
             token: Schema.string(),
             username: Schema.string(),

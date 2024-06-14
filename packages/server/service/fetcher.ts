@@ -64,14 +64,14 @@ class DOMjudgeFetcher extends BasicFetcher {
     async contestInfo() {
         let contest;
         if (!config.contestId) {
-            const { body } = await fetch('/api/v4/contests?onlyActive=true');
+            const { body } = await fetch('./api/v4/contests?onlyActive=true');
             if (!body || !body.length) {
                 logger.error('Contest not found');
                 return false;
             }
             contest = body[0];
         } else {
-            const { body } = await fetch(`/api/v4/contests/${config.contestId}`);
+            const { body } = await fetch(`./api/v4/contests/${config.contestId}`);
             if (!body || !body.id) {
                 logger.error(`Contest ${config.contestId} not found`);
                 return false;
@@ -88,7 +88,7 @@ class DOMjudgeFetcher extends BasicFetcher {
     }
 
     async teamInfo() {
-        const { body } = await fetch(`/api/v4/contests/${this.contest.id}/teams`);
+        const { body } = await fetch(`./api/v4/contests/${this.contest.id}/teams`);
         if (!body || !body.length) return;
         const teams = body;
         for (const team of teams) {
@@ -99,7 +99,7 @@ class DOMjudgeFetcher extends BasicFetcher {
 
     async balloonInfo(all) {
         if (all) logger.info('Sync all balloons...');
-        const { body } = await fetch(`/api/v4/contests/${this.contest.id}/balloons?todo=${all ? 'false' : 'true'}`);
+        const { body } = await fetch(`./api/v4/contests/${this.contest.id}/balloons?todo=${all ? 'false' : 'true'}`);
         if (!body || !body.length) return;
         const balloons = body;
         for (const balloon of balloons) {
@@ -136,7 +136,7 @@ class DOMjudgeFetcher extends BasicFetcher {
     }
 
     async setBalloonDone(bid) {
-        await fetch(`/api/v4/contests/${this.contest.id}/balloons/${bid}/done`, 'post');
+        await fetch(`./api/v4/contests/${this.contest.id}/balloons/${bid}/done`, 'post');
         logger.debug(`Balloon ${bid} set done`);
     }
 }
