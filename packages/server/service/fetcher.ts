@@ -9,12 +9,15 @@ const fetch = (url: string, type: 'get' | 'post' = 'get') => {
     const endpoint = new URL(url, config.server).toString();
     const req = superagent[type](endpoint)
         .set('Authorization', config.token)
-        .set('Accept', 'application/json');
+        .set('Accept', 'application/json')
+        .ok(() => true);
     return new Proxy(req, {
         get(target, prop) {
             if (prop === 'then') {
-                return (...args) => target.then(...args)
-                    .catch((e) => { throw new Error(`Failed to ${type} ${endpoint}: ${e.message}`); });
+                return (...args) => target.then((res) => {
+                    if (res.status !== 200) throw new Error(`Failed to ${type} ${endpoint} : ${res.status} - ${JSON.stringify(res.body || {})}`);
+                    return res;
+                }).then(...args);
             }
             return req[prop];
         },
@@ -52,7 +55,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
     async contestInfo() {
         const old = this?.contest?.id;
         this.contest = { name: 'No Contest', id: 'server-mode' };
-        return old === this.contest.id;
+        return old !== this.contest.id;
     }
 
     async getToken(username, password) {
@@ -97,7 +100,7 @@ class DOMjudgeFetcher extends BasicFetcher {
         const old = this?.contest?.id;
         this.contest = { info: contest, id: contest.id, name: contest.name };
         logger.info(`Connected to ${contest.name}(id=${contest.id})`);
-        return old === this.contest.id;
+        return old !== this.contest.id;
     }
 
     async teamInfo() {
