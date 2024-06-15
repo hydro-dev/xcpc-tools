@@ -67,7 +67,6 @@ const compiler = webpack({
       },
       {
         test: /\.[mc]?[jt]sx?$/,
-        exclude: [/@types\//, /components\/message\//, /entry\.js/],
         type: 'javascript/auto',
         use: [esbuildLoader()],
       },

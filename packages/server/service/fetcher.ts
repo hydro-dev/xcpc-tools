@@ -5,8 +5,21 @@ import { config } from '../config';
 import { Logger, mongoId } from '../utils';
 
 const logger = new Logger('fetcher');
-const fetch = (url: string, type: 'get' | 'post' = 'get') => superagent[type](new URL(url, config.server).toString())
-    .set('Authorization', config.token).set('Accept', 'application/json');
+const fetch = (url: string, type: 'get' | 'post' = 'get') => {
+    const endpoint = new URL(url, config.server).toString();
+    const req = superagent[type](endpoint)
+        .set('Authorization', config.token)
+        .set('Accept', 'application/json');
+    return new Proxy(req, {
+        get(target, prop) {
+            if (prop === 'then') {
+                return (...args) => target.then(...args)
+                    .catch((e) => { throw new Error(`Failed to ${type} ${endpoint}: ${e.message}`); });
+            }
+            return req[prop];
+        },
+    });
+};
 export interface IBasicFetcher {
     contest: Record<string, any>
     cron(): Promise<void>
