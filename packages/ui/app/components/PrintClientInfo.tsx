@@ -133,7 +133,7 @@ export function PrintClientInfo({ clients, refresh }) {
               <>
                 <Text>IP: {item.ip}</Text>
                 <Text>Updated At: {new Date(item.updateAt).toLocaleString()}</Text>
-                <PrintersInfo client={item} refresh={refresh} />
+                { item.printersInfo && <PrintersInfo client={item} refresh={refresh} /> }
               </>
             )}
           </Accordion.Panel>
