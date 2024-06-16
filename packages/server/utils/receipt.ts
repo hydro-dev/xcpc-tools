@@ -44,7 +44,7 @@ export async function checkReceiptStatus(printer) {
         printer: printer.printer,
         info: fs.readFileSync(`/sys/class/usbmisc/${lp}/device/ieee1284_id`, 'utf8').trim(),
     };
-    if (!oldPrinter || oldPrinter.info === printer.info) return printer;
+    if (!oldPrinter?.info || oldPrinter.info === printer.info) return printer;
     logger.info('Printer changed:', printer.printer, printer.info);
     const usbDevices = fs.readdirSync('/dev/usb');
     for (const f of usbDevices) {

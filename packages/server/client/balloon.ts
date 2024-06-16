@@ -72,6 +72,8 @@ let timer = null;
 let printer = null;
 
 async function printBalloon(doc, lang) {
+    const status = (doc.total ? Object.keys(doc.total).map(async (k) =>
+        `- ${k}: ${lang === 'zh' ? await convertToChinese(doc.total[k].color) : doc.total[k].color}`).join('\n') : 'N/A');
     const bReceipt = receiptText(
         doc.balloonid,
         doc.location ? doc.location : 'N/A',
@@ -79,8 +81,7 @@ async function printBalloon(doc, lang) {
         lang === 'zh' ? await convertToChinese(doc.contestproblem.color) : doc.contestproblem.color,
         doc.awards ? doc.awards : 'N/A',
         doc.team,
-        doc.total ? Object.keys(doc.total).map(async (k) =>
-            `- ${k}: ${lang === 'zh' ? await convertToChinese(doc.total[k].color) : doc.total[k].color}`).join('\n') : 'N/A',
+        status,
         lang,
     );
     printer = await checkReceiptStatus(printer);

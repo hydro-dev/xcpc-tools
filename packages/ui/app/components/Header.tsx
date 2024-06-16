@@ -12,11 +12,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const iconStyle = { width: rem(18), height: rem(18) };
 
 const mainLinks = [
-  { link: '/', label: 'Dashboard', icon: <IconHome style={iconStyle} /> },
-  { link: '/print', label: 'Print', icon: <IconPrinter style={iconStyle} /> },
-  { link: '/balloon', label: 'Balloon', icon: <IconBalloonFilled style={iconStyle} /> },
-  { link: '/monitor', label: 'Monitor', icon: <IconDeviceHeartMonitor style={iconStyle} /> },
-  { link: '/commands', label: 'Commands', icon: <IconDeviceHeartMonitor style={iconStyle} /> },
+  { link: '/', label: <Text visibleFrom="md">Dashboard</Text>, icon: <IconHome style={iconStyle} /> },
+  { link: '/print', label: <Text visibleFrom="md">Print</Text>, icon: <IconPrinter style={iconStyle} /> },
+  { link: '/balloon', label: <Text visibleFrom="md">Balloon</Text>, icon: <IconBalloonFilled style={iconStyle} /> },
+  { link: '/monitor', label: <Text visibleFrom="md">Monitor</Text>, icon: <IconDeviceHeartMonitor style={iconStyle} /> },
+  { link: '/commands', label: <Text visibleFrom="md">Commands</Text>, icon: <IconDeviceHeartMonitor style={iconStyle} /> },
 ];
 
 export function Header() {
@@ -33,11 +33,11 @@ export function Header() {
     <header>
       <Container size="xl">
         <Group justify="space-between" h="100%" px="md">
-          <Title order={4}>Hydro/XCPC-TOOLS</Title>
-
-          <Group visibleFrom="sm">
-            <Text>{window.Context.contest.name}</Text>
-          </Group>
+          <Title order={3}>
+            Hydro/XCPC-TOOLS
+            <Text hiddenFrom="xl">{window.Context.contest.id}</Text>
+            <Text visibleFrom="xl">{window.Context.contest.name}</Text>
+          </Title>
 
           <Group h="100%" gap={0} visibleFrom="sm">
             <Tabs
