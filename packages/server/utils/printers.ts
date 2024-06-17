@@ -22,8 +22,10 @@ export function initWinPrinter() {
         './SumatraPDF.exe',
         path.resolve(__dirname, 'SumatraPDF.exe'),
         path.resolve(process.cwd(), 'SumatraPDF.exe'),
-        'C:\\Program Files\\SumatraPDF\\SumatraPDF.exe',
-        'C:\\Program Files (x86)\\SumatraPDF\\SumatraPDF.exe',
+        path.resolve(process.env.ProgramFiles, 'SumatraPDF\\SumatraPDF.exe'),
+        path.resolve(process.env['ProgramFiles(x86)'], 'SumatraPDF\\SumatraPDF.exe'),
+        path.resolve(process.env.LOCALAPPDATA, 'SumatraPDF\\SumatraPDF.exe'),
+        path.resolve(process.env.APPDATA, 'SumatraPDF\\SumatraPDF.exe'),
     ];
     const sumatraPdfPath = execPath.find((p) => fs.existsSync(p));
     if (!sumatraPdfPath) {
