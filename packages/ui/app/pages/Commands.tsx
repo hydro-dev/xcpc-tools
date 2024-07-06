@@ -16,10 +16,10 @@ export default function Commands() {
         notifications.show({ title: 'Error', message: `${res.error.message}(${res.error.params})`, color: 'red' });
         return;
       }
-      notifications.show({ title: 'Success', message: 'Balloon Updated', color: 'green' });
+      notifications.show({ title: 'Success', message: 'Commands Submitted', color: 'green' });
     } catch (e) {
       console.error(e);
-      notifications.show({ title: 'Error', message: 'Failed to update balloon', color: 'red' });
+      notifications.show({ title: 'Error', message: 'Failed to submit Commands', color: 'red' });
     }
   };
 
