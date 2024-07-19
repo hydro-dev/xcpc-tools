@@ -36,7 +36,7 @@ export default function Commands() {
         onChange={(ev) => setCommand(ev.target.value)}
       />
       <Group justify="center" my="md">
-        <Button onClick={() => fetch('/commands', { method: 'POST', body: JSON.stringify({ command }) })}>Send</Button>
+        <Button onClick={() => fetch('/commands', { method: 'POST', body: JSON.stringify({ command, operation: 'command' }) })}>Send</Button>
       </Group>
       <Divider my="md" />
       <Title order={3}>Quick Commands</Title>
