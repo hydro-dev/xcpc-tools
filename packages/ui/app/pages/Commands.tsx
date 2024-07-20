@@ -5,12 +5,12 @@ import { notifications } from '@mantine/notifications';
 export default function Commands() {
   const [command, setCommand] = React.useState('');
 
-  const operation = async (op: string) => {
+  const operation = async (op: string, withCommand = false) => {
     try {
       const res = await (await fetch('/commands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operation: op }),
+        body: JSON.stringify({ operation: op, command: withCommand ? command : undefined }),
       })).json();
       if (res.error) {
         notifications.show({ title: 'Error', message: `${res.error.message}(${res.error.params})`, color: 'red' });
@@ -36,7 +36,7 @@ export default function Commands() {
         onChange={(ev) => setCommand(ev.target.value)}
       />
       <Group justify="center" my="md">
-        <Button onClick={() => fetch('/commands', { method: 'POST', body: JSON.stringify({ command, operation: 'command' }) })}>Send</Button>
+        <Button onClick={() => operation('command', true)}>Send</Button>
       </Group>
       <Divider my="md" />
       <Title order={3}>Quick Commands</Title>
