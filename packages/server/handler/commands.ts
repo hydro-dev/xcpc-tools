@@ -1,7 +1,7 @@
 /* eslint-disable no-empty-pattern */
 /* eslint-disable no-await-in-loop */
 import { Context } from 'cordis';
-import { param, Types } from '@hydrooj/framework';
+import { BadRequestError } from '@hydrooj/framework';
 import { config } from '../config';
 import { executeOnHost } from '../utils';
 import { AuthHandler } from './misc';
@@ -11,8 +11,8 @@ class CommandsHandler extends AuthHandler {
         this.response.body = '';
     }
 
-    @param('command', Types.String)
-    async postCommand({ }, command: string) {
+    async postCommand({ command }) {
+        if (!command || typeof command !== 'string') throw new BadRequestError('Command', null, 'Command is required');
         this.response.body = this.executeForAll(command);
     }
 
