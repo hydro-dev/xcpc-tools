@@ -23,7 +23,7 @@ if (!fs.existsSync(configPath)) {
 type: server # server | domjudge | hydro
 viewPass: ${String.random(8)} # use admin / viewPass to login
 secretRoute: ${String.random(12)}
-seatFile: /home/icpc/Desktop/seat.txt
+seatFile: /home/icpc/Desktop/seats.txt
 # if type is server, the following is not needed
 server: 
 token: 
