@@ -10,7 +10,6 @@
     "preferUnplugged": true,
     "devDependencies": {
         "@hydrooj/xcpc-tools": "workspace:*",
-        "@mantine/code-highlight": "^7.10.2",
         "@mantine/core": "^7.10.2",
         "@mantine/form": "^7.10.2",
         "@mantine/hooks": "^7.10.2",
