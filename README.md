@@ -26,7 +26,7 @@ Server 端分为 `Server Mode` 和 `Fetch Mode` ，在 `Fetch Mode` 下支持获
 
 在 [Releases](https://github.com/hydro-dev/xcpc-tools/releases/) 下载已经封装好的 Windows、Linux、MacOS 二进制使用，如有未封装好的架构但 Node.js 支持的系统或系统内已有 Node.js 亦可下载 `xcpc-tools-bundle.js`使用。
 
-下载后首次运行可见填写配置文件字样，打开 `config.server.yaml` ，如使用 `Fetch Mode` 请填写相关赛事系统配置，如使用 `Server Mode` 则无须填写配置可直接启动。
+下载后首次运行可见填写配置文件字样，打开 `config.yaml` ，如使用 `Fetch Mode` 请填写相关赛事系统配置，如使用 `Server Mode` 则无须填写配置可直接启动。
 
 系统配置介绍如下：
 
@@ -102,3 +102,25 @@ const serverSchema = Schema.intersect([
 
 #### Commands
 服务支持通过 `ssh` 执行命令，如您需要执行命令，内置的命令分别为 重启、根据 `config.seatFile` 选手座位绑定文件更新选手机机器名称、显示选手机座位信息。如您需要执行其他命令，请直接在 UI 界面中输入指令，系统会自动向所有选手机发送指令，并返回结果。
+
+### Client
+
+Client 端分为打印代码和打印小票两个功能，支持 Windows、Linux、MacOS 三大平台，支持打印机自动检测，在 Windows 下需要安装 `SumatraPDF` 用于打印 PDF 文件，如您的系统没有安装 `SumatraPDF` ，请根据提示下载便携版并放置于同一目录中。
+
+Client 端的配置文件为 `config.yaml` ，配置文件介绍如下：
+
+```ts
+const clientSchema = Schema.object({
+    server: Schema.string().role('url').required(), // XCPC-TOOLS 服务地址
+    balloon: Schema.string(), // 气球小票机路径或名称，请自行根据启动后的提示填写
+    balloonLang: Schema.union(['zh', 'en']).default('zh').required(), // 气球小票语言
+    balloonType: Schema.union([58, 80]).default(80), // 气球小票机纸张宽度
+    printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'), // 打印机列表，如果为空则不启用打印功能
+    token: Schema.string().required().description('Token generated on server'), // 服务端 Token
+    fonts: Schema.array(Schema.string()).default([]), // 额外字体路径
+});
+```
+
+在启动 Client 前，请前往服务端新建 Client ，获取到 Client 所需的 token ， token 为 Client 与 Server 通信的密钥，如您的 token 泄漏，请及时删除 Client 并重新生成，以保证系统安全，一个 token 只能对应一个 Client ，但同时支持两个功能，无需重复生成。
+
+首次启动时，系统会检测打印机并提示您填写配置文件，填写好配置文件后即可启动客户端，客户端会自动连接服务端并获取打印信息。

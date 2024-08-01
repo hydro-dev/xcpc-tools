@@ -1,6 +1,6 @@
 {
   "name": "@hydrooj/xcpc-tools",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A tools for XCPC contests",
   "main": "index.ts",
   "repository": "https://github.com/Hydro-dev/xcpc-tools",
