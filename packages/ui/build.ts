@@ -4,7 +4,6 @@ import fs from 'fs-extra';
 import path from 'path';
 import webpack from 'webpack';
 import WebpackDevServer from 'webpack-dev-server';
-import WebpackBar from 'webpackbar';
 
 function esbuildLoader() {
   return {
@@ -81,7 +80,7 @@ const compiler = webpack({
     ],
   },
   plugins: [
-    new WebpackBar(),
+    new webpack.ProgressPlugin(),
     new webpack.ProvidePlugin({
       React: 'react',
     }),
@@ -105,10 +104,10 @@ logger.info('Building...');
       hot: true,
       server: 'http',
       allowedHosts: 'all',
-      proxy: {
+      proxy: [{
         context: (p) => p !== '/ws',
         target: process.env.TOOLS_API || 'http://localhost:5283',
-      },
+      }],
       client: {
         webSocketURL: 'auto://0.0.0.0:0/ws',
       },
