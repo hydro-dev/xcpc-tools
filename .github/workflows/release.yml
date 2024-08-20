@@ -45,8 +45,8 @@ jobs:
       - name: Get release version and commit
         id: tag
         run: |
-          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
-          echo "::set-output name=version::$(node -p "require('./packages/server/package.json').version")"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "version=$(node -p "require('./packages/server/package.json').version")" >> $GITHUB_OUTPUT
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
