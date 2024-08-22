@@ -5,18 +5,18 @@ import {
   Tabs, Text, Title,
 } from '@mantine/core';
 import {
-  IconBalloonFilled, IconDeviceHeartMonitor, IconHome, IconPrinter,
+  IconBalloonFilled, IconDeviceHeartMonitor, IconHome, IconPrinter, IconTerminal2,
 } from '@tabler/icons-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const iconStyle = { width: rem(18), height: rem(18) };
 
 const mainLinks = [
-  { link: '/', label: <Text visibleFrom="md">Dashboard</Text>, icon: <IconHome style={iconStyle} /> },
-  { link: '/print', label: <Text visibleFrom="md">Print</Text>, icon: <IconPrinter style={iconStyle} /> },
-  { link: '/balloon', label: <Text visibleFrom="md">Balloon</Text>, icon: <IconBalloonFilled style={iconStyle} /> },
-  { link: '/monitor', label: <Text visibleFrom="md">Monitor</Text>, icon: <IconDeviceHeartMonitor style={iconStyle} /> },
-  { link: '/commands', label: <Text visibleFrom="md">Commands</Text>, icon: <IconDeviceHeartMonitor style={iconStyle} /> },
+  { link: '/', label: 'Dashboard', icon: <IconHome style={iconStyle} /> },
+  { link: '/print', label: 'Print', icon: <IconPrinter style={iconStyle} /> },
+  { link: '/balloon', label: 'Balloon', icon: <IconBalloonFilled style={iconStyle} /> },
+  { link: '/monitor', label: 'Monitor', icon: <IconDeviceHeartMonitor style={iconStyle} /> },
+  { link: '/commands', label: 'Commands', icon: <IconTerminal2 style={iconStyle} /> },
 ];
 
 export function Header() {
@@ -25,7 +25,7 @@ export function Header() {
 
   const mainItems = mainLinks.map((item) => (
     <Tabs.Tab key={item.link} value={item.link} mr="xs" leftSection={item.icon}>
-      {item.label}
+      <Text visibleFrom='md'>{item.label}</Text>
     </Tabs.Tab>
   ));
 
@@ -43,7 +43,7 @@ export function Header() {
             <Tabs
               variant="pills"
               value={nowRoute}
-              onChange={(value) => navigate(value)}
+              onChange={(value) => navigate(value!)}
             >
               <Tabs.List>
                 {mainItems}
