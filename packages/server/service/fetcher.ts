@@ -249,7 +249,7 @@ const fetcherList = {
     hydro: HydroFetcher,
 };
 
-export async function apply(ctx) {
+export async function apply(ctx: Context) {
     if (config.type !== 'server') {
         logger.info('Fetch mode: ', config.type);
     }

@@ -62,7 +62,9 @@ export interface ClientDoc {
     printersInfo?: any[];
 
     // for ballon client
-    url?: string;
+    token?: string;
+    chatId?: string;
+    endpoint?: string;
     template?: string;
 }
 
