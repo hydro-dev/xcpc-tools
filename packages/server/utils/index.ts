@@ -114,3 +114,4 @@ export * from './commandRunner';
 export * from './printers';
 export * from './color';
 export * from './receipt';
+export * from './metrics';

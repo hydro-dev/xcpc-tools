@@ -1,13 +1,15 @@
 /* eslint-disable no-await-in-loop */
 // @ts-ignore
 import { Context } from 'cordis';
+import { Registry } from 'prom-client';
 import { Handler } from '@hydrooj/framework';
 import { config } from '../config';
 import StaticFrontend from '../data/static.frontend';
-import { decodeBinary, StaticHTML } from '../utils';
+import { createMetricsRegistry, decodeBinary, StaticHTML } from '../utils';
 
 const randomHash = String.random(8).toLowerCase();
 const buf = decodeBinary(StaticFrontend);
+let registry: Registry;
 
 class StaticHandler extends Handler {
     async get() {
@@ -52,7 +54,18 @@ class HomeHandler extends AuthHandler {
     }
 }
 
+class MetricsHandler extends AuthHandler {
+    notUsage = true;
+
+    async get() {
+        this.response.body = await registry.metrics();
+        this.response.type = 'text/plain';
+    }
+}
+
 export async function apply(ctx: Context) {
+    registry = createMetricsRegistry(ctx);
     ctx.Route('home', '/', HomeHandler);
     ctx.Route('static', '/main.js', StaticHandler);
+    ctx.Route('metrics', '/metrics', MetricsHandler);
 }
