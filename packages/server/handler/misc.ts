@@ -58,6 +58,10 @@ class MetricsHandler extends AuthHandler {
     notUsage = true;
 
     async get() {
+        if (this.request.json) {
+            this.response.body = await registry.getMetricsAsJSON();
+            return;
+        }
         this.response.body = await registry.metrics();
         this.response.type = 'text/plain';
     }
