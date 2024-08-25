@@ -1,5 +1,6 @@
 import { Context } from 'cordis';
 import superagent from 'superagent';
+import { Logger } from '../utils';
 
 const logger = new Logger('notifier');
 
