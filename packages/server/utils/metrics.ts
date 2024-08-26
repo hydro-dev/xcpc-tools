@@ -22,7 +22,11 @@ export function createMetricsRegistry(ctx: Context) {
 
     createMetric(Gauge, 'xcpc_machinecount', 'machinecount', {
         async collect() {
-            this.set({}, await ctx.db.monitor.count({ updateAt: { $gt: new Date().getTime() - 120 * 1000 } }));
+            const machines = await ctx.db.monitor.find({});
+            const onlines = machines.filter((m) => m.updateAt > new Date().getTime() - 1000 * 60);
+            this.set({ type: 'total' }, machines.length);
+            this.set({ type: 'online' }, onlines.length);
+            this.set({ type: 'offline' }, machines.length - onlines.length);
         },
     });
 
