@@ -7,6 +7,11 @@ declare module 'cordis' {
     interface Context {
         metrics: Registry;
     }
+    interface Events {
+        'print/newTask': () => void;
+        'print/sendTask': () => void;
+        'print/doneTask': () => void;
+    }
 }
 
 export function createMetricsRegistry(ctx: Context) {
@@ -21,14 +26,23 @@ export function createMetricsRegistry(ctx: Context) {
     }
 
     createMetric(Gauge, 'xcpc_machinecount', 'machinecount', {
+        labelNames: ['status'],
         async collect() {
             const machines = await ctx.db.monitor.find({});
             const onlines = machines.filter((m) => m.updateAt > new Date().getTime() - 1000 * 60);
-            this.set({ type: 'total' }, machines.length);
-            this.set({ type: 'online' }, onlines.length);
-            this.set({ type: 'offline' }, machines.length - onlines.length);
+            this.set({ status: 'online' }, onlines.length);
+            this.set({ status: 'offline' }, machines.length - onlines.length);
         },
     });
+
+    const printTaskCounter = createMetric(Counter, 'xcpc_printcount', 'printcount', {
+        labelNames: ['status'],
+    });
+    ctx.on('print/newTask', () => printTaskCounter.inc({ status: 'new' }));
+
+    ctx.on('print/sendTask', () => printTaskCounter.inc({ status: 'sent' }));
+
+    ctx.on('print/doneTask', () => printTaskCounter.inc({ status: 'done' }));
 
     collectDefaultMetrics({ register: registry });
 
