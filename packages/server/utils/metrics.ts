@@ -9,8 +9,8 @@ declare module 'cordis' {
     }
     interface Events {
         'print/newTask': () => void;
-        'print/sendTask': () => void;
-        'print/doneTask': () => void;
+        'print/sendTask': (client: string) => void;
+        'print/doneTask': (client: string) => void;
     }
 }
 
@@ -36,13 +36,13 @@ export function createMetricsRegistry(ctx: Context) {
     });
 
     const printTaskCounter = createMetric(Counter, 'xcpc_printcount', 'printcount', {
-        labelNames: ['status'],
+        labelNames: ['status', 'client'],
     });
     ctx.on('print/newTask', () => printTaskCounter.inc({ status: 'new' }));
 
-    ctx.on('print/sendTask', () => printTaskCounter.inc({ status: 'sent' }));
+    ctx.on('print/sendTask', (client) => printTaskCounter.inc({ status: 'sent', client }));
 
-    ctx.on('print/doneTask', () => printTaskCounter.inc({ status: 'done' }));
+    ctx.on('print/doneTask', (client) => printTaskCounter.inc({ status: 'done', client }));
 
     collectDefaultMetrics({ register: registry });
 

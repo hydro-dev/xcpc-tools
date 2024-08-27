@@ -67,7 +67,7 @@ class ClientPrintConnectHandler extends Handler {
         }
         this.response.body = { doc: code };
         if (params.printer && params.printer !== client.printer) this.response.body.setPrinter = client.printer;
-        await this.ctx.parallel('print/sendTask');
+        await this.ctx.parallel('print/sendTask', client._id);
         logger.info(`Client ${client.name} connected, print task ${code.tid}#${code._id} sent.`);
         await this.ctx.db.code.updateOne({ _id: code._id }, { $set: { printer: params.cid, receivedAt: new Date().getTime() } });
     }
@@ -81,7 +81,7 @@ class ClientPrintDoneHandler extends Handler {
         if (!code) throw new ValidationError('Code', null, 'Code not found');
         if (code.printer !== params.cid) throw new BadRequestError('Client', null, 'Client not match');
         await this.ctx.db.code.updateOne({ _id: params.tid }, { $set: { done: 1, doneAt: new Date().getTime() } });
-        await this.ctx.parallel('print/doneTask');
+        await this.ctx.parallel('print/doneTask', client._id);
         this.response.body = { code: 1 };
         logger.info(`Client ${client.name} connected, print task ${code.tid}#${code._id} completed.`);
     }
