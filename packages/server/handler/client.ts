@@ -81,7 +81,7 @@ class ClientPrintDoneHandler extends Handler {
         if (!code) throw new ValidationError('Code', null, 'Code not found');
         if (code.printer !== params.cid) throw new BadRequestError('Client', null, 'Client not match');
         await this.ctx.db.code.updateOne({ _id: params.tid }, { $set: { done: 1, doneAt: new Date().getTime() } });
-        await this.ctx.parallel('print/doneTask', client._id);
+        await this.ctx.parallel('print/doneTask', client._id, `${client._id}#${params.printer || 'unknown'}`);
         this.response.body = { code: 1 };
         logger.info(`Client ${client.name} connected, print task ${code.tid}#${code._id} completed.`);
     }

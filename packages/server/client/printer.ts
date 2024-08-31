@@ -43,22 +43,25 @@ export async function printFile(doc) {
                 if (randomP.status === 'idle') {
                     logger.info(`Printing ${_id} on ${randomP.printer}`);
                     await print(path.resolve(process.cwd(), `data/${tid}#${_id}.pdf`), randomP.printer, 1, 5);
-                    return;
+                    return randomP.printer;
                 }
                 for (const printer of printers.filter((p) => p.printer !== randomP.printer)) {
                     logger.info(`Checking ${printer.printer} ${printer.status}`);
                     if (printer.status === 'idle') {
                         logger.info(`Printing ${_id} on ${printer.printer}`);
                         await print(path.resolve(process.cwd(), `data/${tid}#${_id}.pdf`), printer.printer, 1, 5);
-                        return;
+                        return printer.printer;
                     }
                 }
                 logger.info('No Printer can found to print, sleeping...');
                 await sleep(3000);
             }
         }
+        logger.error('No Printer Configured');
+        return null;
     } catch (e) {
         logger.error(e);
+        return null;
     }
 }
 
@@ -83,8 +86,9 @@ async function fetchTask(c) {
         }
         if (body.doc) {
             logger.info(`Print task ${body.doc.tid}#${body.doc._id}...`);
-            await printFile(body.doc);
-            await post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}`);
+            const printer = await printFile(body.doc);
+            if (!printer) throw new Error('No Printer Configured');
+            await post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}?printer=${printer}`);
             logger.info(`Print task ${body.doc.tid}#${body.doc._id} completed.`);
         } else {
             logger.info('No print task, sleeping...');

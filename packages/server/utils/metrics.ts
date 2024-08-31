@@ -10,7 +10,7 @@ declare module 'cordis' {
     interface Events {
         'print/newTask': () => void;
         'print/sendTask': (client: string) => void;
-        'print/doneTask': (client: string) => void;
+        'print/doneTask': (client: string, printer: string) => void;
     }
 }
 
@@ -42,7 +42,7 @@ export function createMetricsRegistry(ctx: Context) {
 
     ctx.on('print/sendTask', (client) => printTaskCounter.inc({ status: 'sent', client }));
 
-    ctx.on('print/doneTask', (client) => printTaskCounter.inc({ status: 'done', client }));
+    ctx.on('print/doneTask', (client, printer) => printTaskCounter.inc({ status: 'done', client, printer }));
 
     collectDefaultMetrics({ register: registry });
 
