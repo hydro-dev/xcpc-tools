@@ -148,6 +148,7 @@ class DOMjudgeFetcher extends BasicFetcher {
                 },
             }, { upsert: true });
         }
+        await this.ctx.parallel('balloon/newTask', balloons.length);
         logger.debug(`Found ${balloons.length} balloons`);
     }
 
@@ -234,6 +235,7 @@ class HydroFetcher extends BasicFetcher {
                 },
             }, { upsert: true });
         }
+        await this.ctx.parallel('balloon/newTask', balloons.length);
         logger.debug(`Found ${balloons.length} balloons`);
     }
 

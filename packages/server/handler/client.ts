@@ -99,6 +99,7 @@ class ClientBallloonConnectHandler extends Handler {
         await this.ctx.db.client.updateOne({ id: params.cid }, { $set: { updateAt: new Date().getTime(), ip } });
         await this.ctx.db.balloon.update({ balloonid: { $in: balloons.map((b) => b.balloonid) } },
             { $set: { receivedAt: new Date().getTime() } }, { multi: true });
+        await this.ctx.parallel('balloon/sendTask', client._id, balloons.length);
     }
 }
 
@@ -110,6 +111,7 @@ class ClientBalloonDoneHandler extends Handler {
         if (!balloon) throw new ValidationError('Balloon', params.bid, 'Balloon not found');
         await this.ctx.db.balloon.updateOne({ balloonid: +params.bid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
         if (!balloon.done) await this.ctx.fetcher.setBalloonDone(balloon.balloonid);
+        await this.ctx.parallel('balloon/doneTask', client._id, 1);
         this.response.body = { code: 1 };
         logger.info(`Client ${client.name} connected, balloon task ${balloon.teamid}#${balloon.balloonid} completed.`);
     }

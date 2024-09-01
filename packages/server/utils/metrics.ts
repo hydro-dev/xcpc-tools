@@ -11,6 +11,9 @@ declare module 'cordis' {
         'print/newTask': () => void;
         'print/sendTask': (client: string) => void;
         'print/doneTask': (client: string, printer: string) => void;
+        'balloon/newTask': (count: number) => void;
+        'balloon/sendTask': (client: string, count: number) => void;
+        'balloon/doneTask': (client: string, count: number) => void;
     }
 }
 
@@ -43,6 +46,15 @@ export function createMetricsRegistry(ctx: Context) {
     ctx.on('print/sendTask', (client) => printTaskCounter.inc({ status: 'sent', client }));
 
     ctx.on('print/doneTask', (client, printer) => printTaskCounter.inc({ status: 'done', client, printer }));
+
+    const balloonTaskCounter = createMetric(Counter, 'xcpc_ballooncount', 'ballooncount', {
+        labelNames: ['status', 'client'],
+    });
+    ctx.on('balloon/newTask', (count) => balloonTaskCounter.inc({ status: 'new' }, count));
+
+    ctx.on('balloon/sendTask', (client, count) => balloonTaskCounter.inc({ status: 'sent', client }, count));
+
+    ctx.on('balloon/doneTask', (client, count) => balloonTaskCounter.inc({ status: 'done', client }, count));
 
     collectDefaultMetrics({ register: registry });
 
