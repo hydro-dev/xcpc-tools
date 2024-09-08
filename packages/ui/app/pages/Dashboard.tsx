@@ -11,14 +11,16 @@ export function StatsCard({ title, value, Icon }) {
   return (
     <Paper withBorder p="md" radius="md" key={title}>
       <Group justify="space-between">
-        <Text size="xs" c="dimmed">
+        <Text size="md" c="dimmed">
           {title}
         </Text>
-        <Icon size="1.4rem" stroke={1.5} />
+        <Icon size="2rem" stroke={1.5} />
       </Group>
 
       <Group align="flex-end" gap="xs" mt={25}>
-        <Text>{value}</Text>
+        <Text size="xl" fw={700}>
+          {value}
+        </Text>
       </Group>
     </Paper>
   );
