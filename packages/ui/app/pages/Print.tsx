@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Card, Center, Grid, Group, LoadingOverlay, Text, Title,
+  Card, Center, Grid, Group, LoadingOverlay, Switch, Text, Title,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { PrintClientAdd, PrintTaskAdd } from '../components/PrintAdd';
@@ -16,6 +16,8 @@ export default function Print() {
 
   const load = query.isLoading || query.isFetching || query.isRefetching;
 
+  const [colorCode, setColorCode] = React.useState(false);
+
   return (
     <>
       <Grid>
@@ -24,13 +26,17 @@ export default function Print() {
             <LoadingOverlay visible={load} zIndex={1000} />
             <Group justify="space-between" mb="xs">
               <Title order={3}>Print Tasks</Title>
-              <PrintTaskAdd refresh={query.refetch} />
+              <Group mb="xs">
+                Color Code
+                <Switch checked={colorCode} onChange={(ev) => setColorCode(ev.currentTarget.checked)} />
+                <PrintTaskAdd refresh={query.refetch} />
+              </Group>
             </Group>
             {(!(query.isLoading || query.isFetching) && (!(query.data?.codes || []).length) ? (
               <Center mt="md">
                 <Text c="dimmed">No tasks found</Text>
               </Center>
-            ) : (<PrintTasksTable codes={query.data?.codes || []} refresh={query.refetch} />))}
+            ) : (<PrintTasksTable colorCode={colorCode} codes={query.data?.codes || []} refresh={query.refetch} />))}
           </Card>
         </Grid.Col>
         <Grid.Col span={3}>

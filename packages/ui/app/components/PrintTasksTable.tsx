@@ -10,7 +10,7 @@ import {
   IconCheck, IconEye, IconHourglassEmpty, IconPrinter, IconRefresh, IconX,
 } from '@tabler/icons-react';
 
-function PrintTaskRow({ task, refresh }) {
+function PrintTaskRow({ colorCode, task, refresh }) {
   const [loading, setLoading] = React.useState(false);
 
   const codeActions = async (_id, operation) => {
@@ -18,7 +18,7 @@ function PrintTaskRow({ task, refresh }) {
     const post = () => fetch('/print', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ _id, operation }),
+      body: JSON.stringify({ _id, operation, color: colorCode }),
     });
     if (operation === 'view') {
       const pdf = await (await post()).blob();
@@ -93,7 +93,7 @@ function PrintTaskRow({ task, refresh }) {
   );
 }
 
-export function PrintTasksTable({ codes, refresh }) {
+export function PrintTasksTable({ colorCode, codes, refresh }) {
   return (
     <Table
       horizontalSpacing="md" verticalSpacing="xs" miw={700}
@@ -108,7 +108,7 @@ export function PrintTasksTable({ codes, refresh }) {
           <Table.Th>Actions</Table.Th>
         </Table.Tr>
       </Table.Thead>
-      <Table.Tbody>{ codes.map((task) => <PrintTaskRow key={task._id} task={task} refresh={refresh} />) }</Table.Tbody>
+      <Table.Tbody>{ codes.map((task) => <PrintTaskRow key={task._id} task={task} colorCode={colorCode} refresh={refresh} />) }</Table.Tbody>
     </Table>
   );
 }

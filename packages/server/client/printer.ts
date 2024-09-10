@@ -14,9 +14,9 @@ const logger = new Logger('printer');
 
 let timer = null;
 
-export async function ConvertCodeToPDF(code, lang, filename, team, location) {
+export async function ConvertCodeToPDF(code, lang, filename, team, location, codeColor = false) {
     compiler ||= await createTypstCompiler();
-    const typst = generateTypst(team, location, filename, lang);
+    const typst = generateTypst(team, location, filename, lang, codeColor);
     compiler.addSource('/main.typst', typst);
     compiler.addSource(`/${filename}`, code);
     const docs = await compiler.compile({
@@ -32,7 +32,7 @@ export async function printFile(doc) {
         _id, tid, code, lang, filename, team, location,
     } = doc;
     try {
-        const docs = await ConvertCodeToPDF(code || 'empty file', lang, filename, team, location);
+        const docs = await ConvertCodeToPDF(code || 'empty file', lang, filename, team, location, config.printColor);
         fs.writeFileSync(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`), docs);
         if (config.printers.length) {
             // eslint-disable-next-line no-constant-condition

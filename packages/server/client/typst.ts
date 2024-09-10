@@ -65,7 +65,7 @@ export async function createTypstCompiler() {
     return compiler;
 }
 
-export function generateTypst(team: string, location: string, filename: string, lang: string) {
+export function generateTypst(team: string, location: string, filename: string, lang: string, codeColor: boolean) {
     return `
 #let print(
     team: "",
@@ -92,7 +92,7 @@ export function generateTypst(team: string, location: string, filename: string, 
         ]
     )
 
-    raw(read(filename), lang: lang)
+    raw(read(filename), lang: lang, block: true${codeColor ? '' : ', theme: "BW.tmtheme"'})
     body
 }
 

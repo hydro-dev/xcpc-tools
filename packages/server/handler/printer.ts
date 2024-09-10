@@ -24,7 +24,7 @@ class PrintAdminHandler extends AuthHandler {
         }
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/.pdf'));
         code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`)).toString();
-        const doc = await ConvertCodeToPDF(code.code || 'empty file', code.lang, code.filename, code.team, code.location);
+        const doc = await ConvertCodeToPDF(code.code || 'empty file', code.lang, code.filename, code.team, code.location, params.color ?? true);
         this.response.type = 'application/pdf';
         this.response.disposition = 'attachment; filename="code.pdf"';
         this.response.body = Buffer.from(doc);
