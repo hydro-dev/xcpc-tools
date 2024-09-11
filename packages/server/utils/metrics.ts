@@ -39,7 +39,7 @@ export function createMetricsRegistry(ctx: Context) {
     });
 
     const printTaskCounter = createMetric(Counter, 'xcpc_printcount', 'printcount', {
-        labelNames: ['status', 'client'],
+        labelNames: ['status', 'client', 'printer'],
     });
     ctx.on('print/newTask', () => printTaskCounter.inc({ status: 'new' }));
 

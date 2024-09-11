@@ -48,20 +48,20 @@ export default function Dashboard() {
     if (!query.data) return;
     const machines: { online: number, offline: number } = { online: 0, offline: 0 };
     for (const metric of query.data.find((d) => d.name === 'xcpc_machinecount').values) {
-      machines[metric.labels.status] = metric.value;
+      machines[metric.labels.status] += metric.value;
     }
     setMachinesOnline(machines.online);
     setMachinesOffline(machines.offline);
     const printTasks: { new: number, sent: number, done: number } = { new: 0, sent: 0, done: 0 };
     for (const metric of query.data.find((d) => d.name === 'xcpc_printcount').values) {
-      printTasks[metric.labels.status] = metric.value;
+      printTasks[metric.labels.status] += metric.value;
     }
     setPrintTasksNew(printTasks.new);
     setPrintTasksSent(printTasks.sent);
     setPrintTasksDone(printTasks.done);
     const balloonTasks: { new: number, sent: number, done: number } = { new: 0, sent: 0, done: 0 };
     for (const metric of query.data.find((d) => d.name === 'xcpc_ballooncount').values) {
-      balloonTasks[metric.labels.status] = metric.value;
+      balloonTasks[metric.labels.status] += metric.value;
     }
     setBalloonTasksNew(balloonTasks.new);
     setBalloonTasksSent(balloonTasks.sent);

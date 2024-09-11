@@ -88,7 +88,7 @@ async function fetchTask(c) {
             logger.info(`Print task ${body.doc.tid}#${body.doc._id}...`);
             const printer = await printFile(body.doc);
             if (!printer) throw new Error('No Printer Configured');
-            await post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}?printer=${printer}`);
+            await post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}?printer=${JSON.stringify(printer)}`);
             logger.info(`Print task ${body.doc.tid}#${body.doc._id} completed.`);
         } else {
             logger.info('No print task, sleeping...');
