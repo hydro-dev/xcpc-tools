@@ -38,11 +38,11 @@ password:
         }
         const clientConfigDefault = yaml.dump({
             server: '',
+            token: '',
             balloon: '',
             balloonLang: 'zh',
             balloonType: 80,
             printers,
-            token: '',
         });
         fs.writeFileSync(configPath, isClient ? clientConfigDefault : serverConfigDefault);
         logger.error('Config file generated, please fill in the config.yaml');

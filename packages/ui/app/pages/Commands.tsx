@@ -1,5 +1,7 @@
 import React from 'react';
-import { Button, Card, Divider, Group, Textarea, Title } from '@mantine/core';
+import {
+  Button, Card, Divider, Group, Textarea, Title,
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 
 export default function Commands() {
