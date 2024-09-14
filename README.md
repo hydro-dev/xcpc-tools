@@ -24,7 +24,7 @@ Server 端分为 `Server Mode` 和 `Fetch Mode` ，在 `Fetch Mode` 下支持获
 
 #### 安装
 
-在 [Releases](https://github.com/hydro-dev/xcpc-tools/releases/) 下载已经封装好的 Windows、Linux、MacOS 二进制使用，如有未封装好的架构但 Node.js 支持的系统或系统内已有 Node.js 亦可下载 `xcpc-tools-bundle.js`使用。
+在 [Releases](https://github.com/hydro-dev/xcpc-tools/releases/) 下载已经封装好的 Windows, Linux, macOS 二进制使用，如有未封装好的架构但 Node.js 支持的系统或系统内已有 Node.js 亦可下载 `xcpc-tools-bundle.js`使用。
 
 下载后首次运行可见填写配置文件字样，打开 `config.yaml` ，如使用 `Fetch Mode` 请填写相关赛事系统配置，如使用 `Server Mode` 则无须填写配置可直接启动。
 
@@ -54,6 +54,7 @@ const serverSchema = Schema.intersect([
             token: Schema.string(), // 赛事系统 Token 如无可使用用户名密码登录
             username: Schema.string(), // 赛事系统用户名
             password: Schema.string(), // 赛事系统密码
+            freezeEncourage: Schema.number().default(0), // 封榜后鼓励气球数（0 为不发放），需赛事系统配置封榜后仍生成气球
         }).description('Fetcher Config'), // token 与 username/password 二选一
         Schema.object({
             type: Schema.const('server').required(),
@@ -105,7 +106,9 @@ const serverSchema = Schema.intersect([
 
 ### Client
 
-Client 端分为打印代码和打印小票两个功能，支持 Windows、Linux、MacOS 三大平台，支持打印机自动检测，在 Windows 下需要安装 `SumatraPDF` 用于打印 PDF 文件，如您的系统没有安装 `SumatraPDF` ，请根据提示下载便携版并放置于同一目录中。
+Client 端分为打印代码和打印小票两个功能，支持 Windows, Linux, macOS 三大平台，支持打印机自动检测，支持自动分散打印机任务，为了方便使用， Server 与 Client 一同打包为单文件，启动时仅需添加 `--client` 参数即可启动 Client 。
+
+由于 Windows 限制，在 Windows 下打印代码需要安装 `SumatraPDF` 用于打印 PDF 文件，如您的系统没有安装 `SumatraPDF` ，请根据提示下载便携版并放置于同一目录中；打印气球需将气球打印机设置为共享打印机，后续会自动检测。
 
 Client 端的配置文件为 `config.yaml` ，配置文件介绍如下：
 
@@ -115,6 +118,7 @@ const clientSchema = Schema.object({
     balloon: Schema.string(), // 气球小票机路径或名称，请自行根据启动后的提示填写
     balloonLang: Schema.union(['zh', 'en']).default('zh').required(), // 气球小票语言
     balloonType: Schema.union([58, 80]).default(80), // 气球小票机纸张宽度
+    printColor: Schema.boolean().default(false), // 是否打印彩色代码
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'), // 打印机列表，如果为空则不启用打印功能
     token: Schema.string().required().description('Token generated on server'), // 服务端 Token
     fonts: Schema.array(Schema.string()).default([]), // 额外字体路径
