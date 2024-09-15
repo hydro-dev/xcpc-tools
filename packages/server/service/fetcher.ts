@@ -15,7 +15,10 @@ const fetch = (url: string, type: 'get' | 'post' = 'get') => {
         get(target, prop) {
             if (prop === 'then') {
                 return (...args) => target.then((res) => {
-                    if (res.status !== 200) throw new Error(`Failed to ${type} ${endpoint} : ${res.status} - ${JSON.stringify(res.body || {})}`);
+                    if (![200, 204].includes(res.status)) {
+                        logger.error(`Failed to ${type} ${url} : ${res.status} - ${JSON.stringify(res.body || {})}`);
+                        throw new Error(`Failed to ${type} ${endpoint} : ${res.status} - ${JSON.stringify(res.body || {})}`);
+                    }
                     return res;
                 }).then(...args);
             }
