@@ -1,0 +1,22 @@
+{
+  "name": "@hydrooj/xcpc-tools-setup-app-frontend",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@neutralinojs/lib": "^5.0.0",
+    "vue": "^3.4.19"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "naive-ui": "^2.40.1",
+    "typescript": "~5.4.5",
+    "vite": "^5.1.4",
+    "vue-tsc": "^2.1.6"
+  }
+}
