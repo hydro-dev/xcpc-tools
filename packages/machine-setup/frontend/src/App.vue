@@ -12,7 +12,25 @@
         </n-card>
       </n-gi>
       <n-gi>
-        <n-card bordered shadow="always" title="System Info" ></n-card>
+        <n-card bordered title="Machine Info" shadow="always">
+            <n-grid x-gap="12" :cols="2">
+                <n-gi>
+                    <p>CPU: Unknown</p>
+                    <p>Mem: Unknown</p>
+                    <p>OS: Unknown</p>
+                    <p>Image Version: Unknown</p>
+                    <p>Displays: Unknown</p>
+                </n-gi>
+                <n-gi>
+                    <p>gcc: Unknown</p>
+                    <p>g++: Unknown</p>
+                    <p>java: Unknown</p>
+                    <p>kotlin: Unknown</p>
+                    <p>python3: Unknown</p>
+                    <p>pypy3: Unknown</p>
+                </n-gi>
+            </n-grid>
+        </n-card>
       </n-gi>
     </n-grid>
   </n-config-provider>
