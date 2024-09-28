@@ -2,9 +2,11 @@
   <n-config-provider :theme="osTheme === 'dark' ? darkTheme : undefined">
     <n-grid x-gap="12" :cols="2">
       <n-gi>
-        <n-card bordered shadow="always" title="@Hydro/XCPC-TOOLS Setup Tool" />
+        <n-card bordered shadow="always" title="@Hydro/XCPC-TOOLS Setup Tool">
+            <n-statistic title="座位号" value="未配置" style="text-align: center; font-size: 8em;" />
+        </n-card>
         <n-card bordered shadow="always">
-            <n-input placeholder="请输入座位号"type="text" size="large" style="width: 100%; margin-bottom: .5em;" />
+            <n-input placeholder="请输入座位号" type="text" size="large" style="width: 100%; margin-bottom: .5em;" />
             <n-space x-gap="12" :cols="2" style="width: 100%;">
                 <n-button type="primary" style="width: 100%;">保存</n-button>
                 <n-button type="info" style="width: 100%;">放大显示</n-button>
