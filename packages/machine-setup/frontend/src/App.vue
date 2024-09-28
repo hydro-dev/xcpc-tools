@@ -12,6 +12,10 @@
                 <n-button type="info" style="width: 100%;">放大显示</n-button>
             </n-space>
         </n-card>
+        <n-card bordered shadow="always" title="Stream Info">
+            <p>摄像头服务: 未配置</p>
+            <p>麦克风服务: 未配置</p>
+        </n-card>
       </n-gi>
       <n-gi>
         <n-card bordered title="Machine Info" shadow="always">
