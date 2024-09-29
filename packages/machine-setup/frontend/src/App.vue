@@ -7,7 +7,7 @@
         </n-card>
         <n-card bordered shadow="always">
             <n-input placeholder="请输入座位号" type="text" size="large" style="width: 100%; margin-bottom: .5em;" />
-            <n-space x-gap="12" :cols="2" style="width: 100%;">
+            <n-space style="width: 100%;">
                 <n-button type="primary" style="width: 100%;">保存</n-button>
                 <n-button type="info" style="width: 100%;">放大显示</n-button>
             </n-space>
@@ -45,6 +45,11 @@
                 </n-gi>
             </n-grid>
         </n-card>
+        <n-card bordered title="Network Info" shadow="always">
+            <p>IP: Unknown</p>
+            <p>Mac: Unknown</p>
+            <p>Interface: Unknown</p>
+        </n-card>
       </n-gi>
     </n-grid>
   </n-config-provider>
@@ -52,7 +57,7 @@
 
 <script setup lang="ts">
 import { 
-  NGrid, NGi, darkTheme, NConfigProvider, useOsTheme, NButton, NCard,
+  NGrid, NGi, darkTheme, NConfigProvider, useOsTheme, NButton, NCard, NStatistic,
 } from 'naive-ui';
 
 const osTheme = useOsTheme();
