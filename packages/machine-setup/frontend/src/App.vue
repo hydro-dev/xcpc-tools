@@ -14,7 +14,15 @@
         </n-card>
         <n-card bordered shadow="always" title="Stream Info">
             <p>摄像头服务: 未配置</p>
+            <n-space style="width: 100%;">
+                <n-button type="primary" style="width: 100%;">启动</n-button>
+                <n-button type="info" style="width: 100%;">测试</n-button>
+            </n-space>
             <p>麦克风服务: 未配置</p>
+            <n-space style="width: 100%;">
+                <n-button type="primary" style="width: 100%;">启动</n-button>
+                <n-button type="info" style="width: 100%;">测试</n-button>
+            </n-space>
         </n-card>
       </n-gi>
       <n-gi>
