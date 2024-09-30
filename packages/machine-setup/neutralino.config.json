@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
-  "applicationId": "org.hydro.xcpctools.setupapp",
+  "applicationId": "org.hydro.xcpctools.machinesetup",
   "version": "1.0.0",
   "defaultMode": "window",
   "port": 0,
@@ -16,20 +16,10 @@
   "nativeAllowList": [
     "app.*",
     "os.*",
+    "computer.*",
+    "filesystem.*",
     "debug.log"
   ],
-  "globalVariables": {
-    "TEST1": "Hello",
-    "TEST2": [
-      2,
-      4,
-      5
-    ],
-    "TEST3": {
-      "value1": 10,
-      "value2": {}
-    }
-  },
   "modes": {
     "window": {
       "title": "@hydro/xcpc-tools/machine-setup",
@@ -47,33 +37,10 @@
       "hidden": false,
       "resizable": true,
       "exitProcessOnClose": false
-    },
-    "browser": {
-      "globalVariables": {
-        "TEST": "Test value browser"
-      },
-      "nativeBlockList": [
-        "filesystem.*"
-      ]
-    },
-    "cloud": {
-      "url": "/resources/#cloud",
-      "nativeAllowList": [
-        "app.*"
-      ]
-    },
-    "chrome": {
-      "width": 1280,
-      "height": 720,
-      "args": "--user-agent=\"Neutralinojs chrome mode\"",
-      "nativeBlockList": [
-        "filesystem.*",
-        "os.*"
-      ]
     }
   },
   "cli": {
-    "binaryName": "myapp",
+    "binaryName": "hydro-xcpctools-machine-setup",
     "resourcesPath": "/frontend/",
     "extensionsPath": "/extensions/",
     "binaryVersion": "5.0.0",
