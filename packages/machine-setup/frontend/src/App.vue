@@ -3,7 +3,7 @@
         <n-grid x-gap="12" :cols="2">
             <n-gi>
             <basic-info />
-            <connect-server />
+            <heartbeat-info />
             <video-info />
             </n-gi>
             <n-gi>
@@ -19,7 +19,7 @@
     NGrid, NGi, darkTheme, NConfigProvider, useOsTheme,
   } from 'naive-ui';
   import BasicInfo from './components/BasicInfo.vue';
-  import ConnectServer from './components/HeartbeatInfo.vue';
+  import HeartbeatInfo from './components/HeartbeatInfo.vue';
   import SystemInfo from './components/SystemInfo.vue';
   import NetworkInfo from './components/NetworkInfo.vue';
   import VideoInfo from './components/VideoInfo.vue';
