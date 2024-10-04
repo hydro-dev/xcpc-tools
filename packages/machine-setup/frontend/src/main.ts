@@ -2,13 +2,14 @@ import './style.css';
 
 import { app, events, init } from '@neutralinojs/lib';
 import {
-    create, NButton, NCard, NConfigProvider, NGi, NGrid, NSpace, NStatistic,
+    create, NButton, NCard, NConfigProvider, NGi, NGrid, NNotificationProvider,
+    NSpace, NStatistic, NTab, NTabPane, NTag,
 } from 'naive-ui';
 import { createApp } from 'vue';
 import App from './App.vue';
 
 const naive = create({
-    components: [NButton, NGrid, NGi, NCard, NStatistic, NSpace, NConfigProvider],
+    components: [NButton, NGrid, NGi, NCard, NStatistic, NSpace, NConfigProvider, NTab, NTabPane, NTag, NNotificationProvider],
 });
 
 createApp(App).use(naive).mount('#app');

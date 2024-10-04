@@ -23,5 +23,8 @@ body {
   width: 100%;
   margin: 0 auto;
   padding: .5rem;
+}
+
+.text-center {
   text-align: center;
 }
