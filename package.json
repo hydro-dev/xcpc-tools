@@ -3,7 +3,8 @@
   "packageManager": "yarn@4.2.0",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/machine-setup/frontend"
   ],
   "scripts": {
     "dev:client": "node -r ./register.js packages/server/index.ts --client --debug",
