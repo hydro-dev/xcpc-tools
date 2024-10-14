@@ -17,15 +17,15 @@
   "devDependencies": {
     "@expo-google-fonts/noto-color-emoji": "^0.2.3",
     "@expo-google-fonts/noto-sans-sc": "^0.2.3",
-    "@hydrooj/eslint-config": "^1.0.10",
-    "@hydrooj/register": "^1.0.1",
-    "@hydrooj/utils": "^1.4.24",
-    "@types/node": "^20.14.2",
-    "@yao-pkg/pkg": "^5.12.0",
+    "@hydrooj/eslint-config": "^1.1.1",
+    "@hydrooj/register": "^1.0.3",
+    "@hydrooj/utils": "^1.4.28",
+    "@types/node": "^20.16.11",
+    "@yao-pkg/pkg": "^5.15.0",
     "dejavu-fonts-ttf": "^2.37.3",
-    "eslint": "^8.57.0",
-    "eslint-import-resolver-typescript": "^3.6.1",
-    "typescript": "^5.3.3"
+    "eslint": "^8.57.1",
+    "eslint-import-resolver-typescript": "^3.6.3",
+    "typescript": "5.4.5"
   },
   "resolutions": {
     "formidable": "patch:formidable@npm%3A2.1.2#~/.yarn/patches/formidable-npm-2.1.2-40ba18d67f.patch"

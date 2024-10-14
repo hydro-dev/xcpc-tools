@@ -61,44 +61,61 @@ class TypstCompilerDriver {
 
 export function generateTypst(team: string, location: string, filename: string, lang: string, codeColor: boolean) {
     return `
+#let fit(name: "", width: 147mm) = {
+  context {
+    if measure(text(name)).width < width {
+      return name
+    }
+    for len in range(name.codepoints().len() - 1, 5, step: -1) {
+      if measure(text(name
+          .codepoints()
+          .slice(0, len)
+          .join() + " ...")).width < width {
+        return name.codepoints().slice(0, len).join() + " ..."
+      }
+    }
+    panic("Error")
+  }
+}
+
 #let print(
-    team: "",
-    location: "",
-    filename: "",
-    lang: "",
-    body
+  team: "",
+  location: "",
+  filename: "",
+  lang: "",
 ) = {
-    set document(author: (team), title: filename)
-    set text(font: ("Linux Libertine"), lang: "zh")
-    set page(
-        paper: "a4",
-        header: [
-            #if (location != "") {
-                [[#location]]
-            }
-            #team
-            #h(1fr)
-            By Hydro/XCPC-TOOLS
-
-            filename: #filename
-            #h(1fr)
-            Page #counter(page).display("1 of 1", both: true)
-        ]
-    )
-
-    raw(read(filename), lang: lang, block: true${codeColor ? '' : ', theme: "BW.tmtheme"'})
-    body
+  set document(author: (team), title: filename)
+  set text(lang: "zh")
+  set page(
+    paper: "a4",
+    header: [
+      #if (location != "") {
+        text(weight: "black", size: 10pt)[[#location]]
+      }
+      #fit(name: team)
+      #linebreak()
+      filename: #filename
+      #h(1fr)
+      By Hydro/XCPC-TOOLS | Page #counter(page).display("1 of 1", both: true)
+    ],
+  )
+  show raw.where(block: true): code => {
+    show raw.line: it => {
+      box(
+        stack(
+          dir: ltr,
+          box(width: 0em, align(right, text(fill: gray)[#it.number])),
+          h(1em),
+          it.body,
+        ),
+      )
+    }
+    code
+  }
+  raw(read(filename), lang: lang, block: true${codeColor ? '' : ', theme: "BW.tmtheme"'})
 }
 
-#show raw.line: it => {
-    box(stack(
-        dir: ltr,
-        box(width: 18pt)[#it.number],
-        it.body,
-    ))
-}
-
-#show: print.with(
+#print(
     team: ${JSON.stringify(team || '')},
     location: ${JSON.stringify(location || '')},
     filename: ${JSON.stringify(filename || '')},

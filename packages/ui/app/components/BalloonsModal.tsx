@@ -50,7 +50,12 @@ export function BalloonsClient({ clients, refresh }) {
         <Fieldset legend="Add Client" mb="lg">
           <LoadingOverlay visible={adding} zIndex={1000} overlayProps={{ radius: 'sm', blur: 2 }} />
           <FocusTrap active>
-            <TextInput label="Client Name" placeholder="Client Name" value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
+            <TextInput
+              label="Client Name"
+              placeholder="Client Name"
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)} data-autofocus
+            />
           </FocusTrap>
           <Button color="blue" fullWidth mt="md" radius="md" onClick={addClient}>Submit</Button>
         </Fieldset>

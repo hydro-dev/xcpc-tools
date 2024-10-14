@@ -48,7 +48,7 @@ export default function Monitor() {
               <MonitorBatchModal refresh={query.refetch} />
             </Group>
           </Group>
-          <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs value={activeTab} onChange={(value) => setActiveTab(value!)}>
             <Tabs.List>
               <Tabs.Tab value="all">All({query.data?.monitors ? Object.values(query.data?.monitors || {}).length : 0})</Tabs.Tab>
               {Object.keys(query.data?.groups || {}).map((group) => (
@@ -71,9 +71,15 @@ export default function Monitor() {
                     <Text c="dimmed">No monitors found</Text>
                   </Center>
                 ) : (useTableMode ? (
-                  <MonitorTable monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])} openMonitorInfo={openMonitorInfo} />
+                  <MonitorTable
+                    monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
+                    openMonitorInfo={openMonitorInfo}
+                  />
                 ) : (
-                  <MonitorCards monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])} openMonitorInfo={openMonitorInfo} />
+                  <MonitorCards
+                    monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
+                    openMonitorInfo={openMonitorInfo}
+                  />
                 )))}
               </Tabs.Panel>
             ))}
