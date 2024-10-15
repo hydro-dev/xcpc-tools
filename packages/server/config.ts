@@ -24,6 +24,7 @@ type: server # server | domjudge | hydro
 viewPass: ${String.random(8)} # use admin / viewPass to login
 secretRoute: ${String.random(12)}
 seatFile: /home/icpc/Desktop/seats.txt
+customKeyfile: 
 # if type is server, the following is not needed
 server: 
 token: 
@@ -63,6 +64,7 @@ const serverSchema = Schema.intersect([
         viewPass: Schema.string().default(String.random(8)),
         secretRoute: Schema.string().default(String.random(12)),
         seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),
+        customKeyfile: Schema.string().default(''),
     }).description('Basic Config'),
     Schema.union([
         Schema.object({

@@ -3,6 +3,7 @@ import child from 'child_process';
 import fs from 'fs';
 import { homedir } from 'os';
 import { Logger } from './index';
+import { config } from '../config';
 
 const logger = new Logger('runner');
 
@@ -36,7 +37,8 @@ export async function asyncCommand(command: string | string[], timeout = 10000) 
     });
 }
 
-const keyfile = fs.existsSync(`${homedir()}.ssh/id_rsa`) ? '.ssh/id_rsa' : '.ssh/id_ed25519';
+const keyfile = config.customKeyfile ? config.customKeyfile
+    : (fs.existsSync(`${homedir()}.ssh/id_rsa`) ? '.ssh/id_rsa' : '.ssh/id_ed25519');
 
 export async function executeOnHost(host: string, command: string, timeout = 10000) {
     logger.info('executing', command, 'on', host);
