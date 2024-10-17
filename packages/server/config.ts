@@ -1,6 +1,6 @@
 import path from 'path';
 import Schema from 'schemastery';
-import { version } from './package.json';
+import { version as packageVersion } from './package.json';
 import {
     checkReceiptPrinter,
     fs, getPrinters, Logger, yaml,
@@ -99,7 +99,8 @@ export const config = (isClient ? clientSchema : serverSchema)(yaml.load(fs.read
 export const saveConfig = () => {
     fs.writeFileSync(configPath, yaml.dump(config));
 };
+export const version = packageVersion;
 
 logger.info(`Config loaded from ${configPath}`);
-logger.info(`xcpc-tools version: ${version}`);
+logger.info(`xcpc-tools version: ${packageVersion}`);
 if (!isClient && !exit) logger.info(`Server View User Info: admin / ${config.viewPass}`);

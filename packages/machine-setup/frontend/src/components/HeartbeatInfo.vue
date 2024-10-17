@@ -45,6 +45,9 @@ const saveHeartbeat = async () => {
 
 const runHeartbeat = async () => {
     try {
+        const version = await fetch(heartbeaturl.value.replace('/report', '/version')).then(res => res.json());
+        if (!version) throw new Error('无法获取上报中心版本');
+        window.$notification.success({ title: '连接上报中心成功', content: `上报中心版本：${version.version}` });
         const res = await os.execCommand(`HEARTBEATURL=${heartbeaturl.value} /usr/sbin/icpc-heartbeat`);
         if (res.stdErr || res.exitCode) throw new Error(res.stdErr);
         console.log('run heartbeat on test', res);

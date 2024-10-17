@@ -3,7 +3,7 @@
 import { Context } from 'cordis';
 import { Registry } from 'prom-client';
 import { Handler } from '@hydrooj/framework';
-import { config } from '../config';
+import { config, version } from '../config';
 import StaticFrontend from '../data/static.frontend';
 import { createMetricsRegistry, decodeBinary, StaticHTML } from '../utils';
 
@@ -67,9 +67,22 @@ class MetricsHandler extends AuthHandler {
     }
 }
 
+class VersionHandler extends Handler {
+    noCheckPermView = true;
+    notUsage = true;
+
+    async get() {
+        this.response.body = {
+            program: '@hydro/xcpc-tools',
+            version,
+        };
+    }
+}
+
 export async function apply(ctx: Context) {
     registry = createMetricsRegistry(ctx);
     ctx.Route('home', '/', HomeHandler);
     ctx.Route('static', '/main.js', StaticHandler);
     ctx.Route('metrics', '/metrics', MetricsHandler);
+    ctx.Route('version', '/version', VersionHandler);
 }
