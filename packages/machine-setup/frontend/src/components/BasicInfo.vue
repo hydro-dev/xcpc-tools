@@ -3,7 +3,7 @@
         <n-gi>
             <n-card bordered shadow="always" style="margin-bottom: .25em;" class="text-center">
                 <h2 style="margin: .5em 0;">@Hydro/XCPC-TOOLS</h2>
-                <h2 style="margin: .5em 0;">Setup Tool</h2>
+                <h1 style="margin: .25em 0;">Setup Tool</h1>
             </n-card>
             <n-card bordered shadow="always">
                 <n-input placeholder="请输入座位号" v-model:value="editSeat" type="text" size="large" style="width: 100%; margin-bottom: .5em;" />
@@ -16,11 +16,19 @@
                     </n-gi>
                 </n-grid>
             </n-card>
-            </n-gi>
-            <n-gi>
+        </n-gi>
+        <n-gi>
+            <n-card bordered shadow="always">
+                <n-popconfirm @positive-click="checkAll">
+                    <template #trigger>
+                        <n-button type="primary" style="width: 100%;">完成设备检查</n-button>
+                    </template>
+                    确认完成设备检查？
+                </n-popconfirm>
+            </n-card>
             <n-card bordered shadow="always" class="text-center">
                 <h1 style="margin: 0;">座位号</h1>
-                <h1 style="font-size: 8em; margin: 0;">{{ nowSeat || '未配置' }}</h1>
+                <h1 style="font-size: 5em; margin: 0;">{{ nowSeat || 'XX-XX' }}</h1>
             </n-card>
         </n-gi>
     </n-grid>
@@ -28,7 +36,7 @@
 
 <script setup lang="ts">
 import { filesystem, os } from '@neutralinojs/lib';
-import { NCard, NGrid, NGi, NButton, NInput } from 'naive-ui';
+import { NCard, NGrid, NGi, NButton, NInput, NPopconfirm } from 'naive-ui';
 import { onMounted, ref } from 'vue';
 
 const nowSeat = ref('');
@@ -60,6 +68,9 @@ const showSeat = async () => {
     }
 };
 
+const checkAll = () => {
+  console.log('check all');
+};
 
 onMounted(async () => {
     try {

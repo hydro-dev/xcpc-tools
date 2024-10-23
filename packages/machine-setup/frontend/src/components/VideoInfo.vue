@@ -1,7 +1,7 @@
 <template>
     <n-card bordered shadow="always">
         <n-tabs default-value="video" justify-content="space-evenly" type="line" animated>
-            <n-tab-pane name="video" label="摄像头">
+            <n-tab-pane name="video" tab="摄像头">
                 <n-grid x-gap="12" :cols="2">
                     <n-gi>
                         <p>摄像头服务：未启动</p>
@@ -21,7 +21,7 @@
                     </n-gi>
                 </n-grid> 
             </n-tab-pane>
-            <n-tab-pane name="desktop" label="桌面">
+            <n-tab-pane name="desktop" tab="桌面">
                 <n-grid x-gap="12" :cols="2">
                     <n-gi>
                         <p>屏幕捕获服务：未启动</p>
