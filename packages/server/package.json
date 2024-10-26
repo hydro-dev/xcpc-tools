@@ -16,8 +16,8 @@
   },
   "dependencies": {
     "@freedom_sky/esc-pos-encoder": "^5.8.0",
-    "@hydrooj/framework": "0.1.0",
-    "@myriaddreamin/typst-ts-web-compiler": "^0.5.0-rc7",
+    "@hydrooj/framework": "0.1.2",
+    "@myriaddreamin/typst-ts-web-compiler": "^0.5.0-rc8",
     "@myteril/node-win-printer": "^1.1.5",
     "base16384": "^1.0.0",
     "cordis": "3.18.1",
@@ -26,7 +26,7 @@
     "nedb-promises": "^6.2.3",
     "prom-client": "^15.1.3",
     "schemastery": "^3.14.6",
-    "superagent": "^10.1.0",
+    "superagent": "^10.1.1",
     "unix-print": "^1.3.2",
     "ws": "^8.18.0"
   }
