@@ -17,11 +17,16 @@ import { onMounted, ref } from 'vue';
 
 const netInfo = ref<any[]>([]);
 
+declare global {
+    interface Window {
+        ip: string;
+    }
+}
+
 onMounted(async () => {
     try {
         const res = await os.execCommand('ip --json address');
         const info = JSON.parse(res.stdOut);
-        console.log(info);
         const ips = info.filter((i: any) => {
             const local = i.addr_info?.filter((a: any) => a.family === 'inet')[0]?.local;
             return local && (local.startsWith('10') || local.startsWith('192.168') || local.startsWith('172.16'));
@@ -32,6 +37,7 @@ onMounted(async () => {
             mac: i.address
         }));
         netInfo.value = ips;
+        window.ip = ips?.[0]?.v4;
     } catch (error) {
         console.error(error);
     

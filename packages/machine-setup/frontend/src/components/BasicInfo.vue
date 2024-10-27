@@ -19,11 +19,13 @@
         </n-gi>
         <n-gi>
             <n-card bordered shadow="always">
-                <n-popconfirm @positive-click="checkAll">
+                <n-popconfirm @positive-click="checkAll(false)" positive-text="开始检查" negative-text="强制完成" @negative-click="checkAll(true)">
                     <template #trigger>
                         <n-button type="primary" style="width: 100%;">完成设备检查</n-button>
                     </template>
-                    确认完成设备检查？
+                    确认完成设备检查？<br />
+                    设备座位号：{{ nowSeat || '未设置' }}<br />
+                    设备IP地址：{{ getIp() || '未获取' }}
                 </n-popconfirm>
             </n-card>
             <n-card bordered shadow="always" class="text-center">
@@ -53,7 +55,7 @@ const saveSeat = async () => {
         nowSeat.value = editSeat.value;
     } catch (error) {
         console.error(error);
-        window.$notification.error({ title: '保存座位号失败', content: (error as any).message });
+        window.$notification.error({ title: '保存座位号失败', content: (error as any).message, duration: 3000 });
     }
 };
 
@@ -64,13 +66,33 @@ const showSeat = async () => {
         if (res.stdErr) throw new Error(res.stdErr);
     } catch (error) {
         console.error(error);
-        window.$notification.error({ title: '放大显示座位号失败', content: (error as any).message });
+        window.$notification.error({ title: '放大显示座位号失败', content: (error as any).message, duration: 3000 });
     }
 };
 
-const checkAll = () => {
-  console.log('check all');
+const checkAll = async (force = false) => {
+    if (force) {
+        if (!nowSeat.value) {
+            window.$notification.error({ title: '未设置座位号', content: '请先设置座位号', duration: 3000 });
+            return;
+        }
+        const res = await filesystem.readFile('/etc/hostname');
+        if (res !== nowSeat.value) {
+            window.$notification.error({ title: '主机名不匹配', content: '请保存一次座位号以同步主机名', duration: 3000 });
+            return;
+        }
+        if (!getIp()) {
+            window.$notification.error({ title: '未获取到IP地址', content: '请检查网络连接或重启', duration: 3000 });
+            return;
+        }
+        window.$notification.success({ title: '设备检查完成', content: `seat: ${nowSeat.value}\nip: ${window.ip}`, duration: 3000 });
+    }
+    await os.execCommand(`systemctl enable heartbeat.timer`);
+    await os.execCommand(`zenity --info --text "<span font='256'>${nowSeat.value}</span><br><span font='128'>${window.ip}</span>"`);
+    console.log('check all');
 };
+
+const getIp = () => window.ip;
 
 onMounted(async () => {
     try {
