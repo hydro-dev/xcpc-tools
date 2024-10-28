@@ -76,6 +76,10 @@ class VersionHandler extends Handler {
             program: '@hydro/xcpc-tools',
             version,
         };
+        this.response.addHeader('Access-Control-Allow-Origin', '*');
+        this.response.addHeader('Access-Control-Allow-Methods', 'GET');
+        this.response.addHeader('Access-Control-Allow-Headers', 'Content-Type');
+        this.response.addHeader('Cache-Control', 'no-store');
     }
 }
 

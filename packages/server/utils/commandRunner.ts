@@ -2,7 +2,6 @@
 import child from 'child_process';
 import fs from 'fs';
 import { homedir } from 'os';
-import { config } from '../config';
 import { Logger } from './index';
 
 const logger = new Logger('runner');
@@ -37,13 +36,12 @@ export async function asyncCommand(command: string | string[], timeout = 10000) 
     });
 }
 
-const keyfile = config.customKeyfile ? config.customKeyfile
-    : (fs.existsSync(`${homedir()}.ssh/id_rsa`) ? '.ssh/id_rsa' : '.ssh/id_ed25519');
+const keyfile = fs.existsSync(`${homedir()}.ssh/id_rsa`) ? '~/.ssh/id_rsa' : '~/.ssh/id_ed25519';
 
-export async function executeOnHost(host: string, command: string, timeout = 10000) {
+export async function executeOnHost(host: string, command: string, timeout = 10000, customKeyfile?: string) {
     logger.info('executing', command, 'on', host);
     return await asyncCommand([
-        'ssh', '-o', 'StrictHostKeyChecking no', '-o', `IdentityFile ~/${keyfile}`,
+        'ssh', '-o', 'StrictHostKeyChecking no', '-o', `IdentityFile ${customKeyfile || keyfile}`,
         `root@${host}`,
         'bash', '-c', `'echo $(echo ${Buffer.from(command).toString('base64')} | base64 -d | bash)'`,
     ], timeout);

@@ -2,31 +2,35 @@
     <n-card bordered shadow="always">
         <n-grid x-gap="12" :cols="2">
             <n-gi>
-                <p>摄像头服务：<n-tag :type="runCamera ? 'success' : 'error'">{{ runCamera ? '运行中' : '未运行' }}</n-tag></p>
-                {{ cameraInfo }}
+                <n-space>
+                    <p>摄像头服务：</p> 
+                    <n-tag :type="hasCamera ? 'success' : 'error'">{{ hasCamera ? '已连接' : '未连接' }}</n-tag>
+                    <n-tag :type="runCamera ? 'success' : 'error'">{{ runCamera ? '运行中' : '未运行' }}</n-tag>
+                </n-space>
                 <n-space>
                     <n-button size="small" type="primary" @click="runService('vlc-webcam', 'restart')">启动</n-button>
                     <n-button size="small" type="error" @click="runService('vlc-webcam', 'stop')">停止</n-button>
                     <n-button size="small" type="info" @click="runVLC('webcam')">测试</n-button>
                     <n-button size="small" type="warning" @click="runService('vlc-webcam', 'enable')">激活</n-button>
+                    <n-button size="small" @click="statusService('vlc-webcam')">状态</n-button>
                 </n-space>
                 <p>屏幕捕获服务：<n-tag :type="runScreen ? 'success' : 'error'">{{ runScreen ? '运行中' : '未运行' }}</n-tag></p>
-                {{ screenInfo }}
                 <n-space>
                     <n-button size="small" type="primary" @click="runService('vlc-screen', 'restart')">启动</n-button>
-                    <n-button size="small" type="primary" @click="runService('vlc-screen', 'stop')">停止</n-button>
-                    <n-button size="small" type="error" @click="runVLC('screen')">测试</n-button>
+                    <n-button size="small" type="error" @click="runService('vlc-screen', 'stop')">停止</n-button>
+                    <n-button size="small" type="info" @click="runVLC('screen')">测试</n-button>
                     <n-button size="small" type="warning" @click="runService('vlc-screen', 'enable')">激活</n-button>
+                    <n-button size="small" @click="statusService('vlc-screen')">状态</n-button>
                 </n-space>
             </n-gi>
             <n-gi>
                 <n-tabs default-value="video" justify-content="space-evenly" type="line" animated>
                     <n-tab-pane name="video" tab="视频配置">
-                        <n-input type="textarea" rows="4" placeholder="配置文件" v-model:value="cameraInfo"></n-input>
+                        <n-input type="textarea" :rows="6" placeholder="配置文件" v-model:value="cameraInfo"></n-input>
                         <n-button size="small" block type="primary">保存</n-button>
                     </n-tab-pane>
                     <n-tab-pane name="desktop" tab="桌面配置">
-                        <n-input type="textarea" rows="4" placeholder="配置文件" v-model:value="screenInfo"></n-input>
+                        <n-input type="textarea" :rows="6" placeholder="配置文件" v-model:value="screenInfo"></n-input>
                         <n-button size="small" block type="primary">保存</n-button>
                     </n-tab-pane>
                 </n-tabs>
@@ -49,15 +53,20 @@ const cameraInfo = ref('');
 const screenInfo = ref('');
 
 const runService = async (service: string, action: string) => {
-    
+    if (service === 'vlc-webcam' && !hasCamera.value) {
+        window.$notification.error({ title: '摄像头未连接', content: '请检查摄像头连接后再操作', duration: 3000 });
+        return;
+    }
     try {
         const res = await os.execCommand(`systemctl ${action} ${service}`);
-        console.log(`systemctl ${action} ${service} status`, res);
-        if (res.stdErr || res.exitCode) throw new Error(res.stdErr);
+        console.log(`systemctl ${action} ${service} status`, res.stdOut);
+        if (res.stdErr) throw new Error(res.stdErr);
         if (action === 'restart') {
+            const status = await os.execCommand(`systemctl status ${service}`);
+            if (status.stdOut.includes('dead') && status.stdOut.includes('exited')) throw new Error('服务启动失败');
             if (service === 'vlc-screen') runScreen.value = true;
             if (service === 'vlc-webcam') runCamera.value = true;
-        } else {
+        } else if (action === 'stop') {
             if (service === 'vlc-screen') runScreen.value = false;
             if (service === 'vlc-webcam') runCamera.value = false;
         }
@@ -72,13 +81,24 @@ const runVLC = async (service: string) => {
     try {
         const res = await os.execCommand(`su icpc -c "vlc http://localhost:${port}/"`);
         console.log('run vlc on test', res);
-        if (res.stdErr || res.exitCode) throw new Error(res.stdErr);
+        if (res.exitCode) throw new Error(res.stdErr);
         window.$notification.success({ title: 'VLC启动成功', content: '请查看VLC播放器，确认视频正常后关闭', duration: 3000 });
     } catch (error) {
         console.error(error);
         window.$notification.error({ title: 'VLC启动失败', content: (error as any).message, duration: 3000 });
     }
 }
+
+const statusService = async (service: string) => {
+    try {
+        const res = await os.execCommand(`systemctl status ${service}`);
+        if (res.stdErr) throw new Error(res.stdErr);
+        window.$notification.success({ title: '状态获取成功', content: res.stdOut, duration: 10000 });
+    } catch (error) {
+        console.error(error);
+        window.$notification.error({ title: '状态获取失败', content: (error as any).message, duration: 3000 });
+    }
+};
 
 
 onMounted(async () => {
@@ -96,11 +116,11 @@ onMounted(async () => {
     }
     try {
         const res = await os.execCommand('systemctl status vlc-screen');
-        console.log('systemctl status vlc-screen status', res);
-        if (!res.stdOut.includes('dead')) runScreen.value = true;
+        console.log('systemctl status vlc-screen status', res.stdOut);
+        if (!res.stdOut.includes('dead') && !res.stdOut.includes('exited')) runScreen.value = true;
         const res2 = await os.execCommand('systemctl status vlc-webcam');
-        console.log('systemctl status vlc-webcam status', res2);
-        if (!res2.stdOut.includes('dead')) runCamera.value = true;
+        console.log('systemctl status vlc-webcam status', res2.stdOut);
+        if (!res2.stdOut.includes('dead') && !res.stdOut.includes('exited')) runCamera.value = true;
     } catch (error) {
         console.error(error);
     }

@@ -2,10 +2,11 @@
     <n-card bordered shadow="always">
         <n-grid x-gap="12" :cols="2">
             <n-gi>
-                <p>上报中心：<n-tag :type="!nowHeartbeat ? 'error' : 'success'">{{ nowHeartbeat || 'no center' }}</n-tag></p>
+                <n-tag :type="!nowHeartbeat ? 'error' : 'success'">{{ nowHeartbeat || 'no center' }}</n-tag>
                 <n-space>
                     <n-tag :type="onHeartbeat ? 'success' : 'error'">{{ onHeartbeat ? '已开启上报' : '未开启上报' }}</n-tag>
-                    <n-button type="warning" size="small" @click="">获取中心状态</n-button>
+                    <n-button type="warning" size="small" @click="getHeartbeatVersion(nowHeartbeat)">中心状态</n-button>
+                    <n-button type="warning" size="small" @click="getHeartbeatTimer()">服务状态</n-button>
                 </n-space>
             </n-gi>
             <n-gi>
@@ -84,16 +85,27 @@ const saveHeartbeat = async (force = false) => {
         }
         console.log('save heartbeat', url);
         await filesystem.writeFile('/etc/default/icpc-heartbeat', `HEARTBEATURL=${url}`);
-        const res2 = await os.execCommand('systemctl enable heartbeat.timer');
+        const res2 = await os.execCommand('systemctl enable heartbeat.timer --now');
         console.log('run enable heartbeat on save', res2);
         nowHeartbeat.value = url;
+        onHeartbeat.value = true;
+        window.$notification.success({ title: '保存心跳上报URL成功', content: '请查看心跳上报状态', duration: 3000 });
     } catch (error) {
         console.error(`save heartbeat error: ${error}`);
         window.$notification.error({ title: '保存心跳上报URL失败', content: (error as any).message, duration: 3000 });
     }
 };
 
-
+const getHeartbeatTimer = async () => {
+    try {
+        const res = await os.execCommand('systemctl status heartbeat.timer');
+        console.log('systemctl status heartbeat.timer status', res.stdOut);
+        window.$notification.success({ title: '心跳上报服务状态', content: res.stdOut, duration: 10000 });
+    } catch (error) {
+        console.error(`get heartbeat timer error: ${error}`);
+        window.$notification.error({ title: '获取心跳上报服务状态失败', content: (error as any).message, duration: 3000 });
+    }
+};
 
 onMounted(async () => {
     try {
@@ -105,8 +117,8 @@ onMounted(async () => {
             console.log('disable heartbeat.timer', res);
             onHeartbeat.value = false;
         } else {
-            const res = await os.execCommand('systemctl status heartbeat | grep Active');
-            console.log('systemctl status heartbeat status', res);
+            const res = await os.execCommand('systemctl status heartbeat.timer');
+            console.log('systemctl status heartbeat.timer status', res.stdOut);
             if (!res.stdOut.includes('dead')) onHeartbeat.value = true;
         }
     } catch (error) {

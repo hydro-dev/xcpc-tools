@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { filesystem, os } from '@neutralinojs/lib';
+import { app, filesystem, os } from '@neutralinojs/lib';
 import { NCard, NGrid, NGi, NButton, NInput, NPopconfirm } from 'naive-ui';
 import { onMounted, ref } from 'vue';
 
@@ -87,9 +87,9 @@ const checkAll = async (force = false) => {
         }
         window.$notification.success({ title: '设备检查完成', content: `seat: ${nowSeat.value}\nip: ${window.ip}`, duration: 3000 });
     }
-    await os.execCommand(`systemctl enable heartbeat.timer`);
-    await os.execCommand(`zenity --info --text "<span font='256'>${nowSeat.value}</span><br><span font='128'>${window.ip}</span>"`);
-    console.log('check all');
+    await os.execCommand(`systemctl enable heartbeat.timer --now`);
+    await os.execCommand(`zenity --info --text "<span font='256'>${nowSeat.value}\n</span><span font='128'>${window.ip}</span>"`);
+    app.exit();
 };
 
 const getIp = () => window.ip;

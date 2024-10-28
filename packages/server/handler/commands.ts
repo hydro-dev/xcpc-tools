@@ -18,7 +18,7 @@ class CommandsHandler extends AuthHandler {
 
     async executeForAll(command: string, t = 10000) {
         const allOnline = await this.ctx.db.monitor.find({});
-        const result = await Promise.allSettled(allOnline.map((i) => executeOnHost(i.ip, command, t)));
+        const result = await Promise.allSettled(allOnline.map((i) => executeOnHost(i.ip, command, t, config.customKeyfile)));
         return {
             success: result.filter((i) => i.status === 'fulfilled').length,
             fail: result.filter((i) => i.status === 'rejected').length,
