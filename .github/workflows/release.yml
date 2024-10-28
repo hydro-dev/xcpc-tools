@@ -63,6 +63,6 @@ jobs:
             /tmp/xcpc-tools-win.zip
             /tmp/xcpc-tools-macos.tar.gz
             /tmp/xcpc-tools-linux.tar.gz
-            /tmp/xcpc-tools-machine-setup-app.tar.gz
+            /tmp/xcpc-tools-machine-setup.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
