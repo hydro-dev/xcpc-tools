@@ -31,7 +31,7 @@
       "fullScreen": false,
       "alwaysOnTop": false,
       "icon": "/frontend/public/vite.svg",
-      "enableInspector": true,
+      "enableInspector": false,
       "borderless": false,
       "maximize": false,
       "hidden": false,

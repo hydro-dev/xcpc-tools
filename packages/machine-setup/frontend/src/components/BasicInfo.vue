@@ -19,13 +19,14 @@
         </n-gi>
         <n-gi>
             <n-card bordered shadow="always">
-                <n-popconfirm @positive-click="checkAll(false)" positive-text="开始检查" negative-text="强制完成" @negative-click="checkAll(true)">
+                <n-popconfirm @positive-click="checkAll(false)" positive-text="开始检查" negative-text="强制开始" @negative-click="checkAll(true)">
                     <template #trigger>
-                        <n-button type="primary" style="width: 100%;">完成设备检查</n-button>
+                        <n-button type="primary" style="width: 100%;">完成设备配置</n-button>
                     </template>
-                    确认完成设备检查？<br />
+                    确认完成设备配置？<br />
                     设备座位号：{{ nowSeat || '未设置' }}<br />
-                    设备IP地址：{{ getIp() || '未获取' }}
+                    设备IP地址：{{ getIp() || '未获取' }}<br />
+                    请确认座位号与IP地址是否存在异常
                 </n-popconfirm>
             </n-card>
             <n-card bordered shadow="always" class="text-center">
@@ -88,8 +89,9 @@ const checkAll = async (force = false) => {
         window.$notification.success({ title: '设备检查完成', content: `seat: ${nowSeat.value}\nip: ${window.ip}`, duration: 3000 });
     }
     await os.execCommand(`systemctl enable heartbeat.timer --now`);
-    await os.execCommand(`zenity --info --text "<span font='256'>${nowSeat.value}\n</span><span font='128'>${window.ip}</span>"`);
-    app.exit();
+    window.$notification.success({ title: '已成功完成配置', content: '5s后程序自动关闭', duration: 5000 });
+    setTimeout(() => app.exit(), 5000);
+    os.execCommand(`zenity --info --text "<span font='256'>${nowSeat.value}\n</span><span font='128'>${window.ip}</span>" > /dev/null 2>&1 &`);
 };
 
 const getIp = () => window.ip;
