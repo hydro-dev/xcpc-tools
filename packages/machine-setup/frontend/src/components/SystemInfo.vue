@@ -1,5 +1,5 @@
 <template>
-    <n-card bordered title="Machine Info" shadow="always">
+    <n-card bordered title="Machine Info" shadow="always" style="margin-bottom: .25em;">
         <n-grid x-gap="12" :cols="2">
             <n-gi>
                 <p>CPU: {{ cpuInfo }}</p>

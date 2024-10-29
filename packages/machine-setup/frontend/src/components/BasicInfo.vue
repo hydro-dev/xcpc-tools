@@ -1,9 +1,12 @@
 <template>
-    <n-grid x-gap="6" :cols="2">
+    <n-grid x-gap="6" :cols="2" style="margin-bottom: .25em;">
         <n-gi>
             <n-card bordered shadow="always" style="margin-bottom: .25em;" class="text-center">
                 <h2 style="margin: .5em 0;">@Hydro/XCPC-TOOLS</h2>
-                <h1 style="margin: .25em 0;">Setup Tool</h1>
+                <div style="display: flex; justify-content: center; align-items: center;">
+                    <h1 style="margin: .25em 0;">Setup Tool</h1>
+                    <img src="/hydro.png" alt="logo" style="width: 3em; height: 3em; margin-left: .25em;" />
+                </div>
             </n-card>
             <n-card bordered shadow="always">
                 <n-input placeholder="请输入座位号" v-model:value="editSeat" type="text" size="large" style="width: 100%; margin-bottom: .5em;" />
@@ -18,7 +21,7 @@
             </n-card>
         </n-gi>
         <n-gi>
-            <n-card bordered shadow="always">
+            <n-card bordered shadow="always" style="margin-bottom: .25em;">
                 <n-popconfirm @positive-click="checkAll(false)" positive-text="开始检查" negative-text="强制开始" @negative-click="checkAll(true)">
                     <template #trigger>
                         <n-button type="primary" style="width: 100%;">完成设备配置</n-button>
@@ -30,8 +33,11 @@
                 </n-popconfirm>
             </n-card>
             <n-card bordered shadow="always" class="text-center">
-                <h1 style="margin: 0;">座位号</h1>
-                <h1 style="font-size: 5em; margin: 0;">{{ nowSeat || 'XX-XX' }}</h1>
+                <div style="display: flex; justify-content: center; align-items: center;">
+                    <h1 style="margin: 0;">座位号</h1>
+                    <n-tag v-if="!nowSeat" type="error" style="margin-left: .5em;">未设置座位号</n-tag>
+                </div>
+                <h1 style="font-size: 45px; margin: .35em 0;">{{ nowSeat || 'XXXX-XXX' }}</h1>
             </n-card>
         </n-gi>
     </n-grid>
@@ -63,7 +69,7 @@ const saveSeat = async () => {
 const showSeat = async () => {
     try {
         console.log('show seat', nowSeat.value);
-        const res = await os.execCommand(`zenity --info --text "<span font='256'>${nowSeat.value}</span>"`);
+        const res = await os.execCommand(`zenity --info --text "<span font='${nowSeat.value.length > 4 ? 128 : 256}'>${nowSeat.value}</span>" > /dev/null 2>&1 &`);
         if (res.stdErr) throw new Error(res.stdErr);
     } catch (error) {
         console.error(error);
@@ -72,6 +78,7 @@ const showSeat = async () => {
 };
 
 const checkAll = async (force = false) => {
+    window.$notification.info({ title: '海内存知己，天涯若比邻', content: '正在检查设备配置，请稍后...', duration: 3000 });
     if (force) {
         if (!nowSeat.value) {
             window.$notification.error({ title: '未设置座位号', content: '请先设置座位号', duration: 3000 });
@@ -91,7 +98,7 @@ const checkAll = async (force = false) => {
     await os.execCommand(`systemctl enable heartbeat.timer --now`);
     window.$notification.success({ title: '已成功完成配置', content: '5s后程序自动关闭', duration: 5000 });
     setTimeout(() => app.exit(), 5000);
-    os.execCommand(`zenity --info --text "<span font='256'>${nowSeat.value}\n</span><span font='128'>${window.ip}</span>" > /dev/null 2>&1 &`);
+    os.execCommand(`zenity --info --text "<span font='${nowSeat.value.length > 4 ? 128 : 256}'>${nowSeat.value}\n</span><span font='128'>${window.ip}</span>" > /dev/null 2>&1 &`);
 };
 
 const getIp = () => window.ip;

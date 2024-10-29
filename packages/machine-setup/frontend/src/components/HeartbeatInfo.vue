@@ -1,8 +1,8 @@
 <template>
-    <n-card bordered shadow="always">
+    <n-card bordered shadow="always" style="margin-bottom: .25em;">
         <n-grid x-gap="12" :cols="2">
             <n-gi>
-                <n-tag :type="!nowHeartbeat ? 'error' : 'success'">{{ nowHeartbeat || 'no center' }}</n-tag>
+                <p><n-tag :type="!nowHeartbeat ? 'error' : 'success'">{{ nowHeartbeat || 'no center' }}</n-tag></p>
                 <n-space>
                     <n-tag :type="onHeartbeat ? 'success' : 'error'">{{ onHeartbeat ? '已开启上报' : '未开启上报' }}</n-tag>
                     <n-button type="warning" size="small" @click="getHeartbeatVersion(nowHeartbeat)">中心状态</n-button>
@@ -85,8 +85,8 @@ const saveHeartbeat = async (force = false) => {
         }
         console.log('save heartbeat', url);
         await filesystem.writeFile('/etc/default/icpc-heartbeat', `HEARTBEATURL=${url}`);
-        const res2 = await os.execCommand('systemctl enable heartbeat.timer --now');
-        console.log('run enable heartbeat on save', res2);
+        const res = await os.execCommand('systemctl enable heartbeat.timer --now');
+        console.log('run enable heartbeat on save', res);
         nowHeartbeat.value = url;
         onHeartbeat.value = true;
         window.$notification.success({ title: '保存心跳上报URL成功', content: '请查看心跳上报状态', duration: 3000 });

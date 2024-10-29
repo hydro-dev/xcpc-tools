@@ -30,7 +30,7 @@
       "center": true,
       "fullScreen": false,
       "alwaysOnTop": false,
-      "icon": "/frontend/public/vite.svg",
+      "icon": "/frontend/public/hydro.png",
       "enableInspector": false,
       "borderless": false,
       "maximize": false,

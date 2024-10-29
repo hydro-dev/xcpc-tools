@@ -18,8 +18,13 @@ jobs:
         with:
           node-version: 20
       - run: yarn
-      - name: Build
+      - name: Build Tools Core
         run: yarn build
+      - name: Build Machine Setup App
+        run: |
+          cd packages/machine-setup
+          yarn neu update
+          yarn neu build --clean
 
   release:
     needs: build
@@ -42,13 +47,16 @@ jobs:
         run: tar -czvf /tmp/xcpc-tools-macos.tar.gz dist/pkg/xcpc-tools-macos
       - name: Create Tar for Linux
         run: tar -czvf /tmp/xcpc-tools-linux.tar.gz dist/pkg/xcpc-tools-linux
-      - name: Build Machine Setup package
+      - name: Build Machine Setup App
         run: |
           cd packages/machine-setup
           yarn neu update
           yarn neu build --clean
       - name: Create Tar for Machine Setup
-        run: tar -czvf /tmp/xcpc-tools-machine-setup.tar.gz packages/machine-setup/dist/hydro-xcpctools-machine-setup
+        run: |
+          cd packages/machine-setup/dist/hydro-xcpctools-machine-setup
+          chmod +x hydro-xcpctools-machine-setup-linux_*
+          tar -czvf /tmp/xcpc-tools-machine-setup-linux.tar.gz resources.neu hydro-xcpctools-machine-setup-linux_*
       - name: Get release version and commit
         id: tag
         run: |
@@ -63,6 +71,6 @@ jobs:
             /tmp/xcpc-tools-win.zip
             /tmp/xcpc-tools-macos.tar.gz
             /tmp/xcpc-tools-linux.tar.gz
-            /tmp/xcpc-tools-machine-setup.tar.gz
+            /tmp/xcpc-tools-machine-setup-linux.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

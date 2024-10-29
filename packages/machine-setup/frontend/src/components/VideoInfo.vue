@@ -2,11 +2,13 @@
     <n-card bordered shadow="always">
         <n-grid x-gap="12" :cols="2">
             <n-gi>
-                <n-space>
+                <div style="display: flex; justify-content: center; align-items: center;">
                     <p>摄像头服务：</p> 
-                    <n-tag :type="hasCamera ? 'success' : 'error'">{{ hasCamera ? '已连接' : '未连接' }}</n-tag>
-                    <n-tag :type="runCamera ? 'success' : 'error'">{{ runCamera ? '运行中' : '未运行' }}</n-tag>
-                </n-space>
+                    <n-space>
+                        <n-tag :type="hasCamera ? 'success' : 'error'">{{ hasCamera ? '已连接' : '未连接' }}</n-tag>
+                        <n-tag :type="runCamera ? 'success' : 'error'">{{ runCamera ? '运行中' : '未运行' }}</n-tag>
+                    </n-space>
+                </div>
                 <n-space>
                     <n-button size="small" type="primary" @click="runService('vlc-webcam', 'restart')">启动</n-button>
                     <n-button size="small" type="error" @click="runService('vlc-webcam', 'stop')">停止</n-button>
@@ -14,7 +16,10 @@
                     <n-button size="small" type="warning" @click="runService('vlc-webcam', 'enable')">激活</n-button>
                     <n-button size="small" @click="statusService('vlc-webcam')">状态</n-button>
                 </n-space>
-                <p>屏幕捕获服务：<n-tag :type="runScreen ? 'success' : 'error'">{{ runScreen ? '运行中' : '未运行' }}</n-tag></p>
+                <div style="display: flex; justify-content: center; align-items: center;">
+                    <p>屏幕捕获服务：</p> 
+                    <n-tag :type="runScreen ? 'success' : 'error'">{{ runScreen ? '运行中' : '未运行' }}</n-tag>
+                </div>
                 <n-space>
                     <n-button size="small" type="primary" @click="runService('vlc-screen', 'restart')">启动</n-button>
                     <n-button size="small" type="error" @click="runService('vlc-screen', 'stop')">停止</n-button>
