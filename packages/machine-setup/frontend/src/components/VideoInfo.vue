@@ -32,11 +32,11 @@
                 <n-tabs default-value="video" justify-content="space-evenly" type="line" animated>
                     <n-tab-pane name="video" tab="视频配置">
                         <n-input type="textarea" :rows="6" placeholder="配置文件" v-model:value="cameraInfo"></n-input>
-                        <n-button size="small" block type="primary">保存</n-button>
+                        <n-button size="small" block type="primary" @click="saveConfig('camera')">保存</n-button>
                     </n-tab-pane>
                     <n-tab-pane name="desktop" tab="桌面配置">
                         <n-input type="textarea" :rows="6" placeholder="配置文件" v-model:value="screenInfo"></n-input>
-                        <n-button size="small" block type="primary">保存</n-button>
+                        <n-button size="small" block type="primary" @click="saveConfig('screen')">保存</n-button>
                     </n-tab-pane>
                 </n-tabs>
             </n-gi>
@@ -102,6 +102,20 @@ const statusService = async (service: string) => {
     } catch (error) {
         console.error(error);
         window.$notification.error({ title: '状态获取失败', content: (error as any).message, duration: 3000 });
+    }
+};
+
+const saveConfig = async (service: string) => {
+    try {
+        if (service === 'camera') {
+            await filesystem.writeFile('/etc/default/vlc-webcam', cameraInfo.value);
+        } else if (service === 'screen') {
+            await filesystem.writeFile('/etc/default/vlc-screen', screenInfo.value);
+        }
+        window.$notification.success({ title: '配置保存成功', content: '请重启服务以应用配置', duration: 3000 });
+    } catch (error) {
+        console.error(error);
+        window.$notification.error({ title: '配置保存失败', content: (error as any).message, duration: 3000 });
     }
 };
 
