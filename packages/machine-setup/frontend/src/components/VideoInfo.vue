@@ -5,7 +5,7 @@
                 <div style="display: flex; justify-content: center; align-items: center;">
                     <p>摄像头服务：</p> 
                     <n-space>
-                        <n-tag :type="hasCamera ? 'success' : 'error'">{{ hasCamera ? '已连接' : '未连接' }}</n-tag>
+                        <n-tag :type="hasCamera ? 'success' : 'error'">{{ hasCamera ? hasCamera : '未连接' }}</n-tag>
                         <n-tag :type="runCamera ? 'success' : 'error'">{{ runCamera ? '运行中' : '未运行' }}</n-tag>
                     </n-space>
                 </div>
@@ -13,8 +13,10 @@
                     <n-button size="small" type="primary" @click="runService('vlc-webcam', 'restart')">启动</n-button>
                     <n-button size="small" type="error" @click="runService('vlc-webcam', 'stop')">停止</n-button>
                     <n-button size="small" type="info" @click="runVLC('webcam')">测试</n-button>
-                    <n-button size="small" type="warning" @click="runService('vlc-webcam', 'enable')">激活</n-button>
                     <n-button size="small" @click="statusService('vlc-webcam')">状态</n-button>
+                    <n-button size="small" type="warning" @click="runService('vlc-webcam', 'enable')">激活</n-button>
+                    <n-button size="small" type="warning" @click="runService('vlc-webcam', 'disable')">禁用</n-button>
+                    <n-button size="small" @click="hasCamera = 'video0'">强制摄像头存在</n-button>
                 </n-space>
                 <div style="display: flex; justify-content: center; align-items: center;">
                     <p>屏幕捕获服务：</p> 
@@ -24,8 +26,9 @@
                     <n-button size="small" type="primary" @click="runService('vlc-screen', 'restart')">启动</n-button>
                     <n-button size="small" type="error" @click="runService('vlc-screen', 'stop')">停止</n-button>
                     <n-button size="small" type="info" @click="runVLC('screen')">测试</n-button>
-                    <n-button size="small" type="warning" @click="runService('vlc-screen', 'enable')">激活</n-button>
                     <n-button size="small" @click="statusService('vlc-screen')">状态</n-button>
+                    <n-button size="small" type="warning" @click="runService('vlc-screen', 'enable')">激活</n-button>
+                    <n-button size="small" type="warning" @click="runService('vlc-screen', 'disable')">禁用</n-button>
                 </n-space>
             </n-gi>
             <n-gi>
@@ -49,7 +52,7 @@ import { filesystem, os } from '@neutralinojs/lib';
 import { NCard, NGrid, NGi, NButton, NInput, NTabs, NTabPane } from 'naive-ui';
 import { onMounted, ref } from 'vue';
 
-const hasCamera = ref(false);
+const hasCamera = ref('');
 
 const runCamera = ref(false);
 const runScreen = ref(false);
@@ -123,7 +126,7 @@ const saveConfig = async (service: string) => {
 onMounted(async () => {
     try {
         const checkCamera = await filesystem.readDirectory('/dev');
-        hasCamera.value = checkCamera.map((item) => item.path).includes('video0');
+        hasCamera.value = checkCamera.map((item) => item.entry).filter((item) => item.startsWith('video')).join(', ') || '';
         const camera = await filesystem.readFile('/etc/default/vlc-webcam');
         const screen = await filesystem.readFile('/etc/default/vlc-screen');
         cameraInfo.value = camera;
