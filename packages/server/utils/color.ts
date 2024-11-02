@@ -216,7 +216,7 @@ export const CHINESE_NAME = {
     lightslategray: '浅板岩灰',
     lightsteelblue: '浅钢蓝',
     lightyellow: '浅黄',
-    lime: '酸橙色',
+    lime: '酸橙绿',
     limegreen: '酸橙绿',
     linen: '亚麻色',
     magenta: '洋红',

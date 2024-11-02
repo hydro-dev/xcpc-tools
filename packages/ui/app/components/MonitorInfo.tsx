@@ -6,11 +6,11 @@ import {
 import { notifications } from '@mantine/notifications';
 import {
   IconCircleChevronLeft,
-  IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle,
+  IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle, IconX,
 } from '@tabler/icons-react';
 import mpegts from 'mpegts.js';
 
-function VideoPlayer({ client = null, type = 'camera' }) {
+function VideoPlayer({ client, type = 'camera' }) {
   const videoRef = React.useRef(null);
   const needProxy = client && client[type].startsWith('proxy://');
   const src = `${needProxy ? '/stream/' : 'http://'}${client.ip}${
@@ -142,6 +142,24 @@ export function MonitorInfo({
 }
 
 export function MonitorInfoButton({ monitor, action }) {
+  const del = async (m) => {
+    try {
+      const res = await (await fetch('/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _id: m._id, operation: 'delete' }),
+      })).json();
+      if (res.error) {
+        notifications.show({ title: 'Error', message: `${res.error.message}(${res.error.params})`, color: 'red' });
+        return;
+      }
+      notifications.show({ title: 'Success', message: 'Client deleted', color: 'green' });
+    } catch (e) {
+      console.error(e);
+      notifications.show({ title: 'Error', message: 'Failed to delete client', color: 'red' });
+    }
+  };
+
   return (
     <Group>
       <Tooltip label="Info">
@@ -161,6 +179,9 @@ export function MonitorInfoButton({ monitor, action }) {
           </ActionIcon>
         </Tooltip>
       )}
+      <Tooltip label="Delete">
+        <ActionIcon variant="transparent" color="red" aria-label='Delete' onClick={() => del(monitor)}><IconX /></ActionIcon>
+      </Tooltip>
     </Group>
   );
 }

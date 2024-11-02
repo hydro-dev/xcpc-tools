@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Button, Card, Center, Group, LoadingOverlay, Tabs, Text, Title,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { useQuery } from '@tanstack/react-query';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
@@ -26,6 +27,25 @@ export default function Monitor() {
     setInfoTab(tab);
   };
 
+  const cleanAll = async () => {
+    try {
+      const res = await (await fetch('/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operation: 'clean_all' }),
+      })).json();
+      if (res.error) {
+        notifications.show({ title: 'Error', message: res.error.message, color: 'red' });
+        return;
+      }
+      notifications.show({ title: 'Success', message: 'All monitors cleaned', color: 'green' });
+      query.refetch();
+    } catch (e) {
+      console.error(e);
+      notifications.show({ title: 'Error', message: 'Failed to clean all monitors', color: 'red' });
+    }
+  };
+
   return (
     <>
       {detailM ? (
@@ -46,6 +66,13 @@ export default function Monitor() {
                 </Button>
               )}
               <MonitorBatchModal refresh={query.refetch} />
+              <Button
+                variant="outline"
+                color="red"
+                onClick={cleanAll}
+              >
+                Clean All
+              </Button>
             </Group>
           </Group>
           <Tabs value={activeTab} onChange={(value) => setActiveTab(value!)}>

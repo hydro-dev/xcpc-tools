@@ -82,7 +82,9 @@ export function MonitorTable({ monitors, openMonitorInfo }) {
             </HoverCard.Dropdown>
           </HoverCard>) : 'No Info' }
       </Table.Td>
-      <Table.Td><MonitorInfoButton monitor={m} action={openMonitorInfo} /></Table.Td>
+      <Table.Td>
+        <MonitorInfoButton monitor={m} action={openMonitorInfo} />
+      </Table.Td>
     </Table.Tr>
   ));
 

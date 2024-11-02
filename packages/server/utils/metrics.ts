@@ -32,7 +32,7 @@ export function createMetricsRegistry(ctx: Context) {
         labelNames: ['status'],
         async collect() {
             const machines = await ctx.db.monitor.find({});
-            const onlines = machines.filter((m) => m.updateAt > new Date().getTime() - 1000 * 60);
+            const onlines = machines.filter((m) => m.updateAt > new Date().getTime() - 1000 * 120);
             this.set({ status: 'online' }, onlines.length);
             this.set({ status: 'offline' }, machines.length - onlines.length);
         },

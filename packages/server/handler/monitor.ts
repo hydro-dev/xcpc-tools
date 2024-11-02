@@ -47,6 +47,20 @@ class MonitorAdminHandler extends AuthHandler {
         this.response.body = { success: true };
     }
 
+    async postDelete(params) {
+        const { _id } = params;
+        if (!_id) throw new BadRequestError();
+        const m = await this.ctx.db.monitor.findOne({ _id });
+        if (!m) throw new BadRequestError();
+        await this.ctx.db.monitor.remove({ _id }, {});
+        this.response.body = { success: true };
+    }
+
+    async postCleanAll() {
+        await this.ctx.db.monitor.remove({}, { multi: true });
+        this.response.body = { success: true };
+    }
+
     async postUpdateAll(params) {
         const {
             name, group, camera, desktop, ips,
