@@ -2,7 +2,7 @@
 import { Context, Service } from 'cordis';
 import superagent from 'superagent';
 import { config } from '../config';
-import { Logger, mongoId } from '../utils';
+import { Logger, mongoId, sleep } from '../utils';
 
 const logger = new Logger('fetcher');
 const fetch = (url: string, type: 'get' | 'post' = 'get') => {
@@ -107,6 +107,7 @@ class DOMjudgeFetcher extends BasicFetcher {
     }
 
     async teamInfo() {
+        if (!this.ctx.db.teams) await sleep(1000);
         const { body } = await fetch(`./api/v4/contests/${this.contest.id}/teams`);
         if (!body || !body.length) return;
         const teams = body;

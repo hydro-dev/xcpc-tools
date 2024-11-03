@@ -14,7 +14,7 @@ config.yaml
 config.json
 config.*.yaml
 config.*.json
-data/
+data*
 yarn.lock
 pnpm-lock.yaml
 
