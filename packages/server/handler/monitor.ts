@@ -130,6 +130,7 @@ class MonitorReportHandler extends Handler {
     async post(params) {
         if (!params.mac) throw new BadRequestError();
         params.ip = this.request.ip.replace('::ffff:', '');
+        if (params.mac === '00:00:00:00:00:00') throw new BadRequestError('Invalid MAC address');
         await saveMonitorInfo(this.ctx, params);
         this.response.body = 'Monitor server is running';
     }
