@@ -311,6 +311,10 @@ export function convertToColor(hex) {
     return bestMatch;
 }
 
-export function convertToChinese(color) {
-    return CHINESE_NAME[color] || color;
-}
+export const convertToChinese = (color) => CHINESE_NAME[color] || color;
+
+export const getBalloonName = (color = '', lang = '') => {
+    if (!color.startsWith('#')) return lang === 'zh' ? convertToChinese(color) : color;
+    const c = convertToColor(color);
+    return lang === 'zh' ? convertToChinese(c) : c;
+};

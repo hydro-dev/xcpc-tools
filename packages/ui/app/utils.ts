@@ -1,7 +1,3 @@
-import {
-  CHINESE_NAME, convertToChinese, convertToColor, HTML_COLORS,
-} from '@hydrooj/xcpc-tools/utils/color';
-
 export const ext2Lang = {
   adb: 'ada',
   awk: 'awk',
@@ -51,8 +47,4 @@ export const Languages = {
   scala: 'Scala',
   swift: 'Swift',
   txt: 'Plain Text',
-};
-
-export {
-  HTML_COLORS, CHINESE_NAME, convertToColor, convertToChinese,
 };
