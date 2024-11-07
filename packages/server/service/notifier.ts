@@ -4,7 +4,18 @@ import { Logger } from '../utils';
 
 const logger = new Logger('notifier');
 
-class WXWorkNotifier {
+declare module 'cordis' {
+    interface Context {
+        notifiers: Record<string, Notifier>;
+    }
+}
+
+interface Notifier {
+    sendText(text: string): Promise<superagent.Response>;
+    sendCustom(data: any): Promise<superagent.Response>;
+}
+
+class WXWorkNotifier implements Notifier {
     private readonly token: string;
     private readonly endpoint: string;
 
@@ -34,7 +45,7 @@ class WXWorkNotifier {
     }
 }
 
-class TelegramNotifier {
+class TelegramNotifier implements Notifier {
     private readonly token: string;
     private readonly chatId: string;
     private readonly endpoint: string;
@@ -61,7 +72,7 @@ class TelegramNotifier {
     }
 }
 
-class DingTalkNotifier {
+class DingTalkNotifier implements Notifier {
     private readonly token: string;
     private readonly endpoint: string;
 
@@ -90,7 +101,7 @@ class DingTalkNotifier {
     }
 }
 
-class LarkNotifier {
+class LarkNotifier implements Notifier {
     private readonly token: string;
     private readonly endpoint: string;
 
@@ -126,8 +137,6 @@ const Notifier = {
     lark: LarkNotifier,
 };
 
-const notifiers = {};
-
 export async function apply(ctx: Context) {
     const clients = await ctx.db.client.find({ type: 'webhook' });
     for (const client of clients) {
@@ -136,6 +145,6 @@ export async function apply(ctx: Context) {
         } = client;
         const notifierInstance = new Notifier[subType](token, endpoint, chatId);
         logger.info(`Notifier ${subType}(${_id}) loaded`);
-        notifiers[_id] = notifierInstance;
+        ctx.notifiers[_id] = notifierInstance;
     }
 }
