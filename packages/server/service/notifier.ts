@@ -138,6 +138,7 @@ const Notifier = {
 };
 
 export async function apply(ctx: Context) {
+    ctx.notifiers ||= {};
     const clients = await ctx.db.client.find({ type: 'webhook' });
     for (const client of clients) {
         const {
