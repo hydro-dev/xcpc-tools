@@ -1,4 +1,4 @@
-import { Context } from 'cordis';
+import { Context, Service } from 'cordis';
 import superagent from 'superagent';
 import { Logger } from '../utils';
 
@@ -6,7 +6,8 @@ const logger = new Logger('notifier');
 
 declare module 'cordis' {
     interface Context {
-        notifiers: Record<string, Notifier>;
+        notifyservice: NotifyService;
+        notifier: Record<string, Notifier>;
     }
 }
 
@@ -25,6 +26,7 @@ class WXWorkNotifier implements Notifier {
     }
 
     async sendText(text: string) {
+        logger.info(`Sending text to wxwork: ${text}`);
         return await superagent.post(`${this.endpoint}/cgi-bin/webhook/send`)
             .type('json')
             .query({ key: this.token })
@@ -38,6 +40,7 @@ class WXWorkNotifier implements Notifier {
     }
 
     async sendCustom(data: any) {
+        logger.info(`Sending custom to wxwork: ${JSON.stringify(data)}`);
         return await superagent.post(`${this.endpoint}/cgi-bin/webhook/send`)
             .type('json')
             .query({ key: this.token })
@@ -57,6 +60,7 @@ class TelegramNotifier implements Notifier {
     }
 
     async sendText(text: string) {
+        logger.info(`Sending text to telegram: ${text}`);
         return await superagent.post(`${this.endpoint}/bot${this.token}/sendMessage`)
             .type('json')
             .send({
@@ -66,6 +70,7 @@ class TelegramNotifier implements Notifier {
     }
 
     async sendCustom(data: any) {
+        logger.info(`Sending custom to telegram: ${JSON.stringify(data)}`);
         return await superagent.post(`${this.endpoint}/bot${this.token}/sendMessage`)
             .type('json')
             .send(data);
@@ -82,6 +87,7 @@ class DingTalkNotifier implements Notifier {
     }
 
     async sendText(text: string) {
+        logger.info(`Sending text to dingtalk: ${text}`);
         return await superagent.post(this.endpoint)
             .type('json')
             .query({ access_token: this.token })
@@ -94,6 +100,7 @@ class DingTalkNotifier implements Notifier {
     }
 
     async sendCustom(data: any) {
+        logger.info(`Sending custom to dingtalk: ${JSON.stringify(data)}`);
         return await superagent.post(this.endpoint)
             .type('json')
             .query({ access_token: this.token })
@@ -111,6 +118,7 @@ class LarkNotifier implements Notifier {
     }
 
     async sendText(text: string) {
+        logger.info(`Sending text to lark: ${text}`);
         return await superagent.post(this.endpoint)
             .type('json')
             .query({ app_id: this.token })
@@ -123,6 +131,7 @@ class LarkNotifier implements Notifier {
     }
 
     async sendCustom(data: any) {
+        logger.info(`Sending custom to lark: ${JSON.stringify(data)}`);
         return await superagent.post(this.endpoint)
             .type('json')
             .query({ app_id: this.token })
@@ -137,15 +146,29 @@ const Notifier = {
     lark: LarkNotifier,
 };
 
+class NotifyService extends Service {
+    constructor(ctx: Context) {
+        super(ctx, 'notifyservice', true);
+        ctx.mixin('notifyservice', ['notifier']);
+        this.start();
+    }
+
+    notifier: Record<string, Notifier> = {};
+
+    async addNotifier(id: string, subType: keyof typeof Notifier, token: string, endpoint = '', chatId = '') {
+        this.notifier[id] = new Notifier[subType](token, endpoint, chatId);
+        this.ctx.logger('notifier').info(`Notifier ${subType}(${id}) loaded`);
+    }
+}
+
 export async function apply(ctx: Context) {
-    ctx.notifiers ||= {};
+    ctx.provide('notifier', undefined, true);
+    ctx.notifyservice = new NotifyService(ctx);
     const clients = await ctx.db.client.find({ type: 'webhook' });
     for (const client of clients) {
         const {
             _id, subType, token, chatId, endpoint,
         } = client;
-        const notifierInstance = new Notifier[subType](token, endpoint, chatId);
-        logger.info(`Notifier ${subType}(${_id}) loaded`);
-        ctx.notifiers[_id] = notifierInstance;
+        ctx.notifyservice.addNotifier(_id, subType as keyof typeof Notifier, token, endpoint, chatId);
     }
 }
