@@ -3,7 +3,7 @@ import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import superagent from 'superagent';
 import { config } from '../config';
 import {
-    checkReceiptStatus, convertToChinese, Logger, receiptPrint, sleep,
+    checkReceiptStatus, getBalloonName, Logger, receiptPrint, sleep,
 } from '../utils';
 
 const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
@@ -74,13 +74,13 @@ let printer = null;
 async function printBalloon(doc, lang) {
     let status = '';
     for (const i in doc.total) {
-        status += `- ${i}: ${lang === 'zh' ? await convertToChinese(doc.total[i].color) : doc.total[i].color}\n`;
+        status += `- ${i}: ${getBalloonName(doc.total[i].color, lang)}\n`;
     }
     const bReceipt = receiptText(
         doc.balloonid,
         doc.location ? doc.location : 'N/A',
         doc.problem,
-        lang === 'zh' ? await convertToChinese(doc.contestproblem.color) : doc.contestproblem.color,
+        getBalloonName(doc.contestproblem.rgb, lang),
         doc.awards ? doc.awards : 'N/A',
         doc.team,
         status,
