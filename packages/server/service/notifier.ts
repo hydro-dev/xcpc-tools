@@ -86,16 +86,14 @@ class DingTalkNotifier implements Notifier {
         this.endpoint = endpoint || 'https://oapi.dingtalk.com/robot/send';
     }
 
-    async sendText(text: string) {
-        logger.info(`Sending text to dingtalk: ${text}`);
+    async sendText(content: string) {
+        logger.info(`Sending text to dingtalk: ${content}`);
         return await superagent.post(this.endpoint)
             .type('json')
             .query({ access_token: this.token })
             .send({
                 msgtype: 'text',
-                text: {
-                    content: text,
-                },
+                text: { content },
             });
     }
 
@@ -114,28 +112,31 @@ class LarkNotifier implements Notifier {
 
     constructor(token: string, endpoint = '') {
         this.token = token;
-        this.endpoint = endpoint || 'https://open.feishu.cn/open-apis/bot/v2/hook';
+        this.endpoint = endpoint || 'https://open.larksuite.com/open-apis/bot/v2/hook';
     }
 
     async sendText(text: string) {
         logger.info(`Sending text to lark: ${text}`);
-        return await superagent.post(this.endpoint)
+        return await superagent.post(`${this.endpoint}/${this.token}`)
             .type('json')
-            .query({ app_id: this.token })
             .send({
                 msg_type: 'text',
-                content: {
-                    text,
-                },
+                content: { text },
             });
     }
 
     async sendCustom(data: any) {
         logger.info(`Sending custom to lark: ${JSON.stringify(data)}`);
-        return await superagent.post(this.endpoint)
+        return await superagent.post(`${this.endpoint}/${this.token}`)
             .type('json')
-            .query({ app_id: this.token })
             .send(data);
+    }
+}
+
+class FeishuNotifier extends LarkNotifier {
+    constructor(token: string, endpoint = '') {
+        endpoint ||= 'https://open.feishu.cn/open-apis/bot/v2/hook';
+        super(token, endpoint);
     }
 }
 
@@ -144,6 +145,7 @@ const Notifier = {
     telegram: TelegramNotifier,
     dingtalk: DingTalkNotifier,
     lark: LarkNotifier,
+    feishu: FeishuNotifier,
 };
 
 class NotifyService extends Service {
