@@ -63,13 +63,18 @@ export async function checkReceiptStatus(printer) {
 }
 
 export async function receiptPrint(printer, text) {
-    fs.writeFileSync(path.resolve(process.cwd(), 'data', 'balloon.txt'), text);
+    fs.writeFileSync(path.resolve(process.cwd(), 'data', `balloon-${Date.now()}.txt`), text);
     if (process.platform === 'win32') {
-        exec(`COPY /B "${path.resolve(process.cwd(), 'data', 'balloon.txt')}" "${printer.printer}"`, (err, stdout, stderr) => {
+        exec(`COPY /B "${path.resolve(process.cwd(), 'data', `balloon-${Date.now()}.txt`)}" "${printer.printer}"`, (err, stdout, stderr) => {
             if (err) logger.error(err);
             if (stdout) logger.info(stdout);
             if (stderr) logger.error(stderr);
         });
-    } else if (process.platform === 'darwin') exec(`lpr -P ${printer.printer} -o raw ${path.resolve(process.cwd(), 'data', 'balloon.txt')}`);
-    else fs.writeFileSync(path.resolve(printer.printer), text);
+    } else if (process.platform === 'darwin') {
+        exec(`lpr -P ${printer.printer} -o raw ${path.resolve(process.cwd(), 'data', `balloon-${Date.now()}.txt`)}`, (err, stdout, stderr) => {
+            if (err) logger.error(err);
+            if (stdout) logger.info(stdout);
+            if (stderr) logger.error(stderr);
+        });
+    } else fs.writeFileSync(path.resolve(printer.printer), text);
 }
