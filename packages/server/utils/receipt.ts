@@ -62,10 +62,11 @@ export async function checkReceiptStatus(printer) {
     return printer;
 }
 
-export async function receiptPrint(printer, text) {
+export async function receiptPrint(printer, text, printCommand = '') {
     const filename = `balloon-${Date.now()}.txt`;
     await fs.writeFile(path.resolve(process.cwd(), 'data', filename), text);
-    if (process.platform === 'win32') {
+    if (printCommand) exec(printCommand.replace(/\{file\}/g, path.resolve(process.cwd(), 'data', filename)));
+    else if (process.platform === 'win32') {
         await new Promise((resolve, reject) => {
             exec(`COPY /B "${path.resolve(process.cwd(), 'data', filename)}" "${printer.printer}"`, (err, stdout, stderr) => {
                 if (err) {

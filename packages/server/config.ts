@@ -89,6 +89,7 @@ const clientSchema = Schema.object({
     balloon: Schema.string(),
     balloonLang: Schema.union(['zh', 'en']).default('zh').required(),
     balloonType: Schema.union([58, 80]).default(80),
+    balloonCommand: Schema.string().default(''),
     printColor: Schema.boolean().default(false),
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'),
     token: Schema.string().required().description('Token generated on server'),

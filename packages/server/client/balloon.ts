@@ -87,7 +87,7 @@ async function printBalloon(doc, lang) {
         lang,
     );
     printer = await checkReceiptStatus(printer);
-    await receiptPrint(printer, bReceipt);
+    await receiptPrint(printer, bReceipt, config.balloonCommand);
 }
 
 async function fetchTask(c) {
