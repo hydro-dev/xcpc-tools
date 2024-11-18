@@ -76,8 +76,6 @@ ${i18n[lang].team}: ${teamname}
 ${i18n[lang].problem}: ${problem}
 ${i18n[lang].color}: ${color}
 ${i18n[lang].comment}: ${comment}
-${i18n[lang].status}:
-${status}
 Powered by hydro-dev/xcpc-tools
 `;
 
