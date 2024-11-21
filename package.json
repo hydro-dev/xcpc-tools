@@ -29,6 +29,7 @@
     "typescript": "5.4.5"
   },
   "resolutions": {
-    "formidable": "patch:formidable@npm%3A2.1.2#~/.yarn/patches/formidable-npm-2.1.2-40ba18d67f.patch"
+    "formidable": "patch:formidable@npm%3A2.1.2#~/.yarn/patches/formidable-npm-2.1.2-40ba18d67f.patch",
+    "http-proxy@npm:^1.18.1": "patch:http-proxy@npm%3A1.18.1#~/.yarn/patches/http-proxy-npm-1.18.1-a313c479c5.patch"
   }
 }
