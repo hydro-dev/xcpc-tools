@@ -61,6 +61,8 @@ const serverSchema = Schema.intersect([
             Schema.const('hydro'),
         ] as const).description('server type').required(),
         port: Schema.number().default(5283),
+        xhost: Schema.string().default('x-forwarded-host'),
+        xff: Schema.string().default('x-forwarded-for'),
         viewPass: Schema.string().default(String.random(8)),
         secretRoute: Schema.string().default(String.random(12)),
         seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),

@@ -8,6 +8,8 @@ export async function apply(pluginContext: Context) {
     pluginContext.plugin(WebService, {
         host: '0.0.0.0',
         port: config.port,
+        xhost: config.xhost,
+        xff: config.xff,
     });
     pluginContext.inject(['server'], ({ server }) => {
         server.addServerLayer('stream', async (ctx, next) => {
