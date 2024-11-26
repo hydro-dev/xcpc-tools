@@ -1,6 +1,6 @@
 import { Context } from 'cordis';
 import proxy from 'koa-proxies';
-import { ForbiddenError, WebService } from '@hydrooj/framework';
+import { ForbiddenError, WebService, WebServiceConfig } from '@hydrooj/framework';
 import { config } from '../config';
 export * from '@hydrooj/framework/decorators';
 
@@ -8,7 +8,7 @@ export async function apply(pluginContext: Context) {
     pluginContext.plugin(WebService, {
         host: '0.0.0.0',
         port: config.port,
-    });
+    } as WebServiceConfig);
     pluginContext.inject(['server'], ({ server }) => {
         server.addServerLayer('stream', async (ctx, next) => {
             if (!ctx.path.startsWith('/stream/')) return await next();
