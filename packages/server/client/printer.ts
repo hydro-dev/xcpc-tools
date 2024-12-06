@@ -16,13 +16,15 @@ let timer = null;
 
 export async function ConvertCodeToPDF(code, lang, filename, team, location, codeColor = false) {
     compiler ||= await createTypstCompiler();
-    const typst = generateTypst(team, location, filename, lang, codeColor);
+    const fakeFilename = String.random(8); // cubercsl: do not trust filename from user
+    const typst = generateTypst(team, location, fakeFilename, filename, lang, codeColor);
     compiler.addSource('/main.typst', typst);
-    compiler.addSource(`/${filename}`, code);
+    compiler.addSource(`/${fakeFilename}`, code);
     const docs = await compiler.compile({
         format: 'pdf',
         mainFilePath: '/main.typst',
     });
+    compiler.addSource(`/${fakeFilename}`, '');
     logger.info(`Convert ${filename} to PDF`);
     return docs;
 }
