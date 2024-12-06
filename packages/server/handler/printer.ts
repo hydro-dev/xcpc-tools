@@ -67,6 +67,7 @@ class CodeHandler extends Handler {
             code, team, lang, filename, tname, location,
         } = params;
         if (!code && !this.request.files?.file) throw new BadRequestError('Code', null, 'Code is required');
+        if ((filename || this.request.files.file.originalFilename).includes('../')) throw new BadRequestError();
         const res = await this.ctx.db.code.insert({
             tid: team.toString(),
             team: `${team}: ${tname}`,
