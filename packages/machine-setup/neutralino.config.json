@@ -43,7 +43,7 @@
     "binaryName": "hydro-xcpctools-machine-setup",
     "resourcesPath": "/frontend/",
     "extensionsPath": "/extensions/",
-    "binaryVersion": "5.4.0",
+    "binaryVersion": "5.5.0",
     "clientVersion": "5.4.0",
     "frontendLibrary": {
       "projectPath": "/frontend/",
