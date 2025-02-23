@@ -1,0 +1,60 @@
+diff --git a/lib/index.js b/lib/index.js
+index 2cfbc38128a6387e03e30df13422584cf51636fb..97d08d3459b6e06128955fbdd1ac56ab676c5427 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -68,53 +68,14 @@ var getPrinters = function () { return __awaiter(void 0, void 0, void 0, functio
+             case 0: return [4 /*yield*/, getTerminalCodepage()];
+             case 1:
+                 codepage = _b.sent();
+-                return [4 /*yield*/, execAsync('wmic printer list /format:list', { encoding: 'binary' })];
++                return [4 /*yield*/, execAsync('powershell "Get-WmiObject -Class Win32_Printer | ConvertTo-Json"', { encoding: 'binary' })];
+             case 2:
+                 _a = _b.sent(), stdout = _a.stdout, stderr = _a.stderr;
+                 if (stderr.length > 0) {
+                     return [2 /*return*/, null];
+                 }
+                 result = iconv_lite_1.default.decode(Buffer.from(stdout, 'binary'), "cp".concat(codepage));
+-                blocks = result.replace(/\r/ig, '').split('\n\n\n');
+-                printerInfos = blocks.map(function (block) {
+-                    var obj = {};
+-                    // Split the block into lines that contain an attribute and its value.
+-                    var lines = block.trim().split('\n');
+-                    lines.forEach(function (line) {
+-                        // If the line is empty, ignore it.
+-                        if (line.trim().length < 1)
+-                            return;
+-                        // Get the index of the first equals sign.
+-                        var equalsSignIndex = line.indexOf('=');
+-                        // Extract the name and the value of the attribute.
+-                        var attributeName = line.substring(0, equalsSignIndex);
+-                        var attributeValue = line.substring(equalsSignIndex + 1);
+-                        // Ignore attributes that have blank values for compact output.
+-                        if (attributeValue.length < 1)
+-                            return;
+-                        // Array
+-                        if (attributeValue.startsWith('{') && attributeValue.endsWith('}'))
+-                            attributeValue = JSON.parse("[".concat(attributeValue.substring(1, attributeValue.length - 1), "]"));
+-                        // Boolean
+-                        if (typeof attributeValue === 'string') {
+-                            switch (attributeValue) {
+-                                case 'TRUE':
+-                                    attributeValue = true;
+-                                    break;
+-                                case 'FALSE':
+-                                    attributeValue = false;
+-                                    break;
+-                            }
+-                        }
+-                        // Numbers
+-                        if (typeof attributeValue === 'string' && !isNaN(parseFloat(attributeValue))) {
+-                            attributeValue = Number(attributeValue).valueOf();
+-                        }
+-                        // Assign the attribute value by its name into the object.
+-                        obj[attributeName] = attributeValue;
+-                    });
+-                    return obj;
+-                });
++                printerInfos = JSON.parse(result)
+                 // Ignore the empty printer info objects.
+                 printerInfos = printerInfos.filter(function (printerInfo) { return Object.keys(printerInfo).length > 0; });
+                 return [2 /*return*/, printerInfos];
