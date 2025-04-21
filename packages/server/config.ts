@@ -91,6 +91,8 @@ const clientSchema = Schema.object({
     balloonType: Schema.union([58, 80, 'plain']).default(80),
     balloonCommand: Schema.string().default(''), // use {file} to get the file
     printColor: Schema.boolean().default(false),
+    printPageMax: Schema.number().default(5),
+    printMergeQueue: Schema.number().default(1),
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'),
     token: Schema.string().required().description('Token generated on server'),
     fonts: Schema.array(Schema.string()).default([]),
