@@ -8,7 +8,6 @@ import {
     DejaVuSansMonoBold,
     DejaVuSansMonoBoldOblique,
     DejaVuSansMonoOblique,
-    NotoColorEmoji,
     NotoSansSC,
     wasmBinary,
 } from './assets';
@@ -37,7 +36,6 @@ class TypstCompilerDriver {
         await this.builder.add_raw_font(new Uint8Array(DejaVuSansMonoBoldOblique));
         await this.builder.add_raw_font(new Uint8Array(DejaVuSansMonoOblique));
         await this.builder.add_raw_font(new Uint8Array(NotoSansSC));
-        await this.builder.add_raw_font(new Uint8Array(NotoColorEmoji));
         this.compiler = await this.builder.build();
     }
 
@@ -115,9 +113,8 @@ export function generateTypst(team: string, location: string, filename: string, 
   }
   raw(read(filename), lang: lang, block: true${codeColor ? '' : ', theme: "/XCPCTOOLS/BW.tmtheme"'})
 }
-
 #print(
-    team: ${JSON.stringify(team || '')},
+    team: ${JSON.stringify((team || '').replace(/🌟/g, '[STAR]'))},
     location: ${JSON.stringify(location || '')},
     filename: ${JSON.stringify(filename || '')},
     original: ${JSON.stringify(originalFilename || filename || '')},
