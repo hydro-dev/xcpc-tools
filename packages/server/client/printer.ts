@@ -1,5 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import path from 'path';
+import chardet from 'chardet';
+import * as iconv from 'iconv-lite';
 import { PDFDocument } from 'pdf-lib';
 import superagent from 'superagent';
 import { config, saveConfig } from '../config';
@@ -35,12 +37,19 @@ const mergePDFs = async (files: string[], output: string) => {
     return fs.writeFileSync(output, await pdf.save());
 };
 
-export async function ConvertCodeToPDF(code, lang, filename, team, location, codeColor = false) {
+function toUtf8(code: Buffer) {
+    const info = chardet.detect(code);
+    logger.debug(`detected as ${info}`);
+    if (!info) return code.toString('utf8');
+    return iconv.decode(code, info).toString();
+}
+
+export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, location, codeColor = false) {
     compiler ||= await createTypstCompiler();
     const fakeFilename = String.random(8); // cubercsl: do not trust filename from user
     const typst = generateTypst(team, location, fakeFilename, filename, lang, codeColor);
     compiler.addSource('/main.typst', typst);
-    compiler.addSource(`/${fakeFilename}`, code);
+    compiler.addSource(`/${fakeFilename}`, toUtf8(code));
     const docs = await compiler.compile({
         format: 'pdf',
         mainFilePath: '/main.typst',
@@ -58,7 +67,14 @@ export async function printFile(docs) {
             const {
                 _id, tid, code, lang, filename, team, location,
             } = doc;
-            const pdf = await ConvertCodeToPDF(code || 'empty file', lang, filename, team, location, config.printColor);
+            const pdf = await ConvertCodeToPDF(
+                code ? Buffer.from(code, 'base64') : Buffer.from('empty file'),
+                lang,
+                filename,
+                team,
+                location,
+                config.printColor,
+            );
             fs.writeFileSync(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`), pdf);
             files.push(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`));
         }

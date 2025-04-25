@@ -61,7 +61,7 @@ class ClientPrintConnectHandler extends Handler {
             return;
         }
         try {
-            code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`)).toString();
+            code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`)).toString('base64');
         } catch (e) {
             logger.error(e);
         }
