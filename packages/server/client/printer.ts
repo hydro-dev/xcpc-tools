@@ -106,7 +106,7 @@ async function fetchTask(c) {
         const printersInfo: any[] = await getPrinters();
         const tasks = [];
         for (let i = 0; i < config.printMergeQueue; i++) {
-            const { body } = await post(`${c.server}/client/${c.token}/print`)
+            const { body } = await post(`${c.server}client/${c.token}/print`)
                 .send({
                     printers: config.printers,
                     printersInfo: JSON.stringify(printersInfo.map((p) => ({
@@ -123,7 +123,7 @@ async function fetchTask(c) {
             if (body.doc) {
                 tasks.push(body.doc);
                 // FIXME: so ugly, give server merge task number
-                if (config.printMergeQueue !== 1) await post(`${c.server}/client/${c.token}/doneprint/${body.doc._id}`);
+                if (config.printMergeQueue !== 1) await post(`${c.server}client/${c.token}/doneprint/${body.doc._id}`);
             }
         }
         if (tasks.length) {
@@ -137,7 +137,7 @@ async function fetchTask(c) {
                 throw e;
             }
             for (const doc of tasks) {
-                await post(`${c.server}/client/${c.token}/doneprint/${doc._id}?printer=${JSON.stringify(printer)}`);
+                await post(`${c.server}client/${c.token}/doneprint/${doc._id}?printer=${JSON.stringify(printer)}`);
                 logger.info(`Print task ${doc.tid}#${doc._id} completed.`);
             }
         } else {

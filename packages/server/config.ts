@@ -86,7 +86,7 @@ const serverSchema = Schema.intersect([
     ]),
 ]);
 const clientSchema = Schema.object({
-    server: Schema.string().role('url').required(),
+    server: Schema.transform(String, (i) => (i.endsWith('/') ? i : `${i}/`)).role('url').required(),
     balloon: Schema.string(),
     balloonLang: Schema.union(['zh', 'en']).default('zh').required(),
     balloonType: Schema.union([58, 80, 'plain']).default(80),
