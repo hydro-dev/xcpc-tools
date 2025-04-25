@@ -3,7 +3,7 @@ import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import superagent from 'superagent';
 import { config } from '../config';
 import {
-    checkReceiptStatus, convertToChinese, Logger, receiptPrint, sleep,
+    checkReceiptStatus, getBalloonName, Logger, receiptPrint, sleep,
 } from '../utils';
 
 const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
@@ -30,7 +30,7 @@ const i18n = {
     },
 };
 
-export const receiptText = (
+export const receiptBalloonText = (
     id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
 ) => encoder
     .initialize()
@@ -66,6 +66,18 @@ export const receiptText = (
     .cut()
     .encode();
 
+export const plainBalloonText = (
+    id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
+) => `
+${i18n[lang].receipt}
+ID: ${id}
+${i18n[lang].location}: ${location}
+${i18n[lang].team}: ${teamname}
+${i18n[lang].problem}: ${problem}
+${i18n[lang].color}: ${color}
+${i18n[lang].comment}: ${comment}
+`;
+
 const logger = new Logger('balloon');
 
 let timer = null;
@@ -74,20 +86,21 @@ let printer = null;
 async function printBalloon(doc, lang) {
     let status = '';
     for (const i in doc.total) {
-        status += `- ${i}: ${lang === 'zh' ? await convertToChinese(doc.total[i].color) : doc.total[i].color}\n`;
+        status += `- ${i}: ${getBalloonName(doc.total[i].color, lang)}\n`;
     }
-    const bReceipt = receiptText(
+    const genText = config.balloonType === 'plain' ? plainBalloonText : receiptBalloonText;
+    const bReceipt = await genText(
         doc.balloonid,
         doc.location ? doc.location : 'N/A',
         doc.problem,
-        lang === 'zh' ? await convertToChinese(doc.contestproblem.color) : doc.contestproblem.color,
+        getBalloonName(doc.contestproblem.rgb, lang),
         doc.awards ? doc.awards : 'N/A',
         doc.team,
         status,
         lang,
     );
     printer = await checkReceiptStatus(printer);
-    await receiptPrint(printer, bReceipt);
+    await receiptPrint(printer, bReceipt, config.balloonCommand);
 }
 
 async function fetchTask(c) {

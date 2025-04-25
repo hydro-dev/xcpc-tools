@@ -67,6 +67,7 @@ class CodeHandler extends Handler {
             code, team, lang, filename, tname, location,
         } = params;
         if (!code && !this.request.files?.file) throw new BadRequestError('Code', null, 'Code is required');
+        if ((filename || this.request.files.file.originalFilename).includes('../')) throw new BadRequestError();
         const res = await this.ctx.db.code.insert({
             tid: team.toString(),
             team: `${team}: ${tname}`,
@@ -77,6 +78,9 @@ class CodeHandler extends Handler {
             printer: '',
             done: 0,
         });
+        const codeFile = code || fs.readFileSync(this.request.files.file.filepath).toString();
+        if (!codeFile) throw new BadRequestError('Code', null, 'Code is empty');
+        if (codeFile.length > 256 * 1024) throw new BadRequestError('Code', null, 'Code is larger than 256KB');
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/codes'));
         fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', `${team}#${res._id}`), code || fs.readFileSync(this.request.files.file.filepath));
         this.response.body = `The code has been submitted. Code Print ID: ${team}#${res._id}`;
