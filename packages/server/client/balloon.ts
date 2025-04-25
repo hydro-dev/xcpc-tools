@@ -107,12 +107,12 @@ async function fetchTask(c) {
     if (timer) clearTimeout(timer);
     logger.info('Fetching balloon task from tools server...');
     try {
-        const { body } = await post(`${c.server}/client/${c.token}/balloon`).send();
+        const { body } = await post(`${c.server}client/${c.token}/balloon`).send();
         if (body.balloons) {
             for (const doc of body.balloons) {
                 logger.info(`Print balloon task ${doc.teamid}#${doc.balloonid}...`);
                 await printBalloon(doc, config.balloonLang);
-                await post(`${c.server}/client/${c.token}/doneballoon/${doc.balloonid}`);
+                await post(`${c.server}client/${c.token}/doneballoon/${doc.balloonid}`);
                 logger.info(`Print task ${doc.teamid}#${doc.balloonid} completed.`);
             }
         } else {
