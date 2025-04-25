@@ -15,7 +15,6 @@
     "build:pkg": "yarn build:ui && node -r ./register.js build.ts && pkg dist/xcpc-tools.js --targets linux,macos,win --out-path dist/pkg"
   },
   "devDependencies": {
-    "@expo-google-fonts/noto-color-emoji": "^0.2.3",
     "@expo-google-fonts/noto-sans-sc": "^0.2.3",
     "@hydrooj/eslint-config": "^1.1.1",
     "@hydrooj/register": "^1.0.3",
