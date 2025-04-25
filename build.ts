@@ -10,8 +10,11 @@ const logger = new Logger('build');
 logger.info('Building...');
 
 function encodeBinary(a: Buffer) {
-    const file = zlib.gzipSync(a);
+    const file = zlib.gzipSync(a, { level: 9 });
     return chunk([...encode(file)], 1000).map((i) => String.fromCodePoint(...i)).join('');
+}
+function size(a: string) {
+    return `${Math.floor((Buffer.from(a).length / 1024 / 1024) * 10) / 10}MB`;
 }
 
 const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIiJdLCJtYXBwaW5ncyI6IkEifQ==';
@@ -28,14 +31,16 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
         minify: true,
         entryPoints: [path.resolve(process.cwd(), 'packages/server/index.ts')],
         charset: 'utf8',
-        sourcemap: 'inline',
+        sourcemap: process.argv.includes('--debug') ? 'inline' : false,
         plugins: [{
             name: 'base16384',
             setup(b) {
                 b.onLoad({ filter: /\.(frontend|ttf|wasm)$/, namespace: 'file' }, (t) => {
                     const file = fs.readFileSync(path.join(t.path));
+                    const contents = `module.exports = "${encodeBinary(file)}";\n${nopMap}`;
+                    console.log(t.path, size(contents));
                     return {
-                        contents: `module.exports = "${encodeBinary(file)}";\n${nopMap}`,
+                        contents,
                         loader: 'tsx',
                     };
                 });
@@ -52,7 +57,7 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
     });
     if (res.errors.length) console.error(res.errors);
     if (res.warnings.length) console.warn(res.warnings);
-    logger.info(`Resource Size: ${Math.floor((res.outputFiles[0].text.length / 1024 / 1024) * 10) / 10}MB`);
+    logger.info(`Resource Size: ${size(res.outputFiles[0].text)}`);
     fs.writeFileSync(path.resolve(process.cwd(), 'dist/xcpc-tools.js'), res.outputFiles[0].text);
     logger.info('Saved to dist/xcpc-tools.js');
 })();
