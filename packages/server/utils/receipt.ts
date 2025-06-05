@@ -48,14 +48,13 @@ export async function checkReceiptStatus(printer) {
     logger.info('Printer changed:', printer.printer, printer.info);
     const usbDevices = fs.readdirSync('/dev/usb');
     for (const f of usbDevices) {
-        if (f.startsWith('lp')) {
-            const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
-            if (lpid === oldPrinter.info) {
-                logger.info('Printer found:', f, ':', lpid);
-                oldPrinter.printer = `/dev/usb/${f}`;
-                printer = oldPrinter;
-                return printer;
-            }
+        if (!f.startsWith('lp')) continue;
+        const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
+        if (lpid === oldPrinter.info) {
+            logger.info('Printer found:', f, ':', lpid);
+            oldPrinter.printer = `/dev/usb/${f}`;
+            printer = oldPrinter;
+            return printer;
         }
     }
     if (oldPrinter.info !== printer.info) throw Error('Printer not found, please check the printer connection.');
@@ -65,22 +64,16 @@ export async function checkReceiptStatus(printer) {
 export async function receiptPrint(printer, text, printCommand = '') {
     const filename = `balloon-${Date.now()}.txt`;
     await fs.writeFile(path.resolve(process.cwd(), 'data', filename), text);
-    if (printCommand) exec(printCommand.replace(/\{file\}/g, path.resolve(process.cwd(), 'data', filename)));
-    else if (process.platform === 'win32') {
+    const command = printCommand
+        ? printCommand.replace(/\{file\}/g, path.resolve(process.cwd(), 'data', filename))
+        : process.platform === 'win32'
+            ? `COPY /B "${path.resolve(process.cwd(), 'data', filename)}" "${printer.printer}"`
+            : process.platform === 'darwin'
+                ? `lpr -P ${printer.printer} -o raw ${path.resolve(process.cwd(), 'data', filename)}`
+                : null;
+    if (command) {
         await new Promise((resolve, reject) => {
-            exec(`COPY /B "${path.resolve(process.cwd(), 'data', filename)}" "${printer.printer}"`, (err, stdout, stderr) => {
-                if (err) {
-                    logger.error(err);
-                    reject(err);
-                }
-                if (stdout) logger.info(stdout);
-                if (stderr) logger.error(stderr);
-                resolve(null);
-            });
-        });
-    } else if (process.platform === 'darwin') {
-        await new Promise((resolve, reject) => {
-            exec(`lpr -P ${printer.printer} -o raw ${path.resolve(process.cwd(), 'data', filename)}`, (err, stdout, stderr) => {
+            exec(command, (err, stdout, stderr) => {
                 if (err) {
                     logger.error(err);
                     reject(err);
