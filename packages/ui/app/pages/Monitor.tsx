@@ -1,9 +1,9 @@
-import React from 'react';
 import {
   Button, Card, Center, Group, LoadingOverlay, Tabs, Text, Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useQuery } from '@tanstack/react-query';
+import React from 'react';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
 import { MonitorInfo } from '../components/MonitorInfo';
@@ -84,7 +84,7 @@ export default function Monitor() {
             </Tabs.List>
 
             <Tabs.Panel value="all">
-              {(!(query.isLoading || query.isFetching) && (!Object.values(query.data?.monitors || {}).length) ? (
+              {(!query.isLoading && !query.isFetching && (!Object.values(query.data?.monitors || {}).length) ? (
                 <Center mt="md">
                   <Text c="dimmed">No monitors found</Text>
                 </Center>
@@ -93,7 +93,7 @@ export default function Monitor() {
 
             {Object.keys(query.data?.groups || {}).map((group) => (
               <Tabs.Panel key={group} value={group}>
-                {(!(query.isLoading || query.isFetching) && (!query.data?.groups[group].length) ? (
+                {(!query.isLoading && !query.isFetching && (!query.data?.groups[group].length) ? (
                   <Center mt="md">
                     <Text c="dimmed">No monitors found</Text>
                   </Center>

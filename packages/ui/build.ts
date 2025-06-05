@@ -1,9 +1,9 @@
-import { Logger } from '@hydrooj/utils';
+import path from 'path';
 import cac from 'cac';
 import fs from 'fs-extra';
-import path from 'path';
 import webpack from 'webpack';
 import WebpackDevServer from 'webpack-dev-server';
+import { Logger } from '@hydrooj/utils';
 
 function esbuildLoader() {
   return {

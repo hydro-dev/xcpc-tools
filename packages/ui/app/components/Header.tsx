@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Container,
   Group, rem,
@@ -7,6 +6,7 @@ import {
 import {
   IconBalloonFilled, IconDeviceHeartMonitor, IconHome, IconPrinter, IconTerminal2,
 } from '@tabler/icons-react';
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const iconStyle = { width: rem(18), height: rem(18) };

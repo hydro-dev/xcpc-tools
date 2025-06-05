@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-loop-func */
 import child from 'child_process';
 import fs from 'fs';
 import { homedir } from 'os';
@@ -42,6 +41,7 @@ export async function executeOnHost(host: string, command: string, timeout = 100
     logger.info('executing', command, 'on', host);
     return await asyncCommand([
         'ssh', '-o', 'StrictHostKeyChecking no', '-o', `IdentityFile ${customKeyfile || keyfile}`,
+        '-o', 'UserKnownHostsFile /dev/null',
         `root@${host}`,
         'bash', '-c', `'echo $(echo ${Buffer.from(command).toString('base64')} | base64 -d | bash)'`,
     ], timeout);

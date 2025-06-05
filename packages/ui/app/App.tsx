@@ -1,5 +1,5 @@
-import React from 'react';
 import { AppShell, Container } from '@mantine/core';
+import React from 'react';
 import {
   HashRouter, Outlet, Route, Routes,
 } from 'react-router-dom';

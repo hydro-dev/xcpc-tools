@@ -1,8 +1,8 @@
-import React from 'react';
 import {
   Button, Card, Divider, Group, Textarea, Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import React from 'react';
 
 export default function Commands() {
   const [command, setCommand] = React.useState('');

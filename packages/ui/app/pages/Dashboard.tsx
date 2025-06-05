@@ -1,4 +1,3 @@
-import React, { useEffect } from 'react';
 import {
   Group, Paper, SimpleGrid, Text,
 } from '@mantine/core';
@@ -6,6 +5,7 @@ import {
   IconBalloon, IconChecklist, IconMailCheck, IconMailForward, IconPrinter, IconSend2, IconUser, IconUserCheck, IconUserX,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
+import React, { useEffect } from 'react';
 
 export function StatsCard({ title, value, Icon }) {
   return (
