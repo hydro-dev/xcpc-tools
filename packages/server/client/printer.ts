@@ -85,7 +85,6 @@ export async function printFile(docs) {
             await mergePDFs(files, finalFile);
         }
         if (config.printers.length) {
-            // eslint-disable-next-line no-constant-condition
             while (true) {
                 const printersInfo: any[] = await getPrinters();
                 const printers = printersInfo.filter((p) => config.printers.includes(p.printer));

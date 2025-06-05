@@ -1,4 +1,4 @@
-import _NotoSansSC from '@expo-google-fonts/noto-sans-sc/NotoSansSC_400Regular.ttf';
+import _NotoSansSC from '@expo-google-fonts/noto-sans-sc/400Regular/NotoSansSC_400Regular.ttf';
 import _wasmBinary from '@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm';
 import _DejaVuSansMono from 'dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf';
 import _DejaVuSansMonoBold from 'dejavu-fonts-ttf/ttf/DejaVuSansMono-Bold.ttf';

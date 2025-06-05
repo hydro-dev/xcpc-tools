@@ -5,7 +5,6 @@ declare module 'cordis' {
     }
     interface Events {
         'app/started': () => void
-        'app/listen': () => void
         'app/ready': () => VoidReturn
         'app/exit': () => VoidReturn
     }
