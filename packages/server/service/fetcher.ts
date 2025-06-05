@@ -37,15 +37,19 @@ export interface IBasicFetcher {
 }
 class BasicFetcher extends Service implements IBasicFetcher {
     contest: any;
+    logger = this.ctx.logger('fetcher');
+
     constructor(ctx: Context) {
-        super(ctx, 'fetcher', true);
-        const interval = setInterval(() => this.cron().catch(logger.error), 20000);
-        this.ctx.on('dispose', () => clearInterval(interval));
+        super(ctx, 'fetcher');
+    }
+
+    [Service.init]() {
+        this.ctx.interval(() => this.cron().catch(this.logger.error), 20000);
     }
 
     async cron() {
         if (config.type === 'server') return;
-        logger.info('Fetching contest info...');
+        this.logger.info('Fetching contest info...');
         if (!config.token) {
             if (config.username && config.password) await this.getToken(config.username, config.password);
             else throw new Error('No token or username/password provided');
@@ -66,16 +70,16 @@ class BasicFetcher extends Service implements IBasicFetcher {
     }
 
     async teamInfo() {
-        logger.debug('Found 0 teams');
+        this.logger.debug('Found 0 teams');
     }
 
     async balloonInfo(all) {
-        logger.debug(all ? 'Sync all balloons...' : 'Sync new balloons...');
-        logger.debug('Found 0 balloons in Server Mode');
+        this.logger.debug(all ? 'Sync all balloons...' : 'Sync new balloons...');
+        this.logger.debug('Found 0 balloons in Server Mode');
     }
 
     async setBalloonDone(bid) {
-        logger.debug(`Balloon ${bid} set done`);
+        this.logger.debug(`Balloon ${bid} set done`);
     }
 }
 
@@ -85,14 +89,14 @@ class DOMjudgeFetcher extends BasicFetcher {
         if (!config.contestId) {
             const { body } = await fetch('./api/v4/contests?onlyActive=true');
             if (!body || !body.length) {
-                logger.error('Contest not found');
+                this.logger.error('Contest not found');
                 return false;
             }
             contest = body[0];
         } else {
             const { body } = await fetch(`./api/v4/contests/${config.contestId}`);
             if (!body || !body.id) {
-                logger.error(`Contest ${config.contestId} not found`);
+                this.logger.error(`Contest ${config.contestId} not found`);
                 return false;
             }
             contest = body;
@@ -102,7 +106,7 @@ class DOMjudgeFetcher extends BasicFetcher {
         contest.freeze_time = new Date(contest.end_time).getTime() - freeze * 1000;
         const old = this?.contest?.id;
         this.contest = { info: contest, id: contest.id, name: contest.name };
-        logger.info(`Connected to ${contest.name}(id=${contest.id})`);
+        this.logger.info(`Connected to ${contest.name}(id=${contest.id})`);
         return old !== this.contest.id;
     }
 
@@ -114,11 +118,11 @@ class DOMjudgeFetcher extends BasicFetcher {
         for (const team of teams) {
             await this.ctx.db.teams.update({ id: team.id }, { $set: team }, { upsert: true });
         }
-        logger.debug(`Found ${teams.length} teams`);
+        this.logger.debug(`Found ${teams.length} teams`);
     }
 
     async balloonInfo(all) {
-        if (all) logger.info('Sync all balloons...');
+        if (all) this.logger.info('Sync all balloons...');
         const { body } = await fetch(`./api/v4/contests/${this.contest.id}/balloons?todo=${all ? 'false' : 'true'}`);
         if (!body || !body.length) return;
         const balloons = body;
@@ -153,12 +157,12 @@ class DOMjudgeFetcher extends BasicFetcher {
             }, { upsert: true });
         }
         await this.ctx.parallel('balloon/newTask', balloons.length);
-        logger.debug(`Found ${balloons.length} balloons`);
+        this.logger.debug(`Found ${balloons.length} balloons`);
     }
 
     async setBalloonDone(bid) {
         await fetch(`./api/v4/contests/${this.contest.id}/balloons/${bid}/done`, 'post');
-        logger.debug(`Balloon ${bid} set done`);
+        this.logger.debug(`Balloon ${bid} set done`);
     }
 }
 
@@ -168,7 +172,7 @@ class HydroFetcher extends BasicFetcher {
         const [domainId, contestId] = ids.length === 2 ? ids : ['system', config.contestId];
         const { body } = await fetch(`/d/${domainId}/contest/${contestId}`);
         if (!body || !body.tdoc) {
-            logger.error('Contest not found');
+            this.logger.error('Contest not found');
             return false;
         }
         const contest = body.tdoc;
@@ -177,7 +181,7 @@ class HydroFetcher extends BasicFetcher {
         this.contest = {
             info: contest, id: contest._id, name: contest.title, domainId,
         };
-        logger.info(`Connected to ${contest.name}(id=${contest.id})`);
+        this.logger.info(`Connected to ${contest.name}(id=${contest.id})`);
         return old === this.contest.id;
     }
 
@@ -195,11 +199,11 @@ class HydroFetcher extends BasicFetcher {
         for (const team of teams) {
             await this.ctx.db.teams.update({ id: team._id }, { $set: team }, { upsert: true });
         }
-        logger.debug(`Found ${teams.length} teams`);
+        this.logger.debug(`Found ${teams.length} teams`);
     }
 
     async balloonInfo(all) {
-        if (all) logger.info('Sync all balloons...');
+        if (all) this.logger.info('Sync all balloons...');
         const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon?todo=${all ? 'false' : 'true'}`);
         if (!body || !body.length) return;
         const balloons = body;
@@ -240,12 +244,12 @@ class HydroFetcher extends BasicFetcher {
             }, { upsert: true });
         }
         await this.ctx.parallel('balloon/newTask', balloons.length);
-        logger.debug(`Found ${balloons.length} balloons`);
+        this.logger.debug(`Found ${balloons.length} balloons`);
     }
 
     async setBalloonDone(bid) {
         await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon`, 'post').send({ balloon: bid });
-        logger.debug(`Balloon ${bid} set done`);
+        this.logger.debug(`Balloon ${bid} set done`);
     }
 }
 
@@ -256,10 +260,6 @@ const fetcherList = {
 };
 
 export async function apply(ctx: Context) {
-    if (config.type !== 'server') {
-        logger.info('Fetch mode: ', config.type);
-    }
-    ctx.provide('fetcher', undefined, true);
-    ctx.fetcher = await new fetcherList[config.type](ctx);
-    ctx.fetcher.cron();
+    if (config.type !== 'server') ctx.logger('fetcher').info('Fetch mode: ', config.type);
+    ctx.plugin(fetcherList[config.type]);
 }

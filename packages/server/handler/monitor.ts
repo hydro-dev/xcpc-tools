@@ -1,10 +1,6 @@
-/* eslint-disable no-await-in-loop */
-import { Context } from 'cordis';
+import { Context, Schema } from 'cordis';
 import { BadRequestError, Handler } from '@hydrooj/framework';
-import { Logger } from '../utils';
 import { AuthHandler } from './misc';
-
-const logger = new Logger('handler/monitor');
 
 class MonitorAdminHandler extends AuthHandler {
     async get(params) {
@@ -101,7 +97,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
     } = monitor;
     const monitors = await ctx.db.monitor.find({ mac });
     const warn = monitors.length > 1 || (monitors.length && monitors[0].ip !== ip);
-    if (warn) logger.warn(`Duplicate monitor ${mac} from (${ip}, ${monitors.length ? monitors[0].ip : 'null'})`);
+    if (warn) ctx.logger('monitor').warn(`Duplicate monitor ${mac} from (${ip}, ${monitors.length ? monitors[0].ip : 'null'})`);
     await ctx.db.monitor.updateOne({ mac }, {
         $set: {
             mac,
@@ -122,21 +118,24 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
     }, { upsert: true });
 }
 
-class MonitorReportHandler extends Handler {
-    async get() {
-        this.response.body = 'Monitor server is running';
-    }
+export const Config = Schema.object({
+    timeSync: Schema.boolean().default(false),
+});
 
-    async post(params) {
-        if (!params.mac) throw new BadRequestError();
-        params.ip = this.request.ip.replace('::ffff:', '');
-        if (params.mac === '00:00:00:00:00:00') throw new BadRequestError('Invalid MAC address');
-        await saveMonitorInfo(this.ctx, params);
-        this.response.body = 'Monitor server is running';
-    }
-}
+export async function apply(ctx: Context, config: ReturnType<typeof Config>) {
+    class MonitorReportHandler extends Handler {
+        async get() {
+            this.response.body = 'Monitor server is running';
+        }
 
-export async function apply(ctx: Context) {
+        async post(params) {
+            if (!params.mac) throw new BadRequestError();
+            params.ip = this.request.ip.replace('::ffff:', '');
+            if (params.mac === '00:00:00:00:00:00') throw new BadRequestError('Invalid MAC address');
+            await saveMonitorInfo(this.ctx, params);
+            this.response.body = `#!/bin/bash\n${config.timeSync ? `date "${new Date().toISOString()}"` : 'echo Success'}`;
+        }
+    }
     ctx.Route('monitor_report', '/report', MonitorReportHandler);
     ctx.Route('monitor_admin', '/monitor', MonitorAdminHandler);
 }

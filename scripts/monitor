@@ -38,7 +38,12 @@ MEM="$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')"
 MemFree="$(cat /proc/meminfo | grep MemFree | awk '{print $2}')"
 MEMUSED="$(($MEM-$MemFree))"
 
-exec curl -s $HEARTBEATURL -X POST \
+if [ ! -f /root/exec-result ]; then
+  touch /root/exec-result
+fi
+
+curl -s $HEARTBEATURL -X POST \
+  -F "file=@/root/exec-result" \
   -d "mac=$MACADDR" \
   -d "version=$VERSION" \
   -d "uptime=$UPTIME" \
@@ -49,4 +54,9 @@ exec curl -s $HEARTBEATURL -X POST \
   -d "cpuused=$CPUUSED" \
   -d "mem=$MEM" \
   -d "memused=$MEMUSED" \
-  -d "load=$LOAD" 
+  -d "load=$LOAD" \
+  -o /root/heartbeat-exec.sh
+
+if [ -f /root/heartbeat-exec.sh ]; then
+  head /root/heartbeat-exec.sh | grep '#!/bin/bash' && bash /root/heartbeat-exec.sh >/root/exec-result 2>&1 || true
+fi

@@ -1,9 +1,10 @@
 import os from 'os';
 import path from 'path';
+import LoggerService from '@cordisjs/plugin-logger';
+import { TimerService } from '@cordisjs/plugin-timer';
 import { Context } from 'cordis';
+import DBService from './service/db';
 import { fs, Logger } from './utils';
-
-Logger.levels.base = 3;
 
 const logger = new Logger('tools');
 
@@ -22,36 +23,54 @@ try {
 }
 
 async function applyServer(ctx: Context) {
-    ctx.plugin(require('./service/server'));
-    ctx.plugin(require('./service/db'));
-    ctx.plugin(require('./service/fetcher'));
-    ctx.inject(['server', 'dbservice', 'fetcher'], (c) => {
-        c.plugin(require('./handler/misc'));
-        c.plugin(require('./handler/printer'));
-        c.plugin(require('./handler/monitor'));
-        c.plugin(require('./handler/client'));
-        c.plugin(require('./handler/balloon'));
-        c.plugin(require('./handler/commands'));
+    await Promise.all([
+        ctx.plugin(require('./service/server')),
+        ctx.plugin(require('./service/fetcher')),
+    ]);
+    await ctx.inject(['server', 'dbservice', 'fetcher'], async (c) => {
+        await Promise.all([
+            c.plugin(require('./handler/misc')),
+            c.plugin(require('./handler/printer')),
+            c.plugin(require('./handler/monitor'), config.monitor),
+            c.plugin(require('./handler/client')),
+            c.plugin(require('./handler/balloon')),
+            c.plugin(require('./handler/commands')),
+        ]);
         c.server.listen();
     });
 }
 
-async function applyClient(ctx: Context) {
+function applyClient(ctx: Context) {
     if (config.printers?.length) ctx.plugin(require('./client/printer'));
     if (config.balloon) ctx.plugin(require('./client/balloon'));
 }
 
 async function apply(ctx) {
     if (process.argv.includes('--client')) {
-        await applyClient(ctx);
+        applyClient(ctx);
     } else {
-        await applyServer(ctx);
+        ctx.plugin(DBService);
+        ctx.inject(['dbservice'], (c) => {
+            applyServer(c);
+        });
     }
-    await ctx.lifecycle.flush();
-    await ctx.parallel('app/listen');
     logger.success('Tools started');
     process.send?.('ready');
     await ctx.parallel('app/ready');
 }
 
-if (config) apply(app);
+app.plugin(TimerService);
+app.plugin(LoggerService, {
+    console: {
+        showDiff: false,
+        showTime: 'dd hh:mm:ss',
+        label: {
+            align: 'right',
+            width: 9,
+            margin: 1,
+        },
+        levels: { default: process.env.DEV ? 3 : 2 },
+    },
+});
+
+if (config) app.inject(['logger', 'timer'], (ctx) => apply(ctx));

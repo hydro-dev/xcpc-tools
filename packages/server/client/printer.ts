@@ -6,7 +6,7 @@ import { PDFDocument } from 'pdf-lib';
 import superagent from 'superagent';
 import { config, saveConfig } from '../config';
 import {
-    fs, getPrinters, initWinPrinter, Logger, print, sleep,
+    fs, getPrinters, initWinPrinter, Logger, print, randomstring, sleep,
 } from '../utils';
 import { createTypstCompiler, generateTypst } from './typst';
 
@@ -46,7 +46,7 @@ function toUtf8(code: Buffer) {
 
 export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, location, codeColor = false) {
     compiler ||= await createTypstCompiler();
-    const fakeFilename = String.random(8); // cubercsl: do not trust filename from user
+    const fakeFilename = randomstring(8); // cubercsl: do not trust filename from user
     const typst = generateTypst(team, location, fakeFilename, filename, lang, codeColor);
     compiler.addSource('/main.typst', typst);
     compiler.addSource(`/${fakeFilename}`, toUtf8(code));

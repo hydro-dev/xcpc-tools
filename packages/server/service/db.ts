@@ -21,12 +21,11 @@ declare module 'cordis' {
     }
 }
 
-export class DBService extends Service {
+export default class DBService extends Service {
     constructor(ctx: Context) {
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/.db'));
-        super(ctx, 'dbservice', true);
+        super(ctx, 'dbservice');
         ctx.mixin('dbservice', ['db']);
-        this.start();
     }
 
     db: { [T in keyof Collections]: Datastore<Collections[T]> } = {} as any;
@@ -39,16 +38,11 @@ export class DBService extends Service {
         this.ctx.logger('db').info(`${key} Database loaded`);
     }
 
-    async start() {
+    async [Service.init]() {
         await this.initDatabase('code', ['_id', 'createAt', 'done', 'printer', 'deleted']);
         await this.initDatabase('monitor', ['_id', 'mac', 'name', 'group']);
         await this.initDatabase('client', ['id', 'name', 'type', 'group']);
         await this.initDatabase('balloon', ['id', 'time', 'problem', 'teamid', 'awards', 'done', 'printDone']);
         await this.initDatabase('teams', []);
     }
-}
-
-export function apply(ctx: Context) {
-    ctx.provide('dbservice', undefined, true);
-    ctx.dbservice = new DBService(ctx);
 }
