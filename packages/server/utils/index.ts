@@ -1,19 +1,29 @@
 import { gunzipSync } from 'zlib';
 import { decode } from 'base16384';
-import Logger from 'reggol';
+import { Exporter, Factory, Logger as Reggol } from 'reggol';
 
-Logger.levels.base = process.env.DEV ? 3 : 2;
-Logger.targets[0].showTime = 'dd hh:mm:ss';
-Logger.targets[0].label = {
-    align: 'right',
-    width: 9,
-    margin: 1,
-};
-declare global {
-    interface StringConstructor {
-        random: (digit?: number, dict?: string) => string;
-    }
+Factory.formatters['d'] = (value, exporter) => Reggol.color(exporter, 3, value);
+
+const factory = new Factory();
+
+factory.addExporter(new Exporter.Console({
+    showDiff: false,
+    showTime: 'dd hh:mm:ss',
+    label: {
+        align: 'right',
+        width: 9,
+        margin: 1,
+    },
+    timestamp: Date.now(),
+    levels: { default: process.env.DEV ? 3 : 2 },
+}));
+
+function createLogger(name: string) {
+    return factory.createLogger(name);
 }
+
+export type Logger = Reggol & { new(name: string): Reggol & Logger };
+export const Logger = createLogger as any as Logger;
 
 const defaultDict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
 
@@ -22,9 +32,6 @@ export function randomstring(digit = 32, dict = defaultDict) {
     for (let i = 1; i <= digit; i++) str += dict[Math.floor(Math.random() * dict.length)];
     return str;
 }
-try {
-    String.random = randomstring;
-} catch (e) { } // Cannot add property random, object is not extensible
 
 export function sleep(timeout: number) {
     return new Promise((resolve) => {
@@ -45,7 +52,6 @@ export function mongoId(idstring: string) {
 
 export * as fs from 'fs-extra';
 export * as yaml from 'js-yaml';
-export { Logger };
 
 export function StaticHTML(context, randomHash) {
     // eslint-disable-next-line max-len

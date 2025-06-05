@@ -3,7 +3,7 @@ import { Context } from 'cordis';
 import {
     BadRequestError, ForbiddenError, Handler, ValidationError,
 } from '@hydrooj/framework';
-import { fs, Logger } from '../utils';
+import { fs, Logger, randomstring } from '../utils';
 import { AuthHandler } from './misc';
 
 const logger = new Logger('handler/client');
@@ -18,7 +18,7 @@ class ClientControlHandler extends AuthHandler {
         const { name, type } = params;
         const client = await this.ctx.db.client.findOne({ name });
         if (client) throw new ValidationError('Client', null, 'Client already exists');
-        const id = String.random(6);
+        const id = randomstring(6);
         await this.ctx.db.client.insert({
             id,
             name,

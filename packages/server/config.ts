@@ -3,7 +3,7 @@ import Schema from 'schemastery';
 import { version as packageVersion } from './package.json';
 import {
     checkReceiptPrinter,
-    fs, getPrinters, Logger, yaml,
+    fs, getPrinters, Logger, randomstring, yaml,
 } from './utils';
 
 const logger = new Logger('init');
@@ -21,8 +21,8 @@ if (!fs.existsSync(configPath)) {
     exit = new Promise((resolve) => (async () => {
         const serverConfigDefault = `\
 type: server # server | domjudge | hydro
-viewPass: ${String.random(8)} # use admin / viewPass to login
-secretRoute: ${String.random(12)}
+viewPass: ${randomstring(8)} # use admin / viewPass to login
+secretRoute: ${randomstring(12)}
 seatFile: /home/icpc/Desktop/seats.txt
 customKeyfile: 
 # if type is server, the following is not needed
@@ -30,6 +30,8 @@ server:
 token: 
 username: 
 password: 
+monitor:
+  timeSync: false
 `;
         let printers = [];
         if (isClient) {
@@ -62,10 +64,13 @@ const serverSchema = Schema.intersect([
         ] as const).description('server type').required(),
         port: Schema.number().default(5283),
         xhost: Schema.string().default('x-forwarded-host'),
-        viewPass: Schema.string().default(String.random(8)),
-        secretRoute: Schema.string().default(String.random(12)),
+        viewPass: Schema.string().default(randomstring(8)),
+        secretRoute: Schema.string().default(randomstring(12)),
         seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),
         customKeyfile: Schema.string().default(''),
+        monitor: Schema.object({
+            timeSync: Schema.boolean().default(false),
+        }).default({ timeSync: false }),
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
