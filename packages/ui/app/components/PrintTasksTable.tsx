@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   ActionIcon, Group, LoadingOverlay, Table, Text,
   ThemeIcon,
@@ -9,6 +8,7 @@ import { notifications } from '@mantine/notifications';
 import {
   IconCheck, IconEye, IconHourglassEmpty, IconPrinter, IconRefresh, IconX,
 } from '@tabler/icons-react';
+import React from 'react';
 
 function PrintTaskRow({ colorCode, task, refresh }) {
   const [loading, setLoading] = React.useState(false);

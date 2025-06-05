@@ -1,9 +1,9 @@
-import React from 'react';
 import {
   Card, Center, Grid, Group,
   HoverCard, Table, Text, ThemeIcon, Title, Tooltip,
 } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
+import React from 'react';
 import { MonitorInfoButton } from './MonitorInfo';
 
 export function MonitorCards({ monitors, openMonitorInfo }) {

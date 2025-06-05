@@ -1,4 +1,3 @@
-/* eslint-disable no-await-in-loop */
 // @ts-ignore
 import { Context } from 'cordis';
 import { Registry } from 'prom-client';

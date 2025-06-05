@@ -1,4 +1,3 @@
-/* eslint-disable no-await-in-loop */
 import path from 'path';
 import { Context } from 'cordis';
 import { BadRequestError, Handler, ValidationError } from '@hydrooj/framework';
