@@ -1,4 +1,4 @@
-/* eslint-disable import/no-dynamic-require */
+import child from 'child_process';
 import path from 'path';
 import zlib from 'zlib';
 import { encode } from 'base16384';
@@ -27,8 +27,9 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
         outdir: path.join(process.cwd(), 'dist'),
         splitting: false,
         write: false,
+        target: 'node16',
         tsconfig: path.resolve(process.cwd(), 'tsconfig.json'),
-        minify: true,
+        minify: !process.argv.includes('--debug'),
         entryPoints: [path.resolve(process.cwd(), 'packages/server/index.ts')],
         charset: 'utf8',
         sourcemap: process.argv.includes('--debug') ? 'inline' : false,
@@ -60,4 +61,15 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
     logger.info(`Resource Size: ${size(res.outputFiles[0].text)}`);
     fs.writeFileSync(path.resolve(process.cwd(), 'dist/xcpc-tools.js'), res.outputFiles[0].text);
     logger.info('Saved to dist/xcpc-tools.js');
+    if (!process.env.SEA) return;
+    fs.writeFileSync(path.resolve(process.cwd(), 'dist/sea-config.json'), JSON.stringify({
+        main: 'xcpc-tools.js',
+        output: 'sea-prep.blob',
+    }));
+    child.execSync('node --experimental-sea-config sea-config.json', { cwd: path.resolve(process.cwd(), 'dist') });
+    fs.copyFileSync(path.resolve(process.cwd(), 'nanode-v22.x-icu_none-v8_opts-lto-x64'), path.resolve(process.cwd(), 'dist/nanode'));
+    child.execSync(
+        'npx postject nanode NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2',
+        { cwd: path.resolve(process.cwd(), 'dist') },
+    );
 })();
