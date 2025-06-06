@@ -1,43 +1,7 @@
 import { gunzipSync } from 'zlib';
 import { decode } from 'base16384';
-import { Exporter, Factory, Logger as Reggol } from 'reggol';
 
-Factory.formatters['d'] = (value, exporter) => Reggol.color(exporter, 3, value);
-
-const factory = new Factory();
-
-factory.addExporter(new Exporter.Console({
-    showDiff: false,
-    showTime: 'dd hh:mm:ss',
-    label: {
-        align: 'right',
-        width: 9,
-        margin: 1,
-    },
-    timestamp: Date.now(),
-    levels: { default: process.env.DEV ? 3 : 2 },
-}));
-
-function createLogger(name: string) {
-    return factory.createLogger(name);
-}
-
-export type Logger = Reggol & { new(name: string): Reggol & Logger };
-export const Logger = createLogger as any as Logger;
-
-const defaultDict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
-
-export function randomstring(digit = 32, dict = defaultDict) {
-    let str = '';
-    for (let i = 1; i <= digit; i++) str += dict[Math.floor(Math.random() * dict.length)];
-    return str;
-}
-
-export function sleep(timeout: number) {
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(true), timeout);
-    });
-}
+export { Logger, sleep, randomstring } from '@hydrooj/utils/lib/utils';
 
 // https://github.com/andrasq/node-mongoid-js/blob/master/mongoid.js
 export function mongoId(idstring: string) {

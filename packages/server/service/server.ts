@@ -8,7 +8,7 @@ export async function apply(pluginContext: Context) {
     pluginContext.plugin(WebService, {
         host: '0.0.0.0',
         port: config.port,
-    });
+    } as any);
     pluginContext.inject(['server'], ({ server }) => {
         server.addServerLayer('stream', async (ctx, next) => {
             if (!ctx.path.startsWith('/stream/')) return await next();
