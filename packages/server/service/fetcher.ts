@@ -177,18 +177,17 @@ class HydroFetcher extends BasicFetcher {
         }
         const contest = body.tdoc;
         contest.freeze_time = contest.lockAt;
-        const old = this?.contest?._id;
+        const old = this?.contest?.id;
         this.contest = {
             info: contest, id: contest._id, name: contest.title, domainId,
         };
-        this.logger.info(`Connected to ${contest.name}(id=${contest.id})`);
-        return old === this.contest.id;
+        this.logger.info(`Connected to ${this.contest.name}(id=${this.contest.id})`);
+        return old !== this.contest.id;
     }
 
     async getToken(username, password) {
-        const res = await fetch('/login', 'post').send({ uname: username, password, rememberme: 'on' })
-            .redirects(0).ok((i) => i.status === 302);
-        if (!res) throw new Error('Failed to get token');
+        const res = await fetch('/login', 'post').send({ uname: username, password, rememberme: 'on' }).redirects(0);
+        if (!res || res.error) throw new Error('Failed to get token');
         config.token = `Bearer ${res.header['set-cookie'][0].split(';')[0].split('=')[1]}`;
     }
 
@@ -230,7 +229,7 @@ class HydroFetcher extends BasicFetcher {
                     contestproblem,
                     team: body.udict[balloon.uid].displayName,
                     teamid: balloon.uid,
-                    location: body.udict[balloon.uid].studentId,
+                    location: body.udict[balloon.uid].uname,
                     affiliation: body.udict[balloon.uid].school,
                     awards: balloon.first ? 'First of Problem' : (
                         this.contest.info.freeze_time && (balloon.time * 1000) > this.contest.info.freeze_time
@@ -260,6 +259,6 @@ const fetcherList = {
 };
 
 export async function apply(ctx: Context) {
-    if (config.type !== 'server') ctx.logger('fetcher').info('Fetch mode: ', config.type);
+    if (config.type !== 'server') ctx.logger('fetcher').info('Fetch mode:', config.type);
     ctx.plugin(fetcherList[config.type]);
 }
