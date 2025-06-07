@@ -2,12 +2,14 @@ import { Context } from 'cordis';
 import proxy from 'koa-proxies';
 import { ForbiddenError, WebService } from '@hydrooj/framework';
 import { config } from '../config';
+import { randomstring } from '../utils';
 export * from '@hydrooj/framework/decorators';
 
 export async function apply(pluginContext: Context) {
     pluginContext.plugin(WebService, {
         host: '0.0.0.0',
         port: config.port,
+        keys: [randomstring(16)],
     } as any);
     pluginContext.inject(['server'], ({ server }) => {
         server.addServerLayer('stream', async (ctx, next) => {

@@ -33,20 +33,21 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
         entryPoints: [path.resolve(process.cwd(), 'packages/server/index.ts')],
         charset: 'utf8',
         sourcemap: process.argv.includes('--debug') ? 'inline' : false,
+        metafile: true,
         plugins: [{
             name: 'base16384',
             setup(b) {
                 b.onLoad({ filter: /\.(frontend|ttf|wasm)$/, namespace: 'file' }, (t) => {
                     const file = fs.readFileSync(path.join(t.path));
-                    const contents = `module.exports = "${encodeBinary(file)}";\n${nopMap}`;
+                    const contents = `module.exports = "${process.argv.includes('--no-binary') ? '' : encodeBinary(file)}";\n${nopMap}`;
                     console.log(t.path, size(contents));
                     return {
                         contents,
                         loader: 'tsx',
                     };
                 });
-                b.onLoad({ filter: /node_modules\/.+\.js$/ }, (t) => ({
-                    contents: `${fs.readFileSync(t.path, 'utf8')}\n${nopMap}`,
+                b.onLoad({ filter: /node_modules.*\.[jt]sx?$/ }, async (t) => ({
+                    contents: `${await fs.readFile(t.path, 'utf-8')}\n${nopMap}`,
                     loader: 'default',
                 }));
             },
@@ -60,6 +61,7 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
     if (res.warnings.length) console.warn(res.warnings);
     logger.info(`Resource Size: ${size(res.outputFiles[0].text)}`);
     fs.writeFileSync(path.resolve(process.cwd(), 'dist/xcpc-tools.js'), res.outputFiles[0].text);
+    fs.writeFileSync(path.resolve(process.cwd(), 'dist/metafile.json'), JSON.stringify(res.metafile));
     logger.info('Saved to dist/xcpc-tools.js');
     if (!process.env.SEA) return;
     fs.writeFileSync(path.resolve(process.cwd(), 'dist/sea-config.json'), JSON.stringify({

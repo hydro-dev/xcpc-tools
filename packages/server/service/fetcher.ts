@@ -44,7 +44,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
     }
 
     [Service.init]() {
-        this.ctx.interval(() => this.cron().catch(this.logger.error), 20000);
+        this.ctx.interval(() => this.cron().catch(this.logger.error), 10000);
     }
 
     async cron() {
@@ -204,22 +204,21 @@ class HydroFetcher extends BasicFetcher {
     async balloonInfo(all) {
         if (all) this.logger.info('Sync all balloons...');
         const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon?todo=${all ? 'false' : 'true'}`);
-        if (!body || !body.length) return;
-        const balloons = body;
-        for (const balloon of balloons) {
-            const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.teamid, time: { $lt: (balloon.time * 1000).toFixed(0) } });
+        if (!body?.bdocs?.length) return;
+        for (const balloon of body.bdocs) {
+            const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.uid, time: { $lt: (balloon.time * 1000).toFixed(0) } });
             const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
             const totalDict = {};
             for (const t of teamTotal) {
                 totalDict[t.problem] = t.contestproblem;
             }
             const shouldPrint = this.contest.info.freeze_time ? (balloon.time * 1000) < this.contest.info.freeze_time || encourage : true;
-            if (!shouldPrint && !balloon.done) await this.setBalloonDone(balloon.balloonid);
+            if (!shouldPrint && !balloon.sent) await this.setBalloonDone(balloon.balloonid);
             const contestproblem = {
-                id: String.fromCharCode(this.contest.pids.indexOf(balloon.pid) + 65),
+                id: String.fromCharCode(this.contest.info.pids.indexOf(balloon.pid) + 65),
                 name: body.pdict[balloon.pid].title,
-                rgb: this.contest.balloon[balloon.pid].color,
-                color: this.contest.balloon[balloon.pid].name,
+                rgb: this.contest.info.balloon[balloon.pid].color,
+                color: this.contest.info.balloon[balloon.pid].name,
             };
             await this.ctx.db.balloon.update({ balloonid: balloon.balloonid }, {
                 $set: {
@@ -237,13 +236,13 @@ class HydroFetcher extends BasicFetcher {
                     ),
                     done: balloon.sent,
                     total: totalDict,
-                    printDone: balloon.done ? 1 : 0,
+                    printDone: balloon.sent ? 1 : 0,
                     shouldPrint,
                 },
             }, { upsert: true });
         }
-        await this.ctx.parallel('balloon/newTask', balloons.length);
-        this.logger.debug(`Found ${balloons.length} balloons`);
+        await this.ctx.parallel('balloon/newTask', body.bdocs.length);
+        this.logger.debug(`Found ${body.bdocs.length} balloons`);
     }
 
     async setBalloonDone(bid) {
