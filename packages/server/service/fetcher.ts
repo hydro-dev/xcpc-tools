@@ -7,10 +7,10 @@ import { Logger, mongoId, sleep } from '../utils';
 const logger = new Logger('fetcher');
 const fetch = (url: string, type: 'get' | 'post' = 'get') => {
     const endpoint = new URL(url, config.server).toString();
-    const req = superagent[type](endpoint)
-        .set('Authorization', config.token)
+    let req = superagent[type](endpoint)
         .set('Accept', 'application/json')
         .ok(() => true);
+    if (config.token) req = req.set('Authorization', config.token);
     return new Proxy(req, {
         get(target, prop) {
             if (prop === 'then') {
