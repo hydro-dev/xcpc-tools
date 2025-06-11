@@ -107,9 +107,9 @@ class ClientBalloonDoneHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });
         if (!client) throw new ForbiddenError('Client', null, 'Client not found');
-        const balloon = await this.ctx.db.balloon.findOne({ balloonid: +params.bid });
+        const balloon = await this.ctx.db.balloon.findOne({ balloonid: params.bid });
         if (!balloon) throw new ValidationError('Balloon', params.bid, 'Balloon not found');
-        await this.ctx.db.balloon.updateOne({ balloonid: +params.bid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
+        await this.ctx.db.balloon.updateOne({ balloonid: params.bid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
         if (!balloon.done) await this.ctx.fetcher.setBalloonDone(balloon.balloonid);
         await this.ctx.parallel('balloon/doneTask', client._id, 1);
         this.response.body = { code: 1 };

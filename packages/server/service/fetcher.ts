@@ -134,10 +134,10 @@ class DOMjudgeFetcher extends BasicFetcher {
                 totalDict[t.problem] = t.contestproblem;
             }
             const shouldPrint = this.contest.info.freeze_time ? (balloon.time * 1000) < this.contest.info.freeze_time || encourage : true;
-            if (!shouldPrint && !balloon.done) await this.setBalloonDone(balloon.balloonid);
-            await this.ctx.db.balloon.update({ balloonid: balloon.balloonid }, {
+            if (!shouldPrint && !balloon.done) await this.setBalloonDone(balloon.balloonid.toString());
+            await this.ctx.db.balloon.update({ balloonid: balloon.balloonid.toString() }, {
                 $set: {
-                    balloonid: balloon.balloonid,
+                    balloonid: balloon.balloonid.toString(),
                     time: (balloon.time * 1000).toFixed(0),
                     problem: balloon.problem,
                     contestproblem: balloon.contestproblem,
@@ -160,7 +160,7 @@ class DOMjudgeFetcher extends BasicFetcher {
         this.logger.debug(`Found ${balloons.length} balloons`);
     }
 
-    async setBalloonDone(bid) {
+    async setBalloonDone(bid: string) {
         await fetch(`./api/v4/contests/${this.contest.id}/balloons/${bid}/done`, 'post');
         this.logger.debug(`Balloon ${bid} set done`);
     }
@@ -246,7 +246,7 @@ class HydroFetcher extends BasicFetcher {
     }
 
     async setBalloonDone(bid) {
-        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon`, 'post').send({ balloon: bid });
+        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon`, 'post').send({ operation: 'done', balloon: bid });
         this.logger.debug(`Balloon ${bid} set done`);
     }
 }
