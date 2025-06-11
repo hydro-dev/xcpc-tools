@@ -220,7 +220,7 @@ class HydroFetcher extends BasicFetcher {
                 rgb: this.contest.info.balloon[balloon.pid].color,
                 color: this.contest.info.balloon[balloon.pid].name,
             };
-            await this.ctx.db.balloon.update({ balloonid: balloon.balloonid }, {
+            await this.ctx.db.balloon.update({ balloonid: balloon._id }, {
                 $set: {
                     balloonid: balloon._id,
                     time: mongoId(balloon._id).timestamp,
