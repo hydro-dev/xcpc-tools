@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import {
   ActionIcon, Button, Card, Fieldset, FocusTrap,
   Grid, Group, LoadingOverlay, Tabs, Text, TextInput, Title, Tooltip,
+  Textarea, NumberInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
   IconCircleChevronLeft,
-  IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle, IconX,
+  IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle, IconX, IconPhoto,
 } from '@tabler/icons-react';
 import mpegts from 'mpegts.js';
 
@@ -45,6 +46,15 @@ export function MonitorInfo({
   const [group, setGroup] = useState(monitor.group || '');
   const [camera, setCamera] = useState(monitor.camera || '');
   const [desktop, setDesktop] = useState(monitor.desktop || '');
+  const [remoteCmd, setRemoteCmd] = useState('');
+  const [remotePort, setRemotePort] = useState(4567);
+  const [remoteAuthKey, setRemoteAuthKey] = useState('BiGCIcPc');
+  const [remoteRes, setRemoteRes] = useState('');
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [screenshotData, setScreenshotData] = useState<string | null>(null);
+  const [screenshotTimestamp, setScreenshotTimestamp] = useState<string>('');
+  const [screenshotLoading, setScreenshotLoading] = useState(false);
+  const [screenshotError, setScreenshotError] = useState<string>('');
 
   const updateInfo = async () => {
     setUpdating(true);
@@ -76,6 +86,53 @@ export function MonitorInfo({
     setUpdating(false);
     refresh();
   };
+
+  const sendRemoteCommand = async () => {
+    setRemoteLoading(true);
+    try {
+      const res = await fetch('monitor/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host: monitor.ip, port: remotePort, authKey: remoteAuthKey, command: remoteCmd }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        notifications.show({ title: 'Error', message: data.error, color: 'red' });
+      } else {
+        setRemoteRes(data.data);
+        notifications.show({ title: 'Success', message: '命令执行完毕', color: 'green' });
+      }
+    } catch (e) {
+      console.error(e);
+      notifications.show({ title: 'Error', message: '远程命令发送失败', color: 'red' });
+    }
+    setRemoteLoading(false);
+  };
+
+  // 当切换到 screenshot 标签时，自动拉取最新截图
+  // 当切换到 screenshot 标签时，自动拉取最新截图
+  React.useEffect(() => {
+    if (activeTab === 'screenshot') {
+      setScreenshotLoading(true);
+      // 修改点：使用绝对路径 //screenshot 避免添加前缀
+      fetch(`/screenshot?ip=${monitor.ip}`)
+        .then(res => {
+          if (!res.ok) throw new Error(`状态码 ${res.status}`);
+          return res.json();
+        })
+        .then(data => {
+          setScreenshotData(data.screenshot);
+          setScreenshotTimestamp(new Date(parseInt(data.timestamp)).toLocaleString());
+          setScreenshotError('');
+        })
+        .catch(err => {
+          setScreenshotError(`获取截图失败: ${err.message}`);
+          setScreenshotData(null);
+        })
+        .finally(() => setScreenshotLoading(false));
+    }
+  }, [activeTab, monitor.ip]);
+
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
       <Group justify="space-between" mb="xs">
@@ -91,6 +148,8 @@ export function MonitorInfo({
           <Tabs.Tab value="info">Info</Tabs.Tab>
           { monitor.camera && (<Tabs.Tab value="camera">Camera</Tabs.Tab>)}
           { monitor.desktop && (<Tabs.Tab value="desktop">Desktop</Tabs.Tab>)}
+          <Tabs.Tab value="command">Command</Tabs.Tab>
+          <Tabs.Tab value="screenshot">Screenshot</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="info">
@@ -136,6 +195,26 @@ export function MonitorInfo({
             <VideoPlayer client={monitor} type="desktop" />
           </Tabs.Panel>
         )}
+        <Tabs.Panel value="command">
+          <LoadingOverlay visible={remoteLoading} />
+          <Fieldset legend="Remote Command">
+            <TextInput label="Command" value={remoteCmd} onChange={(e) => setRemoteCmd(e.currentTarget.value)} placeholder="输入命令" />
+            <NumberInput label="Port" value={remotePort} onChange={(val) => setRemotePort(val || 4567)} min={1} max={65535} />
+            <TextInput label="Auth Key" value={remoteAuthKey} onChange={(e) => setRemoteAuthKey(e.currentTarget.value)} />
+            <Button mt="md" fullWidth onClick={sendRemoteCommand}>Send Command</Button>
+            <Textarea mt="md" label="Response" readOnly value={remoteRes} />
+          </Fieldset>
+        </Tabs.Panel>
+        <Tabs.Panel value="screenshot">
+          <LoadingOverlay visible={screenshotLoading} />
+          {screenshotError && <Alert color="red">{screenshotError}</Alert>}
+          {screenshotData && (
+            <>
+              <img src={`data:image/png;base64,${screenshotData}`} alt="screenshot" style={{ width: '100%' }} />
+              <Text size="xs" mt="sm">Time: {screenshotTimestamp}</Text>
+            </>
+          )}
+        </Tabs.Panel>
       </Tabs>
     </Card>
   );
@@ -181,6 +260,11 @@ export function MonitorInfoButton({ monitor, action }) {
       )}
       <Tooltip label="Delete">
         <ActionIcon variant="transparent" color="red" aria-label='Delete' onClick={() => del(monitor)}><IconX /></ActionIcon>
+      </Tooltip>
+      <Tooltip label="Screenshot">
+        <ActionIcon variant="transparent" color="blue" aria-label="Screenshot" onClick={() => action(monitor, 'screenshot')}>
+          <IconPhoto />
+        </ActionIcon>
       </Tooltip>
     </Group>
   );

@@ -10,6 +10,13 @@ export async function apply(pluginContext: Context) {
         port: config.port,
     });
     pluginContext.inject(['server'], ({ server }) => {
+        // 重写路径：支持 '/system/...' 前缀
+        // server.app.use(async (ctx, next) => {
+        //     if (ctx.path.startsWith('/system/')) {
+        //         ctx.path = ctx.path.replace(/^\/system\//, '/');
+        //     }
+        //     await next();
+        // });
         server.addServerLayer('stream', async (ctx, next) => {
             if (!ctx.path.startsWith('/stream/')) return await next();
             if (ctx.request.headers.authorization) {

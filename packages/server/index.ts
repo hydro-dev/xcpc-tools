@@ -32,6 +32,9 @@ async function applyServer(ctx: Context) {
         c.plugin(require('./handler/client'));
         c.plugin(require('./handler/balloon'));
         c.plugin(require('./handler/commands'));
+        c.plugin(require('./handler/directCommand')); // 添加直接命令处理器
+        c.plugin(require('./handler/monitorCommand')); // 新增 MonitorCommand 路由注册
+        c.plugin(require('./handler/screenshot'));  // 添加截图路由处理器
         c.server.listen();
     });
 }
