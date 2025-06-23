@@ -44,7 +44,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
     }
 
     [Service.init]() {
-        this.ctx.interval(() => this.cron().catch(this.logger.error), 10000);
+        this.ctx.interval(() => this.cron().catch(this.logger.error), 15000);
     }
 
     async cron() {
@@ -205,8 +205,10 @@ class HydroFetcher extends BasicFetcher {
         if (all) this.logger.info('Sync all balloons...');
         const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon?todo=${all ? 'false' : 'true'}`);
         if (!body?.bdocs?.length) return;
-        for (const balloon of body.bdocs) {
-            const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.uid, time: { $lt: (balloon.time * 1000).toFixed(0) } });
+        const baloons = body.bdocs.map((b) => ({ ...b, time: mongoId(b._id).timestamp * 1000 })).sort((a, b) => a.time - b.time);
+        for (const balloon of baloons) {
+            balloon.time = mongoId(balloon._id).timestamp * 1000;
+            const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.uid, time: { $lt: balloon.time } });
             const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
             const totalDict = {};
             for (const t of teamTotal) {
@@ -215,16 +217,17 @@ class HydroFetcher extends BasicFetcher {
             const shouldPrint = this.contest.info.freeze_time ? (balloon.time * 1000) < this.contest.info.freeze_time || encourage : true;
             if (!shouldPrint && !balloon.sent) await this.setBalloonDone(balloon.balloonid);
             const contestproblem = {
-                id: String.fromCharCode(this.contest.info.pids.indexOf(balloon.pid) + 65),
+                id: balloon.pid.toString(),
+                short_name: String.fromCharCode(this.contest.info.pids.indexOf(balloon.pid) + 65),
                 name: body.pdict[balloon.pid].title,
                 rgb: this.contest.info.balloon[balloon.pid].color,
                 color: this.contest.info.balloon[balloon.pid].name,
             };
-            await this.ctx.db.balloon.update({ balloonid: balloon._id }, {
+            await this.ctx.db.balloon.update({ balloonid: balloon._id.substring(0, 8) }, {
                 $set: {
-                    balloonid: balloon._id,
-                    time: mongoId(balloon._id).timestamp,
-                    problem: contestproblem.id,
+                    balloonid: balloon._id.substring(0, 8),
+                    time: balloon.time,
+                    problem: contestproblem.short_name,
                     contestproblem,
                     team: body.udict[balloon.uid].displayName,
                     teamid: balloon.uid,
