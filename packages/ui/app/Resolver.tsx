@@ -1,7 +1,7 @@
-import React from 'react';
 import {
   Card, Center,
 } from '@mantine/core';
+import React from 'react';
 
 export default function Monitor() {
   return (

@@ -1,38 +1,7 @@
-/* eslint-disable @typescript-eslint/no-loop-func */
-/* eslint-disable no-await-in-loop */
 import { gunzipSync } from 'zlib';
 import { decode } from 'base16384';
-import Logger from 'reggol';
 
-Logger.levels.base = process.env.DEV ? 3 : 2;
-Logger.targets[0].showTime = 'dd hh:mm:ss';
-Logger.targets[0].label = {
-    align: 'right',
-    width: 9,
-    margin: 1,
-};
-declare global {
-    interface StringConstructor {
-        random: (digit?: number, dict?: string) => string;
-    }
-}
-
-const defaultDict = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
-
-export function randomstring(digit = 32, dict = defaultDict) {
-    let str = '';
-    for (let i = 1; i <= digit; i++) str += dict[Math.floor(Math.random() * dict.length)];
-    return str;
-}
-try {
-    String.random = randomstring;
-} catch (e) { } // Cannot add property random, object is not extensible
-
-export function sleep(timeout: number) {
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(true), timeout);
-    });
-}
+export { Logger, sleep, randomstring } from '@hydrooj/utils/lib/utils';
 
 // https://github.com/andrasq/node-mongoid-js/blob/master/mongoid.js
 export function mongoId(idstring: string) {
@@ -47,7 +16,6 @@ export function mongoId(idstring: string) {
 
 export * as fs from 'fs-extra';
 export * as yaml from 'js-yaml';
-export { Logger };
 
 export function StaticHTML(context, randomHash) {
     // eslint-disable-next-line max-len

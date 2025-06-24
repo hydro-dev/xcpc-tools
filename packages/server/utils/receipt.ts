@@ -1,6 +1,6 @@
 import { exec } from 'child_process';
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs-extra';
 import { Logger, windowsPrinterStatus } from '.';
 
 const logger = new Logger('receipt');
@@ -48,28 +48,40 @@ export async function checkReceiptStatus(printer) {
     logger.info('Printer changed:', printer.printer, printer.info);
     const usbDevices = fs.readdirSync('/dev/usb');
     for (const f of usbDevices) {
-        if (f.startsWith('lp')) {
-            const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
-            if (lpid === oldPrinter.info) {
-                logger.info('Printer found:', f, ':', lpid);
-                oldPrinter.printer = `/dev/usb/${f}`;
-                printer = oldPrinter;
-                return printer;
-            }
+        if (!f.startsWith('lp')) continue;
+        const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
+        if (lpid === oldPrinter.info) {
+            logger.info('Printer found:', f, ':', lpid);
+            oldPrinter.printer = `/dev/usb/${f}`;
+            printer = oldPrinter;
+            return printer;
         }
     }
     if (oldPrinter.info !== printer.info) throw Error('Printer not found, please check the printer connection.');
     return printer;
 }
 
-export async function receiptPrint(printer, text) {
-    fs.writeFileSync(path.resolve(process.cwd(), 'data', 'balloon.txt'), text);
-    if (process.platform === 'win32') {
-        exec(`COPY /B "${path.resolve(process.cwd(), 'data', 'balloon.txt')}" "${printer.printer}"`, (err, stdout, stderr) => {
-            if (err) logger.error(err);
-            if (stdout) logger.info(stdout);
-            if (stderr) logger.error(stderr);
+export async function receiptPrint(printer, text, printCommand = '') {
+    const filename = `balloon-${Date.now()}.txt`;
+    await fs.writeFile(path.resolve(process.cwd(), 'data', filename), text);
+    const command = printCommand
+        ? printCommand.replace(/\{file\}/g, path.resolve(process.cwd(), 'data', filename))
+        : process.platform === 'win32'
+            ? `COPY /B "${path.resolve(process.cwd(), 'data', filename)}" "${printer.printer}"`
+            : process.platform === 'darwin'
+                ? `lpr -P ${printer.printer} -o raw ${path.resolve(process.cwd(), 'data', filename)}`
+                : null;
+    if (command) {
+        await new Promise((resolve, reject) => {
+            exec(command, (err, stdout, stderr) => {
+                if (err) {
+                    logger.error(err);
+                    reject(err);
+                }
+                if (stdout) logger.info(stdout);
+                if (stderr) logger.error(stderr);
+                resolve(null);
+            });
         });
-    } else if (process.platform === 'darwin') exec(`lpr -P ${printer.printer} -o raw ${path.resolve(process.cwd(), 'data', 'balloon.txt')}`);
-    else fs.writeFileSync(path.resolve(printer.printer), text);
+    } else await fs.writeFile(path.resolve(printer.printer), text);
 }

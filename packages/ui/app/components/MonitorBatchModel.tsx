@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
 import {
   Button, LoadingOverlay, Modal, Textarea,
   TextInput,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
+import React, { useState } from 'react';
 
 export function MonitorBatchModal({ refresh }) {
   const [opened, { open, close }] = useDisclosure(false);

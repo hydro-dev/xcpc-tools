@@ -8,7 +8,6 @@ import {
     DejaVuSansMonoBold,
     DejaVuSansMonoBoldOblique,
     DejaVuSansMonoOblique,
-    NotoColorEmoji,
     NotoSansSC,
     wasmBinary,
 } from './assets';
@@ -37,7 +36,6 @@ class TypstCompilerDriver {
         await this.builder.add_raw_font(new Uint8Array(DejaVuSansMonoBoldOblique));
         await this.builder.add_raw_font(new Uint8Array(DejaVuSansMonoOblique));
         await this.builder.add_raw_font(new Uint8Array(NotoSansSC));
-        await this.builder.add_raw_font(new Uint8Array(NotoColorEmoji));
         this.compiler = await this.builder.build();
     }
 
@@ -59,7 +57,7 @@ class TypstCompilerDriver {
     }
 }
 
-export function generateTypst(team: string, location: string, filename: string, lang: string, codeColor: boolean) {
+export function generateTypst(team: string, location: string, filename: string, originalFilename: string, lang: string, codeColor: boolean) {
     return `
 #let fit(name: "", width: 147mm) = {
   context {
@@ -82,6 +80,7 @@ export function generateTypst(team: string, location: string, filename: string, 
   team: "",
   location: "",
   filename: "",
+  original: "",
   lang: "",
 ) = {
   set document(author: (team), title: filename)
@@ -94,7 +93,7 @@ export function generateTypst(team: string, location: string, filename: string, 
       }
       #fit(name: team)
       #linebreak()
-      filename: #filename
+      filename: #original
       #h(1fr)
       By Hydro/XCPC-TOOLS | Page #counter(page).display("1 of 1", both: true)
     ],
@@ -112,13 +111,13 @@ export function generateTypst(team: string, location: string, filename: string, 
     }
     code
   }
-  raw(read(filename), lang: lang, block: true${codeColor ? '' : ', theme: "BW.tmtheme"'})
+  raw(read(filename), lang: lang, block: true${codeColor ? '' : ', theme: "/XCPCTOOLS/BW.tmtheme"'})
 }
-
 #print(
-    team: ${JSON.stringify(team || '')},
+    team: ${JSON.stringify((team || '').replace(/🌟/g, '[STAR]'))},
     location: ${JSON.stringify(location || '')},
     filename: ${JSON.stringify(filename || '')},
+    original: ${JSON.stringify(originalFilename || filename || '')},
     lang: ${JSON.stringify(lang || '')}
 )`;
 }
@@ -129,6 +128,6 @@ export const BWTmTheme = '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist 
 export async function createTypstCompiler() {
     const compiler = new TypstCompilerDriver();
     await compiler.init();
-    compiler.addSource('/BW.tmtheme', BWTmTheme);
+    compiler.addSource('/XCPCTOOLS/BW.tmtheme', BWTmTheme);
     return compiler;
 }

@@ -1,5 +1,3 @@
-import React, { useState } from 'react';
-import { convertToChinese, convertToColor } from '@hydrooj/xcpc-tools/utils/color';
 import {
   Accordion,
   ActionIcon,
@@ -9,6 +7,8 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconCopy, IconX } from '@tabler/icons-react';
+import React, { useState } from 'react';
+import { getBalloonName } from '@hydrooj/xcpc-tools/utils/color';
 
 export function BalloonsClient({ clients, refresh }) {
   const [adding, setAdding] = useState(false);
@@ -119,8 +119,8 @@ export function BallonColorChecker() {
       >
         <Fieldset legend="Color Checker" mb="lg">
           <ColorInput value={value} onChange={setValue} />
-          <Text mt="md">Color: {convertToColor(value)}</Text>
-          <Text mt="md">颜色: {convertToChinese(convertToColor(value))}</Text>
+          <Text mt="md">Color: {getBalloonName(value)}</Text>
+          <Text mt="md">颜色: {getBalloonName(value, 'zh')}</Text>
         </Fieldset>
       </Modal>
       <Button color="blue" radius="md" onClick={open}>Color Checker</Button>

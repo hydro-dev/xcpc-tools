@@ -3,7 +3,7 @@ import { Context } from 'cordis';
 import {
     BadRequestError, ForbiddenError, Handler, ValidationError,
 } from '@hydrooj/framework';
-import { fs, Logger } from '../utils';
+import { fs, Logger, randomstring } from '../utils';
 import { AuthHandler } from './misc';
 
 const logger = new Logger('handler/client');
@@ -18,7 +18,7 @@ class ClientControlHandler extends AuthHandler {
         const { name, type } = params;
         const client = await this.ctx.db.client.findOne({ name });
         if (client) throw new ValidationError('Client', null, 'Client already exists');
-        const id = String.random(6);
+        const id = randomstring(6);
         await this.ctx.db.client.insert({
             id,
             name,
@@ -61,7 +61,7 @@ class ClientPrintConnectHandler extends Handler {
             return;
         }
         try {
-            code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`)).toString();
+            code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`)).toString('base64');
         } catch (e) {
             logger.error(e);
         }
@@ -107,9 +107,9 @@ class ClientBalloonDoneHandler extends Handler {
     async post(params) {
         const client = await this.ctx.db.client.findOne({ id: params.cid });
         if (!client) throw new ForbiddenError('Client', null, 'Client not found');
-        const balloon = await this.ctx.db.balloon.findOne({ balloonid: +params.bid });
+        const balloon = await this.ctx.db.balloon.findOne({ balloonid: params.bid });
         if (!balloon) throw new ValidationError('Balloon', params.bid, 'Balloon not found');
-        await this.ctx.db.balloon.updateOne({ balloonid: +params.bid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
+        await this.ctx.db.balloon.updateOne({ balloonid: params.bid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
         if (!balloon.done) await this.ctx.fetcher.setBalloonDone(balloon.balloonid);
         await this.ctx.parallel('balloon/doneTask', client._id, 1);
         this.response.body = { code: 1 };

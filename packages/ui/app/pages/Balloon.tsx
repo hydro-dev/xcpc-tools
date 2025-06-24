@@ -1,8 +1,8 @@
-import React from 'react';
 import {
   Card, Center, Group, LoadingOverlay, Text, Title,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import React from 'react';
 import { BallonColorChecker, BalloonsClient } from '../components/BalloonsModal';
 import { BalloonsTable } from '../components/BalloonsTable';
 
@@ -25,7 +25,7 @@ export default function Print() {
           <BalloonsClient clients={query.data?.clients || []} refresh={query.refetch} />
         </Group>
       </Group>
-      {(!(query.isLoading || query.isFetching) && (!(query.data?.balloons || []).length) ? (
+      {(!query.isLoading && !query.isFetching && (!(query.data?.balloons || []).length) ? (
         <Center mt="md">
           <Text c="dimmed">No balloons found</Text>
         </Center>

@@ -1,8 +1,8 @@
-import React from 'react';
 import {
   Card, Center, Grid, Group, LoadingOverlay, Switch, Text, Title,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import React from 'react';
 import { PrintClientAdd, PrintTaskAdd } from '../components/PrintAdd';
 import { PrintClientInfo } from '../components/PrintClientInfo';
 import { PrintTasksTable } from '../components/PrintTasksTable';
@@ -32,7 +32,7 @@ export default function Print() {
                 <PrintTaskAdd refresh={query.refetch} />
               </Group>
             </Group>
-            {(!(query.isLoading || query.isFetching) && (!(query.data?.codes || []).length) ? (
+            {(!query.isLoading && !query.isFetching && (!(query.data?.codes || []).length) ? (
               <Center mt="md">
                 <Text c="dimmed">No tasks found</Text>
               </Center>
@@ -46,7 +46,7 @@ export default function Print() {
               <Title order={3}>Print Clients</Title>
               <PrintClientAdd refresh={query.refetch} />
             </Group>
-            {(!(query.isLoading || query.isFetching) && (!(query.data?.clients || []).length) ? (
+            {(!query.isLoading && !query.isFetching && (!(query.data?.clients || []).length) ? (
               <Center mt="md">
                 <Text c="dimmed">No clients found</Text>
               </Center>

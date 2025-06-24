@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   ActionIcon, Button, Card, Fieldset, FocusTrap,
   Grid, Group, LoadingOverlay, Tabs, Text, TextInput, Title, Tooltip,
@@ -9,6 +8,7 @@ import {
   IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle, IconX,
 } from '@tabler/icons-react';
 import mpegts from 'mpegts.js';
+import React, { useState } from 'react';
 
 function VideoPlayer({ client, type = 'camera' }) {
   const videoRef = React.useRef(null);

@@ -1,10 +1,10 @@
-import React from 'react';
 import {
   Accordion, ActionIcon, Badge, Button, Center, Group, Modal, Table, Text, ThemeIcon, Tooltip,
 } from '@mantine/core';
 import { useClipboard, useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconCopy, IconX } from '@tabler/icons-react';
+import React from 'react';
 
 function PrintersInfo({ client, refresh }) {
   const [opened, { open, close }] = useDisclosure(false);

@@ -1,4 +1,3 @@
-/* eslint-disable no-await-in-loop */
 import path from 'path';
 import { Context } from 'cordis';
 import { BadRequestError, Handler, ValidationError } from '@hydrooj/framework';
@@ -23,8 +22,15 @@ class PrintAdminHandler extends AuthHandler {
             throw new ValidationError('Code', null, 'Code not found');
         }
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/.pdf'));
-        code.code = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`)).toString();
-        const doc = await ConvertCodeToPDF(code.code || 'empty file', code.lang, code.filename, code.team, code.location, params.color ?? true);
+        const content = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`));
+        const doc = await ConvertCodeToPDF(
+            content,
+            code.lang,
+            code.filename,
+            code.team,
+            code.location,
+            params.color ?? true,
+        );
         this.response.type = 'application/pdf';
         this.response.disposition = 'attachment; filename="code.pdf"';
         this.response.body = Buffer.from(doc);
@@ -67,6 +73,7 @@ class CodeHandler extends Handler {
             code, team, lang, filename, tname, location,
         } = params;
         if (!code && !this.request.files?.file) throw new BadRequestError('Code', null, 'Code is required');
+        if ((filename || this.request.files.file.originalFilename).includes('../')) throw new BadRequestError();
         const res = await this.ctx.db.code.insert({
             tid: team.toString(),
             team: `${team}: ${tname}`,
@@ -77,8 +84,11 @@ class CodeHandler extends Handler {
             printer: '',
             done: 0,
         });
+        const codeFile = code || fs.readFileSync(this.request.files.file.filepath);
+        if (!codeFile) throw new BadRequestError('Code', null, 'Code is empty');
+        if (codeFile.length > 256 * 1024) throw new BadRequestError('Code', null, 'Code is larger than 256KB');
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/codes'));
-        fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', `${team}#${res._id}`), code || fs.readFileSync(this.request.files.file.filepath));
+        fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', `${team}#${res._id}`), codeFile);
         this.response.body = `The code has been submitted. Code Print ID: ${team}#${res._id}`;
         logger.info(`Team(${team}): ${tname} submitted code. Code Print ID: ${team}#${res._id}`);
         await this.ctx.parallel('print/newTask');
