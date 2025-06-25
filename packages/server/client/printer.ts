@@ -91,14 +91,14 @@ export async function printFile(docs) {
                 const randomP = printers[Math.floor(Math.random() * printers.length)];
                 if (randomP.status === 'idle') {
                     logger.info(`Printing ${finalFile} on ${randomP.printer}`);
-                    await print(finalFile, randomP.printer, 1, files.length > 1 ? undefined : 5);
+                    await print(finalFile, randomP.printer, 1, files.length > 1 ? undefined : config.printPageMax);
                     return randomP.printer;
                 }
                 for (const printer of printers.filter((p) => p.printer !== randomP.printer)) {
                     logger.info(`Checking ${printer.printer} ${printer.status}`);
                     if (printer.status === 'idle') {
                         logger.info(`Printing ${finalFile} on ${printer.printer}`);
-                        await print(finalFile, printer.printer, 1, files.length > 1 ? undefined : 5);
+                        await print(finalFile, printer.printer, 1, files.length > 1 ? undefined : config.printPageMax);
                         return printer.printer;
                     }
                 }
