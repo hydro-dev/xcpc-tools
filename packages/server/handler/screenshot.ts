@@ -42,11 +42,23 @@ class ScreenshotHandler extends Handler {
   // GET获取最新截图
   async get({ ip }) {
     this.ctx.logger('screenshot').debug(`GET /screenshot?ip=${ip}`);
-    if (!ip) return this.response.status = 400;
+    if (!ip) {
+      this.response.status = 400;
+      this.response.body = { message: 'IP地址未提供' };
+      return;
+    }
     const dir = path.resolve(process.cwd(), 'data', 'screenshot', ip);
-    if (!fs.existsSync(dir)) return this.response.status = 404;
+    if (!fs.existsSync(dir)) {
+      this.response.status = 404;
+      this.response.body = { message: '暂无截图反馈' };
+      return;
+    }
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.png')).sort();
-    if (!files.length) return this.response.status = 404;
+    if (!files.length) {
+      this.response.status = 404;
+      this.response.body = { message: '暂无截图反馈' };
+      return;
+    }
     const latest = files[files.length - 1];
     const buf = fs.readFileSync(path.join(dir, latest));
     this.response.body = {

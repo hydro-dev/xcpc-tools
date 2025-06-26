@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  ActionIcon, Button, Card, Fieldset, FocusTrap,
+  ActionIcon, Alert, Button, Card, Fieldset, FocusTrap,
   Grid, Group, LoadingOverlay, Tabs, Text, TextInput, Title, Tooltip,
   Textarea, NumberInput,
 } from '@mantine/core';
@@ -114,11 +114,11 @@ export function MonitorInfo({
   React.useEffect(() => {
     if (activeTab === 'screenshot') {
       setScreenshotLoading(true);
-      // 修改点：使用绝对路径 //screenshot 避免添加前缀
       fetch(`/screenshot?ip=${monitor.ip}`)
-        .then(res => {
-          if (!res.ok) throw new Error(`状态码 ${res.status}`);
-          return res.json();
+        .then(async res => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || `状态码 ${res.status}`);
+          return data;
         })
         .then(data => {
           setScreenshotData(data.screenshot);
@@ -126,7 +126,7 @@ export function MonitorInfo({
           setScreenshotError('');
         })
         .catch(err => {
-          setScreenshotError(`获取截图失败: ${err.message}`);
+          setScreenshotError(err.message);
           setScreenshotData(null);
         })
         .finally(() => setScreenshotLoading(false));
