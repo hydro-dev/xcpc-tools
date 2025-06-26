@@ -2,13 +2,15 @@ import { Context } from 'cordis';
 import proxy from 'koa-proxies';
 import { ForbiddenError, WebService } from '@hydrooj/framework';
 import { config } from '../config';
+import { randomstring } from '../utils';
 export * from '@hydrooj/framework/decorators';
 
 export async function apply(pluginContext: Context) {
     pluginContext.plugin(WebService, {
         host: '0.0.0.0',
         port: config.port,
-    });
+        keys: [randomstring(16)],
+    } as any);
     pluginContext.inject(['server'], ({ server }) => {
         // 重写路径：支持 '/system/...' 前缀
         // server.app.use(async (ctx, next) => {
@@ -39,6 +41,24 @@ export async function apply(pluginContext: Context) {
                         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
                         res.setHeader('Access-Control-Allow-Credentials', 'true');
                         res.setHeader('X-Proxy-By', 'hydro-dev/xcpc-tools');
+
+                        // https://github.com/vercel/next.js/blob/main/packages/next/src/server/lib/router-utils/proxy-request.ts
+                        const cleanup = (err: Error) => {
+                            // cleanup event listeners to allow clean garbage collection
+                            proxyRes.removeListener('error', cleanup);
+                            proxyRes.removeListener('close', cleanup);
+                            res.removeListener('error', cleanup);
+                            res.removeListener('close', cleanup);
+
+                            // destroy all source streams to propagate the caught event backward
+                            req.destroy(err);
+                            proxyRes.destroy(err);
+                        };
+
+                        proxyRes.once('error', cleanup);
+                        proxyRes.once('close', cleanup);
+                        res.once('error', cleanup);
+                        res.once('close', cleanup);
                     },
                 },
             })(ctx, next);

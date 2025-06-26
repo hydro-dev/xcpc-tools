@@ -1,5 +1,3 @@
-/* eslint-disable no-empty-pattern */
-/* eslint-disable no-await-in-loop */
 import { Context } from 'cordis';
 import { BadRequestError } from '@hydrooj/framework';
 import { config } from '../config';

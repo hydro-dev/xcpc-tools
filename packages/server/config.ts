@@ -3,7 +3,7 @@ import Schema from 'schemastery';
 import { version as packageVersion } from './package.json';
 import {
     checkReceiptPrinter,
-    fs, getPrinters, Logger, yaml,
+    fs, getPrinters, Logger, randomstring, yaml,
 } from './utils';
 
 const logger = new Logger('init');
@@ -21,8 +21,8 @@ if (!fs.existsSync(configPath)) {
     exit = new Promise((resolve) => (async () => {
         const serverConfigDefault = `\
 type: server # server | domjudge | hydro
-viewPass: ${String.random(8)} # use admin / viewPass to login
-secretRoute: ${String.random(12)}
+viewPass: ${randomstring(8)} # use admin / viewPass to login
+secretRoute: ${randomstring(12)}
 seatFile: /home/icpc/Desktop/seats.txt
 customKeyfile: 
 # if type is server, the following is not needed
@@ -30,6 +30,8 @@ server:
 token: 
 username: 
 password: 
+monitor:
+  timeSync: false
 `;
         let printers = [];
         if (isClient) {
@@ -61,10 +63,14 @@ const serverSchema = Schema.intersect([
             Schema.const('hydro'),
         ] as const).description('server type').required(),
         port: Schema.number().default(5283),
-        viewPass: Schema.string().default(String.random(8)),
-        secretRoute: Schema.string().default(String.random(12)),
+        xhost: Schema.string().default('x-forwarded-host'),
+        viewPass: Schema.string().default(randomstring(8)),
+        secretRoute: Schema.string().default(randomstring(12)),
         seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),
         customKeyfile: Schema.string().default(''),
+        monitor: Schema.object({
+            timeSync: Schema.boolean().default(false),
+        }).default({ timeSync: false }),
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
@@ -85,11 +91,14 @@ const serverSchema = Schema.intersect([
     ]),
 ]);
 const clientSchema = Schema.object({
-    server: Schema.string().role('url').required(),
+    server: Schema.transform(String, (i) => (i.endsWith('/') ? i : `${i}/`)).role('url').required(),
     balloon: Schema.string(),
     balloonLang: Schema.union(['zh', 'en']).default('zh').required(),
-    balloonType: Schema.union([58, 80]).default(80),
+    balloonType: Schema.union([58, 80, 'plain']).default(80),
+    balloonCommand: Schema.string().default(''),
     printColor: Schema.boolean().default(false),
+    printPageMax: Schema.number().default(5),
+    printMergeQueue: Schema.number().default(1),
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'),
     token: Schema.string().required().description('Token generated on server'),
     fonts: Schema.array(Schema.string()).default([]),

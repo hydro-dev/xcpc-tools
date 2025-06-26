@@ -1,13 +1,14 @@
-/* eslint-disable no-await-in-loop */
 // @ts-ignore
 import { Context } from 'cordis';
 import { Registry } from 'prom-client';
 import { Handler } from '@hydrooj/framework';
 import { config, version } from '../config';
 import StaticFrontend from '../data/static.frontend';
-import { createMetricsRegistry, decodeBinary, StaticHTML } from '../utils';
+import {
+    createMetricsRegistry, decodeBinary, randomstring, StaticHTML,
+} from '../utils';
 
-const randomHash = String.random(8).toLowerCase();
+const randomHash = randomstring(8).toLowerCase();
 const buf = decodeBinary(StaticFrontend);
 let registry: Registry;
 

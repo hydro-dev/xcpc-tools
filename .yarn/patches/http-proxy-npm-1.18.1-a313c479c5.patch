@@ -1,0 +1,27 @@
+diff --git a/lib/http-proxy/passes/web-incoming.js b/lib/http-proxy/passes/web-incoming.js
+index 7ae735514190eea569c605fff7d27c045fe8d601..88953ebc549d4e56dc26e46aa32211b82e6546a1 100644
+--- a/lib/http-proxy/passes/web-incoming.js
++++ b/lib/http-proxy/passes/web-incoming.js
+@@ -143,8 +143,11 @@ module.exports = {
+     }
+ 
+     // Ensure we abort proxy if request is aborted
+-    req.on('aborted', function () {
+-      proxyReq.abort();
++    res.on('close', function () {
++      var aborted = !res.writableFinished;
++      if (aborted) {
++        proxyReq.abort();
++      }
+     });
+ 
+     // handle errors in proxy and incoming request, just like for forward proxy
+@@ -154,7 +157,7 @@ module.exports = {
+ 
+     function createErrorHandler(proxyReq, url) {
+       return function proxyError(err) {
+-        if (req.socket.destroyed && err.code === 'ECONNRESET') {
++        if ((req.aborted || req.destroyed || req.socket?.destroyed) && err.code === 'ECONNRESET') {
+           server.emit('econnreset', err, req, res, url);
+           return proxyReq.abort();
+         }

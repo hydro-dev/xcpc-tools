@@ -1,4 +1,3 @@
-/* eslint-disable no-await-in-loop */
 import { Context } from 'cordis';
 import { ValidationError } from '@hydrooj/framework';
 import { Logger } from '../utils';
