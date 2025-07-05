@@ -34,6 +34,7 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
         charset: 'utf8',
         sourcemap: process.argv.includes('--debug') ? 'inline' : false,
         metafile: true,
+        external: ['mongodb', 'bson', 'moment-timezone', 'moment'],
         plugins: [{
             name: 'base16384',
             setup(b) {
