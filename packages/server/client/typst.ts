@@ -41,7 +41,7 @@ class TypstCompilerDriver {
 
     compile(options): Promise<Uint8Array> {
         return new Promise<Uint8Array>((resolve) => {
-            resolve(this.compiler.compile(options.mainFilePath, options.format || 'vector'));
+            resolve(this.compiler.compile(options.mainFilePath, [], options.format || 'vector'));
         });
     }
 
@@ -89,13 +89,13 @@ export function generateTypst(team: string, location: string, filename: string, 
     paper: "a4",
     header: [
       #if (location != "") {
-        text(weight: "black", size: 10pt)[[#location]]
+        text(weight: "black", size: 10pt)[[#location] ]
       }
       #fit(name: team)
       #linebreak()
       filename: #original
       #h(1fr)
-      By Hydro/XCPC-TOOLS | Page #counter(page).display("1 of 1", both: true)
+      By Hydro/XCPC-TOOLS | Page #context counter(page).display("1 of 1", both: true)
     ],
   )
   show raw.where(block: true): code => {
