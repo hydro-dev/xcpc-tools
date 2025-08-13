@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import Schema from 'schemastery';
 import { version as packageVersion } from './package.json';
 import {

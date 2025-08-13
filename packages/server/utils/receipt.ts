@@ -1,7 +1,7 @@
-import { exec } from 'child_process';
-import path from 'path';
+import { exec } from 'node:child_process';
+import path from 'node:path';
 import fs from 'fs-extra';
-import { Logger, windowsPrinterStatus } from '.';
+import { Logger, windowsPrinterStatus } from './index';
 
 const logger = new Logger('receipt');
 

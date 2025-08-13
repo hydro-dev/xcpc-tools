@@ -1,5 +1,5 @@
 /* eslint-disable no-await-in-loop */
-import path from 'path';
+import path from 'node:path';
 import chardet from 'chardet';
 import * as iconv from 'iconv-lite';
 import { PDFDocument } from 'pdf-lib';

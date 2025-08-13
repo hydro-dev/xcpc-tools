@@ -1,6 +1,6 @@
-import child from 'child_process';
-import fs from 'fs';
-import { homedir } from 'os';
+import child from 'node:child_process';
+import fs from 'node:fs';
+import { homedir } from 'node:os';
 import { Logger } from './index';
 
 const logger = new Logger('runner');

@@ -1,8 +1,8 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getPrinters as wingetPrinters, PDFPrinter as WinPDFPrint } from '@myteril/node-win-printer';
 import { getPrinters as unixgetPrinters, print as unixPrint } from 'unix-print';
-import { Logger } from '.';
+import { Logger } from './index';
 
 const logger = new Logger('printer');
 
