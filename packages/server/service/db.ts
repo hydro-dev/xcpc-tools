@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { Context, Service } from 'cordis';
 import Datastore from 'nedb-promises';
 import {

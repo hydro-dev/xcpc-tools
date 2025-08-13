@@ -1,6 +1,6 @@
-import child from 'child_process';
-import path from 'path';
-import zlib from 'zlib';
+import child from 'node:child_process';
+import path from 'node:path';
+import zlib from 'node:zlib';
 import { encode } from 'base16384';
 import esbuild from 'esbuild';
 import { chunk } from 'lodash';

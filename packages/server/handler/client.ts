@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { Context } from 'cordis';
 import {
     BadRequestError, ForbiddenError, Handler, ValidationError,

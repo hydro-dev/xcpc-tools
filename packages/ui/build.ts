@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import cac from 'cac';
 import fs from 'fs-extra';
 import webpack from 'webpack';

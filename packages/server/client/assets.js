@@ -6,9 +6,9 @@ import _DejaVuSansMonoBoldOblique from 'dejavu-fonts-ttf/ttf/DejaVuSansMono-Bold
 import _DejaVuSansMonoOblique from 'dejavu-fonts-ttf/ttf/DejaVuSansMono-Oblique.ttf';
 import { decodeBinary } from '../utils';
 
-export const NotoSansSC = decodeBinary(_NotoSansSC);
-export const wasmBinary = decodeBinary(_wasmBinary);
-export const DejaVuSansMono = decodeBinary(_DejaVuSansMono);
-export const DejaVuSansMonoBold = decodeBinary(_DejaVuSansMonoBold);
-export const DejaVuSansMonoBoldOblique = decodeBinary(_DejaVuSansMonoBoldOblique);
-export const DejaVuSansMonoOblique = decodeBinary(_DejaVuSansMonoOblique);
+export const NotoSansSC = decodeBinary(_NotoSansSC, 'NotoSansSC_400Regular.ttf');
+export const wasmBinary = decodeBinary(_wasmBinary, 'typst_ts_web_compiler_bg.wasm');
+export const DejaVuSansMono = decodeBinary(_DejaVuSansMono, 'DejaVuSansMono.ttf');
+export const DejaVuSansMonoBold = decodeBinary(_DejaVuSansMonoBold, 'DejaVuSansMono-Bold.ttf');
+export const DejaVuSansMonoBoldOblique = decodeBinary(_DejaVuSansMonoBoldOblique, 'DejaVuSansMono-BoldOblique.ttf');
+export const DejaVuSansMonoOblique = decodeBinary(_DejaVuSansMonoOblique, 'DejaVuSansMono-Oblique.ttf');
