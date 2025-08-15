@@ -57,6 +57,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
         const first = await this.contestInfo();
         if (first) await this.teamInfo();
         await this.balloonInfo(first);
+        await this.printInfo(first);
     }
 
     async contestInfo() {
@@ -80,6 +81,14 @@ class BasicFetcher extends Service implements IBasicFetcher {
 
     async setBalloonDone(bid) {
         this.logger.debug(`Balloon ${bid} set done`);
+    }
+
+    async printInfo(all) {
+        this.logger.debug('Found 0 prints in Server Mode');
+    }
+
+    async setPrintDone(pid) {
+        this.logger.debug(`Print ${pid} set done`);
     }
 }
 
@@ -251,6 +260,36 @@ class HydroFetcher extends BasicFetcher {
     async setBalloonDone(bid) {
         await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon`, 'post').send({ operation: 'done', balloon: bid });
         this.logger.debug(`Balloon ${bid} set done`);
+    }
+
+    async printInfo(all) {
+        const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'get_print_list' });
+        if (!body || !body.length) return;
+        const prints = body.task;
+        const udict = body.udict;
+        for (const print of prints) {
+            const pdoc = await this.ctx.db.code.findOne({ id: print._id });
+            if (pdoc) continue;
+            const user = udict[print.uid];
+            await this.ctx.db.code.insert({ 
+                id: print._id,
+                tid: print.uid,
+                team: `${user.school ? `${user.school}: ` : ''}${user.displayName || user.uname}`,
+                location: user.schoolId,
+                filename: print.title,
+                code: print.content,
+                lang: print.lang,
+                createdAt: new Date(parseInt(print._id.substring(0, 8), 16) * 1000).getTime(),
+                printer: '',
+                done: print.status === 'printed' ? 1 : 0,
+            });
+        }
+        await this.ctx.parallel('print/newTask', prints.length);
+    }
+
+    async setPrintDone(pid) {
+        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'update_print_task', taskId: pid, status: 'printed' });
+        this.logger.debug(`Print ${pid} set done`);
     }
 }
 

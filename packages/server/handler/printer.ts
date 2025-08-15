@@ -91,7 +91,7 @@ class CodeHandler extends Handler {
         fs.writeFileSync(path.resolve(process.cwd(), 'data/codes', `${team}#${res._id}`), codeFile);
         this.response.body = `The code has been submitted. Code Print ID: ${team}#${res._id}`;
         logger.info(`Team(${team}): ${tname} submitted code. Code Print ID: ${team}#${res._id}`);
-        await this.ctx.parallel('print/newTask');
+        await this.ctx.parallel('print/newTask', 1);
         if (tname.length > 40) {
             logger.warn(`Team ${tname} name is too long, may cause overflow!`);
             this.response.body += ', your team name is too long, may cause print failed!';
