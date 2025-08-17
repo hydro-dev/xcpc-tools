@@ -2,7 +2,8 @@
 import { Context, Service } from 'cordis';
 import superagent from 'superagent';
 import { config } from '../config';
-import { Logger, mongoId, sleep } from '../utils';
+import { fs, Logger, mongoId, sleep } from '../utils';
+import path from 'node:path';
 
 const logger = new Logger('fetcher');
 const fetch = (url: string, type: 'get' | 'post' = 'get') => {
@@ -57,6 +58,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
         const first = await this.contestInfo();
         if (first) await this.teamInfo();
         await this.balloonInfo(first);
+        await this.printInfo(first);
     }
 
     async contestInfo() {
@@ -80,6 +82,14 @@ class BasicFetcher extends Service implements IBasicFetcher {
 
     async setBalloonDone(bid) {
         this.logger.debug(`Balloon ${bid} set done`);
+    }
+
+    async printInfo(all) {
+        this.logger.debug('Found 0 prints in Server Mode');
+    }
+
+    async setPrintDone(pid) {
+        this.logger.debug(`Print ${pid} set done`);
     }
 }
 
@@ -177,6 +187,7 @@ class HydroFetcher extends BasicFetcher {
         }
         const contest = body.tdoc;
         contest.freeze_time = contest.lockAt;
+        delete contest.content;
         const old = this?.contest?.id;
         this.contest = {
             info: contest, id: contest._id, name: contest.title, domainId,
@@ -251,6 +262,39 @@ class HydroFetcher extends BasicFetcher {
     async setBalloonDone(bid) {
         await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon`, 'post').send({ operation: 'done', balloon: bid });
         this.logger.debug(`Balloon ${bid} set done`);
+    }
+
+    async printInfo(all) {
+        const doFetch = async () => {
+            const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'allocate_print_task' });
+            return body;
+        }
+        let { task, udoc } = await doFetch();
+        let cnt = 0;
+        while (task) {
+            const res = await this.ctx.db.code.insert({
+                id: task._id,
+                tid: task.owner,
+                team: `${udoc.school ? `${udoc.school}: ` : ''}${udoc.displayName || udoc.uname}`,
+                location: udoc.studentId,
+                filename: task.title,
+                lang: task.title.split('.').pop() || 'txt',
+                createdAt: new Date(parseInt(task._id.substring(0, 8), 16) * 1000).getTime(),
+                printer: '',
+                done: task.status === 'printed' ? 1 : 0,
+            });
+            await fs.ensureDir(path.resolve(process.cwd(), 'data/codes'));
+            await fs.writeFile(path.resolve(process.cwd(), 'data/codes', `${task.owner}#${res._id}`), task.content);
+            logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${res._id}`);
+            cnt++;
+            ({ task, udoc } = await doFetch());
+        }
+        await this.ctx.parallel('print/newTask', cnt);
+    }
+
+    async setPrintDone(pid) {
+        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'update_print_task', taskId: pid, status: 'printed' });
+        this.logger.debug(`Print ${pid} set done`);
     }
 }
 

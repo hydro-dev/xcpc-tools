@@ -19,7 +19,7 @@ export * as yaml from 'js-yaml';
 
 export function StaticHTML(context, randomHash) {
     // eslint-disable-next-line max-len
-    return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=JSON.parse('${JSON.stringify(context)}')</script><script src="/main.js?${randomHash}"></script></body></html>`;
+    return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=JSON.parse('${JSON.stringify(context).replace(/\\/g, '\\\\').replace(/'/g, '\\\'')}')</script><script src="/main.js?${randomHash}"></script></body></html>`;
 }
 
 export function decodeBinary(file: string, name: string) {
