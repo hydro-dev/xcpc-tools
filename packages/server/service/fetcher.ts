@@ -2,7 +2,8 @@
 import { Context, Service } from 'cordis';
 import superagent from 'superagent';
 import { config } from '../config';
-import { Logger, mongoId, sleep } from '../utils';
+import { fs, Logger, mongoId, sleep } from '../utils';
+import path from 'node:path';
 
 const logger = new Logger('fetcher');
 const fetch = (url: string, type: 'get' | 'post' = 'get') => {
@@ -186,6 +187,7 @@ class HydroFetcher extends BasicFetcher {
         }
         const contest = body.tdoc;
         contest.freeze_time = contest.lockAt;
+        delete contest.content;
         const old = this?.contest?.id;
         this.contest = {
             info: contest, id: contest._id, name: contest.title, domainId,
@@ -263,28 +265,31 @@ class HydroFetcher extends BasicFetcher {
     }
 
     async printInfo(all) {
-        const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'get_print_list' });
-        if (!body || !body.length) return;
-        const prints = body.task;
-        const udict = body.udict;
-        for (const print of prints) {
-            const pdoc = await this.ctx.db.code.findOne({ id: print._id });
-            if (pdoc) continue;
-            const user = udict[print.uid];
-            await this.ctx.db.code.insert({ 
-                id: print._id,
-                tid: print.uid,
-                team: `${user.school ? `${user.school}: ` : ''}${user.displayName || user.uname}`,
-                location: user.schoolId,
-                filename: print.title,
-                code: print.content,
-                lang: print.lang,
-                createdAt: new Date(parseInt(print._id.substring(0, 8), 16) * 1000).getTime(),
-                printer: '',
-                done: print.status === 'printed' ? 1 : 0,
-            });
+        const doFetch = async () => {
+            const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'allocate_print_task' });
+            return body;
         }
-        await this.ctx.parallel('print/newTask', prints.length);
+        let { task, udoc } = await doFetch();
+        let cnt = 0;
+        while (task) {
+            const res = await this.ctx.db.code.insert({
+                _id: task._id,
+                tid: task.owner,
+                team: `${udoc.school ? `${udoc.school}: ` : ''}${udoc.displayName || udoc.uname}`,
+                location: udoc.studentId,
+                filename: task.title,
+                lang: task.title.split('.').pop() || 'txt',
+                createdAt: new Date(parseInt(task._id.substring(0, 8), 16) * 1000).getTime(),
+                printer: '',
+                done: task.status === 'printed' ? 1 : 0,
+            });
+            await fs.ensureDir(path.resolve(process.cwd(), 'data/codes'));
+            await fs.writeFile(path.resolve(process.cwd(), 'data/codes', `${task.owner}#${res._id}`), task.content);
+            logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${res._id}`);
+            cnt++;
+            ({ task, udoc } = await doFetch());
+        }
+        await this.ctx.parallel('print/newTask', cnt);
     }
 
     async setPrintDone(pid) {
