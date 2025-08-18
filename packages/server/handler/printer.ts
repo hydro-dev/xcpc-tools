@@ -52,6 +52,7 @@ class PrintAdminHandler extends AuthHandler {
             logger.info(code, params._id);
             throw new ValidationError('Code', null, 'Code not found');
         }
+        await this.ctx.fetcher.setPrintDone(code._id);
         await this.ctx.db.code.updateOne({ _id: params._id }, { $set: { done: 1, doneAt: new Date().getTime() } });
         this.response.body = { success: true };
     }

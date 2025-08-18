@@ -1,8 +1,8 @@
-// @ts-ignore
 import { Context } from 'cordis';
 import { Registry } from 'prom-client';
 import { Handler } from '@hydrooj/framework';
 import { config, version } from '../config';
+// @ts-ignore
 import StaticFrontend from '../data/static.frontend';
 import {
     createMetricsRegistry, decodeBinary, randomstring, StaticHTML,

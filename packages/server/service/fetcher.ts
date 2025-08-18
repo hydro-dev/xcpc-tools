@@ -272,20 +272,20 @@ class HydroFetcher extends BasicFetcher {
         let { task, udoc } = await doFetch();
         let cnt = 0;
         while (task) {
-            const res = await this.ctx.db.code.insert({
+            await this.ctx.db.code.insert({
                 _id: task._id,
                 tid: task.owner,
                 team: `${udoc.school ? `${udoc.school}: ` : ''}${udoc.displayName || udoc.uname}`,
                 location: udoc.studentId,
                 filename: task.title,
                 lang: task.title.split('.').pop() || 'txt',
-                createdAt: new Date(parseInt(task._id.substring(0, 8), 16) * 1000).getTime(),
+                createAt: new Date(parseInt(task._id.substring(0, 8), 16) * 1000).getTime(),
                 printer: '',
                 done: task.status === 'printed' ? 1 : 0,
             });
             await fs.ensureDir(path.resolve(process.cwd(), 'data/codes'));
-            await fs.writeFile(path.resolve(process.cwd(), 'data/codes', `${task.owner}#${res._id}`), task.content);
-            logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${res._id}`);
+            await fs.writeFile(path.resolve(process.cwd(), 'data/codes', `${task.owner}#${task._id}`), task.content);
+            logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${task._id}`);
             cnt++;
             ({ task, udoc } = await doFetch());
         }
