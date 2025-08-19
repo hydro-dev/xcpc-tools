@@ -57,7 +57,7 @@ function PrintTaskRow({ colorCode, task, refresh }) {
       </Table.Td>
       <Table.Td>
         <Tooltip label={task._id}>
-          <Text size='sm'>{task._id.substring(0, 6).toUpperCase()}</Text>
+          <Text size='sm'>{task._id.substring(task._id.length - 8).toUpperCase()}</Text>
         </Tooltip>
       </Table.Td>
       <Table.Td>
@@ -66,7 +66,8 @@ function PrintTaskRow({ colorCode, task, refresh }) {
         </Tooltip>
       </Table.Td>
       <Table.Td>{task.filename}({task.lang})</Table.Td>
-      <Table.Td style={{ minWidth: 200 }}>
+      <Table.Td style={{ width: 80 }}>{new Date(task.createAt).toLocaleTimeString()}</Table.Td>
+      <Table.Td style={{ width: 160 }}>
         <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: 'sm', blur: 2 }} />
         <Group justify="center" gap={5}>
           <Tooltip label="View">
@@ -105,6 +106,7 @@ export function PrintTasksTable({ colorCode, codes, refresh }) {
           <Table.Th>#</Table.Th>
           <Table.Th>Team</Table.Th>
           <Table.Th>Filename</Table.Th>
+          <Table.Th>Time</Table.Th>
           <Table.Th>Actions</Table.Th>
         </Table.Tr>
       </Table.Thead>
