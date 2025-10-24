@@ -1,5 +1,7 @@
 /* eslint-disable no-await-in-loop */
+import path from 'path';
 import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
+import fs from 'fs-extra';
 import superagent from 'superagent';
 import { config } from '../config';
 import {
@@ -8,6 +10,7 @@ import {
 
 const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
 const encoder = new EscPosEncoder();
+const logger = new Logger('balloon');
 
 const i18n = {
     zh: {
@@ -30,42 +33,72 @@ const i18n = {
     },
 };
 
+let template = [
+    '#align center',
+    '',
+    '#bold true',
+    '#size 2',
+    '#receipt',
+    '',
+    '#id',
+    '',
+    '#bold false',
+    '#size 1',
+    '===============================',
+    '',
+    '#location',
+    '#problem',
+    '#color',
+    '#comment',
+    '',
+    '#align center',
+    '#bold true',
+    '===============================',
+    '',
+    '#size 0',
+    '#team',
+    '#status',
+    '#time',
+];
+try {
+    template = fs.readFileSync(path.resolve(process.cwd(), 'balloon.template'), 'utf8').split('\n').map((i) => i.trim());
+} catch (e) {
+    logger.info('Using builtin balloon template');
+}
+
 export const receiptBalloonText = (
     id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
-) => encoder
-    .initialize()
-    .codepage('cp936')
-    .setPinterType(config.balloonType ?? 80) // wrong typo in the library
-    .align('center')
-    .line('')
-    .bold(true)
-    .size(2)
-    .line(i18n[lang].receipt)
-    .emptyLine(1)
-    .line(`ID: ${String(id).substring(0, 8)}`)
-    .emptyLine(1)
-    .bold(false)
-    .size(1)
-    .line('===============================')
-    .emptyLine(1)
-    .oneLine(i18n[lang].location, location)
-    .oneLine(i18n[lang].problem, problem)
-    .oneLine(i18n[lang].color, color)
-    .oneLine(i18n[lang].comment, comment)
-    .emptyLine(1)
-    .align('center')
-    .bold(true)
-    .line('================================')
-    .emptyLine(1)
-    .size(0)
-    .line(`${i18n[lang].team}: ${teamname}`)
-    .line(`${i18n[lang].status}:`)
-    .line(`${status}`)
-    .emptyLine(1)
-    .line('Powered by hydro-dev/xcpc-tools')
-    .emptyLine(2)
-    .cut()
-    .encode();
+) => {
+    let enc = encoder.initialize().codepage('cp936').setPinterType(config.balloonType ?? 80);
+    const commands = {
+        align: (align: 'center' | 'left' | 'right') => enc.align(align),
+        emptyLine: (lines: number) => enc.emptyLine(lines),
+        bold: (bold: boolean) => enc.bold(bold),
+        size: (size: number) => enc.size(size),
+        line: (line: string) => enc.line(line),
+        oneLine: (left: string, right: string) => enc.oneLine(left, right),
+        cut: () => enc.cut(),
+        id: () => enc.line(`ID: ${String(id).substring(0, 8)}`),
+        location: () => enc.oneLine(i18n[lang].location, location),
+        problem: () => enc.oneLine(i18n[lang].problem, problem),
+        color: () => enc.oneLine(i18n[lang].color, color),
+        comment: () => enc.oneLine(i18n[lang].comment, comment),
+        team: () => enc.line(`${i18n[lang].team}: ${teamname}`),
+        status: () => enc.line(`${i18n[lang].status}:\n${status}`),
+        time: () => enc.line(`Time: ${new Date().toLocaleString()}`),
+    };
+    for (const line of template) {
+        if (!line.startsWith('#')) enc = enc.line(line);
+        const [command, ...rawArgs] = line.slice(1).split(' ');
+        const args = rawArgs.map((arg) => (arg === 'true' ? true : arg === 'false' ? false : Number.isSafeInteger(arg) ? +arg : arg));
+        if (commands[command]) enc = commands[command](...args);
+    }
+    return enc
+        .line('Powered by hydro-dev/xcpc-tools')
+        .emptyLine(1)
+        .cut()
+        .encode();
+};
 
 export const plainBalloonText = (
     id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
@@ -78,8 +111,6 @@ ${i18n[lang].problem}: ${problem}
 ${i18n[lang].color}: ${color}
 ${i18n[lang].comment}: ${comment}
 `;
-
-const logger = new Logger('balloon');
 
 let timer = null;
 let printer = null;
