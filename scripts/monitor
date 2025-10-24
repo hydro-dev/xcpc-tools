@@ -42,19 +42,19 @@ if [ ! -f /root/exec-result ]; then
   touch /root/exec-result
 fi
 
-curl -s $HEARTBEATURL -X POST \
+curl -s $HEARTBEATURL \
   -F "file=@/root/exec-result" \
-  -d "mac=$MACADDR" \
-  -d "version=$VERSION" \
-  -d "uptime=$UPTIME" \
-  -d "seats=$SEATS" \
-  -d "os=$OS" \
-  -d "kernel=$KERNEL" \
-  -d "cpu=$CPU" \
-  -d "cpuused=$CPUUSED" \
-  -d "mem=$MEM" \
-  -d "memused=$MEMUSED" \
-  -d "load=$LOAD" \
+  -F "mac=$MACADDR" \
+  -F "version=$VERSION" \
+  -F "uptime=$UPTIME" \
+  -F "seats=$SEATS" \
+  -F "os=$OS" \
+  -F "kernel=$KERNEL" \
+  -F "cpu=$CPU" \
+  -F "cpuused=$CPUUSED" \
+  -F "mem=$MEM" \
+  -F "memused=$MEMUSED" \
+  -F "load=$LOAD" \
   -o /root/heartbeat-exec.sh
 
 if [ -f /root/heartbeat-exec.sh ]; then
