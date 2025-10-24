@@ -9,14 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@neutralinojs/lib": "^6.2.0",
-    "vue": "^3.5.18"
+    "@neutralinojs/lib": "^6.3.0",
+    "vue": "^3.5.22"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.1",
-    "naive-ui": "^2.42.0",
+    "naive-ui": "^2.43.1",
     "typescript": "5.8.3",
-    "vite": "^7.1.2",
+    "vite": "^7.1.12",
     "vue-tsc": "^2.2.12"
   }
 }
