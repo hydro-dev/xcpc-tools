@@ -5,6 +5,7 @@ import {
 import { IconCheck, IconX } from '@tabler/icons-react';
 import React from 'react';
 import { MonitorInfoButton } from './MonitorInfo';
+import { formatWifiSignal } from '../utils';
 
 export function MonitorCards({ monitors, openMonitorInfo }) {
   return (
@@ -32,6 +33,16 @@ export function MonitorCards({ monitors, openMonitorInfo }) {
               <Center>
                 <Text size="sm">Load: {m.load}</Text>
               </Center>
+              { formatWifiSignal(m.wifiSignal) && (
+                <Center>
+                  <Text size="sm">Wi-Fi Signal: {formatWifiSignal(m.wifiSignal)}</Text>
+                </Center>
+              )}
+              { m.wifiBssid && (
+                <Center>
+                  <Text size="sm">Wi-Fi BSSID: {m.wifiBssid}</Text>
+                </Center>
+              )}
               <Group mt="md" justify="center">
                 <MonitorInfoButton monitor={m} action={openMonitorInfo} />
               </Group>
@@ -79,6 +90,8 @@ export function MonitorTable({ monitors, openMonitorInfo }) {
               <Text size="sm">CPU Used: {m.cpuUsed ? parseInt(m.cpuUsed, 10).toFixed(2) : 0}%</Text>
               <Text size="sm">Memory Used: {m.memUsed ? (parseInt(m.memUsed, 10) / parseInt(m.mem, 10)).toFixed(2) : 0}%</Text>
               <Text size="sm">Load: {m.load}</Text>
+              { formatWifiSignal(m.wifiSignal) && (<Text size="sm">Wi-Fi Signal: {formatWifiSignal(m.wifiSignal)}</Text>) }
+              { m.wifiBssid && (<Text size="sm">Wi-Fi BSSID: {m.wifiBssid}</Text>) }
             </HoverCard.Dropdown>
           </HoverCard>) : 'No Info' }
       </Table.Td>

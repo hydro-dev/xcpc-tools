@@ -46,6 +46,8 @@ export interface MonitorDoc {
     memoryUsed?: number;
     camera?: string;
     desktop?: string;
+    wifiSignal?: number;
+    wifiBssid?: string;
 }
 
 export interface ClientDoc {

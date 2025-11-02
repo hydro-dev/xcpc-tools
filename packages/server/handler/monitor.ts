@@ -94,28 +94,39 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
     const {
         mac, version, uptime, seats, ip,
         os, kernel, cpu, cpuused, mem, memused, load,
+        wifi_signal, wifi_bssid,
     } = monitor;
     const monitors = await ctx.db.monitor.find({ mac });
     const warn = monitors.length > 1 || (monitors.length && monitors[0].ip !== ip);
     if (warn) ctx.logger('monitor').warn(`Duplicate monitor ${mac} from (${ip}, ${monitors.length ? monitors[0].ip : 'null'})`);
-    await ctx.db.monitor.updateOne({ mac }, {
-        $set: {
-            mac,
-            ip,
-            version,
-            uptime,
-            hostname: seats,
-            oldMonitor: true,
-            updateAt: new Date().getTime(),
-            ...os && { os },
-            ...kernel && { kernel },
-            ...cpu && { cpu: cpu.replaceAll('_', ' ') },
-            ...cpuused && { cpuUsed: cpuused },
-            ...mem && { mem },
-            ...mem && { memUsed: memused },
-            ...load && { load },
-        },
-    }, { upsert: true });
+    const hasWifiSignal = wifi_signal !== undefined && wifi_signal !== '';
+    const wifiSignalValue = hasWifiSignal ? Number.parseFloat(String(wifi_signal)) : Number.NaN;
+    const normalizedBssid = typeof wifi_bssid === 'string' ? wifi_bssid.trim() : '';
+    const shouldSetBssid = normalizedBssid && !/^not-?associated$/i.test(normalizedBssid);
+    const setPayload: Record<string, any> = {
+        mac,
+        ip,
+        version,
+        uptime,
+        hostname: seats,
+        oldMonitor: true,
+        updateAt: new Date().getTime(),
+        ...os && { os },
+        ...kernel && { kernel },
+        ...cpu && { cpu: cpu.replaceAll('_', ' ') },
+        ...cpuused && { cpuUsed: cpuused },
+        ...mem && { mem },
+        ...mem && { memUsed: memused },
+        ...load && { load },
+        ...(hasWifiSignal && !Number.isNaN(wifiSignalValue) && { wifiSignal: wifiSignalValue }),
+        ...(shouldSetBssid && { wifiBssid: normalizedBssid.toUpperCase() }),
+    };
+    const unsetPayload: Record<string, 1> = {};
+    if (!hasWifiSignal || Number.isNaN(wifiSignalValue)) unsetPayload.wifiSignal = 1;
+    if (!shouldSetBssid) unsetPayload.wifiBssid = 1;
+    const updateDoc: Record<string, any> = { $set: setPayload };
+    if (Object.keys(unsetPayload).length) updateDoc.$unset = unsetPayload;
+    await ctx.db.monitor.updateOne({ mac }, updateDoc, { upsert: true });
 }
 
 export const Config = Schema.object({
