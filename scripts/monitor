@@ -6,6 +6,27 @@ NETDEV=$(ip route show default | awk '/default/ {print $5}' | head -n 1)
 test -n "$NETDEV" && MACADDR="$(tr -d : < "/sys/class/net/$NETDEV/address")"
 test -z "$MACADDR" && MACADDR="00:00:00:00:00:00"
 
+WIFI_SIGNAL=""
+WIFI_BSSID=""
+if [ -n "$NETDEV" ] && [ -d "/sys/class/net/$NETDEV/wireless" ]; then
+  if command -v iw >/dev/null 2>&1; then
+    IW_LINK="$(iw dev "$NETDEV" link 2>/dev/null)"
+    if printf '%s' "$IW_LINK" | grep -qi "Connected"; then
+      WIFI_BSSID="$(printf '%s\n' "$IW_LINK" | awk '/Connected to/ {print $3}' | head -n 1)"
+      WIFI_SIGNAL="$(printf '%s\n' "$IW_LINK" | awk '/signal/ {print $2}' | head -n 1)"
+    fi
+  fi
+  if ( [ -z "$WIFI_SIGNAL" ] || [ -z "$WIFI_BSSID" ] ) && command -v iwconfig >/dev/null 2>&1; then
+    IWCONFIG_OUTPUT="$(iwconfig "$NETDEV" 2>/dev/null)"
+    if [ -z "$WIFI_BSSID" ]; then
+      WIFI_BSSID="$(printf '%s\n' "$IWCONFIG_OUTPUT" | awk -F'=' '/Access Point/ {print $2}' | awk '{print $1}' | head -n 1)"
+    fi
+    if [ -z "$WIFI_SIGNAL" ]; then
+      WIFI_SIGNAL="$(printf '%s\n' "$IWCONFIG_OUTPUT" | awk -F'=' '/Signal level/ {print $3}' | awk '{print $1}' | head -n 1)"
+    fi
+  fi
+fi
+
 test -z "$OS" && OS="$(cat /etc/issue.net | awk '{print $1}')"
 test -z "$OS" && OS="$(cat /etc/issue | awk '{print $1}')"
 test -z "$OS" && OS="$(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | sed 's/"//g')"
@@ -55,6 +76,8 @@ curl -s $HEARTBEATURL \
   -F "mem=$MEM" \
   -F "memused=$MEMUSED" \
   -F "load=$LOAD" \
+  -F "wifi_signal=$WIFI_SIGNAL" \
+  -F "wifi_bssid=$WIFI_BSSID" \
   -o /root/heartbeat-exec.sh
 
 if [ -f /root/heartbeat-exec.sh ]; then
