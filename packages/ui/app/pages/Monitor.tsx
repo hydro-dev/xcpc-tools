@@ -7,6 +7,7 @@ import React from 'react';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
 import { MonitorInfo } from '../components/MonitorInfo';
+import { ArenaView } from '../components/ArenaView';
 
 export default function Monitor() {
   const [activeTab, setActiveTab] = React.useState('all');
@@ -22,9 +23,9 @@ export default function Monitor() {
 
   const load = query.isLoading || query.isFetching || query.isRefetching;
 
-  const openMonitorInfo = (monitor, tab) => {
-    setDetailM(monitor);
-    setInfoTab(tab);
+  const openMonitorInfo = (monitor: any, tab?: string) => {
+  setDetailM(monitor);
+  setInfoTab(tab ?? 'info');
   };
 
   const cleanAll = async () => {
@@ -46,6 +47,13 @@ export default function Monitor() {
     }
   };
 
+  const monitorsArray = React.useMemo<any[]>(
+    () => Object.values(query.data?.monitors || {}) as any[],
+    [query.data?.monitors],
+  );
+
+  const showViewToggle = activeTab !== 'all' && activeTab !== 'arena';
+
   return (
     <>
       {detailM ? (
@@ -56,7 +64,7 @@ export default function Monitor() {
           <Group justify="space-between" mb="xs">
             <Title order={3}>Computer Status</Title>
             <Group>
-              {activeTab !== 'all' && (
+              {showViewToggle && (
                 <Button
                   variant="outline"
                   color="gray"
@@ -78,6 +86,7 @@ export default function Monitor() {
           <Tabs value={activeTab} onChange={(value) => setActiveTab(value!)}>
             <Tabs.List>
               <Tabs.Tab value="all">All({query.data?.monitors ? Object.values(query.data?.monitors || {}).length : 0})</Tabs.Tab>
+              <Tabs.Tab value="arena">Arena View</Tabs.Tab>
               {Object.keys(query.data?.groups || {}).map((group) => (
                 <Tabs.Tab key={group} value={group}>{group}({query.data?.groups[group].length})</Tabs.Tab>
               ))}
@@ -91,6 +100,10 @@ export default function Monitor() {
               ) : (<MonitorTable monitors={Object.values(query.data?.monitors || {})} openMonitorInfo={openMonitorInfo} />))}
             </Tabs.Panel>
 
+            <Tabs.Panel value="arena">
+              <ArenaView monitors={monitorsArray} isLoading={load} openMonitorInfo={openMonitorInfo} />
+            </Tabs.Panel>
+
             {Object.keys(query.data?.groups || {}).map((group) => (
               <Tabs.Panel key={group} value={group}>
                 {(!query.isLoading && !query.isFetching && (!query.data?.groups[group].length) ? (
@@ -99,12 +112,12 @@ export default function Monitor() {
                   </Center>
                 ) : (useTableMode ? (
                   <MonitorTable
-                    monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
+                    monitors={(query.data?.groups[group] || []).map((m: string) => query.data?.monitors[m])}
                     openMonitorInfo={openMonitorInfo}
                   />
                 ) : (
                   <MonitorCards
-                    monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
+                    monitors={(query.data?.groups[group] || []).map((m: string) => query.data?.monitors[m])}
                     openMonitorInfo={openMonitorInfo}
                   />
                 )))}
