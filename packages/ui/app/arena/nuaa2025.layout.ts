@@ -39,8 +39,9 @@ interface AisleSpec {
 }
 
 function makeSeatId(prefix: string, row: number, index: number): string {
+  const rowStr = String(row).padStart(2, '0');
   const idx = String(index).padStart(2, '0');
-  return `${prefix}${row}${idx}`;
+  return `${prefix}${rowStr}${idx}`;
 }
 
 function buildRowItems(p: RowPattern): RowItem[] {
