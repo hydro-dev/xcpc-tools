@@ -1,9 +1,11 @@
 import { Context } from 'cordis';
 import proxy from 'koa-proxies';
-import { ForbiddenError, HydroError, NotFoundError, UserFacingError, WebService } from '@hydrooj/framework';
+import {
+    ForbiddenError, HydroError, NotFoundError, UserFacingError, WebService,
+} from '@hydrooj/framework';
+import { errorMessage } from '@hydrooj/utils';
 import { config } from '../config';
 import { randomstring } from '../utils';
-import { errorMessage } from '@hydrooj/utils';
 export * from '@hydrooj/framework/decorators';
 
 export async function apply(pluginContext: Context) {
@@ -62,7 +64,6 @@ export async function apply(pluginContext: Context) {
                 error.msg ||= () => error.message;
                 if (error instanceof UserFacingError && !process.env.DEV) error.stack = '';
                 if (!(error instanceof NotFoundError) && !('nolog' in error)) {
-                    // eslint-disable-next-line max-len
                     console.error(`${this.request.method}: ${this.request.path}`, error.msg(), error.params);
                     if (error.stack) console.error(error.stack);
                 }

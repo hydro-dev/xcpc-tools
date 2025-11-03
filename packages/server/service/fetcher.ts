@@ -1,9 +1,11 @@
 /* eslint-disable no-await-in-loop */
+import path from 'node:path';
 import { Context, Service } from 'cordis';
 import superagent from 'superagent';
 import { config } from '../config';
-import { fs, Logger, mongoId, sleep } from '../utils';
-import path from 'node:path';
+import {
+    fs, Logger, mongoId, sleep,
+} from '../utils';
 
 const logger = new Logger('fetcher');
 const fetch = (url: string, type: 'get' | 'post' = 'get') => {
@@ -266,9 +268,10 @@ class HydroFetcher extends BasicFetcher {
 
     async printInfo(all) {
         const doFetch = async () => {
-            const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'allocate_print_task' });
+            const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post')
+                .send({ operation: 'allocate_print_task' });
             return body;
-        }
+        };
         let { task, udoc } = await doFetch();
         let cnt = 0;
         while (task) {
@@ -293,7 +296,8 @@ class HydroFetcher extends BasicFetcher {
     }
 
     async setPrintDone(pid) {
-        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post').send({ operation: 'update_print_task', taskId: pid, status: 'printed' });
+        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post')
+            .send({ operation: 'update_print_task', taskId: pid, status: 'printed' });
         this.logger.debug(`Print ${pid} set done`);
     }
 }

@@ -50,6 +50,15 @@ export interface MonitorDoc {
     wifiBssid?: string;
 }
 
+export interface CommandTask {
+    _id: string;
+    time: number;
+    command: string;
+    target: string[];
+    pending: string[];
+    executionResult: Record<string, string>;
+}
+
 export interface ClientDoc {
     _id: string;
     id: string;
