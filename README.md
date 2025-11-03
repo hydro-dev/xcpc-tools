@@ -41,7 +41,6 @@ const serverSchema = Schema.intersect([
         port: Schema.number().default(5283), // 服务端口
         viewPass: Schema.string().default(String.random(8)), // UI登录密码，可通过 admin / {viewPass} 登录
         secretRoute: Schema.string().default(String.random(12)), // 打印路径，用于远程调用
-        seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'), // 选手座位绑定文件
     }).description('Basic Config'),
     Schema.union([
         Schema.object({

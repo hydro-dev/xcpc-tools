@@ -1,71 +1,123 @@
 import {
   Card, Center, Grid, Group,
-  HoverCard, Table, Text, ThemeIcon, Title, Tooltip,
+  HoverCard, Text, ThemeIcon, Title, Tooltip,
 } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
+import { DataTable } from 'mantine-datatable';
 import React from 'react';
 import { MonitorInfoButton } from './MonitorInfo';
 
+function getLastOnlineTime(updateAt: number | undefined): string {
+  if (!updateAt) return '未知';
+  const now = new Date().getTime();
+  const diff = now - updateAt;
+  const minutes = Math.floor(diff / (1000 * 60));
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes}分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}小时前`;
+  const days = Math.floor(hours / 24);
+  return `${days}天前`;
+}
+
 export function MonitorCards({ monitors, openMonitorInfo }) {
+  const isOnline = (m: any) => m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120;
+
   return (
     <Grid>
-      {
-        monitors.map((m: any) => (
-          <Grid.Col key={m._id} span={2} mt="md">
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group justify="center">
-                <Title order={3}>
-                  {m.name || 'No Name'}
-                </Title>
-                <Tooltip label={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'Online' : 'Offline'}>
-                  <ThemeIcon radius="xl" size="sm" color={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'green' : 'red'}>
-                    { m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? (<IconCheck />) : (<IconX />)}
-                  </ThemeIcon>
-                </Tooltip>
-              </Group>
-              <Center>
-                <Text c="dimmed">{m.ip}</Text>
-              </Center>
-              <Center>
-                <Text size="sm">UpTime: {new Date((m.uptime || 0) * 1000).toISOString().substring(11, 19)}</Text>
-              </Center>
-              <Center>
-                <Text size="sm">Load: {m.load}</Text>
-              </Center>
-              <Group mt="md" justify="center">
-                <MonitorInfoButton monitor={m} action={openMonitorInfo} />
-              </Group>
-            </Card>
-          </Grid.Col>
-        ))}
+      {monitors.map((m: any) => (
+        <Grid.Col key={m._id} span={2} mt="md">
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="center">
+              <Title order={3}>
+                {m.name || 'No Name'}
+              </Title>
+              <Tooltip label={isOnline(m) ? 'Online' : 'Offline'}>
+                <ThemeIcon radius="xl" size="sm" color={isOnline(m) ? 'green' : 'red'}>
+                  {isOnline(m) ? (<IconCheck />) : (<IconX />)}
+                </ThemeIcon>
+              </Tooltip>
+            </Group>
+            <Center>
+              <Text c="dimmed">{m.ip}</Text>
+            </Center>
+            <Center>
+              <Text size="sm">UpTime: {new Date((m.uptime || 0) * 1000).toISOString().substring(11, 19)}</Text>
+            </Center>
+            <Center>
+              <Text size="sm">
+                {isOnline(m) ? `Load: ${m.load}` : `上次在线: ${getLastOnlineTime(m.updateAt)}`}
+              </Text>
+            </Center>
+            <Group mt="md" justify="center">
+              <MonitorInfoButton monitor={m} action={openMonitorInfo} />
+            </Group>
+          </Card>
+        </Grid.Col>
+      ))}
     </Grid>
   );
 }
 
 export function MonitorTable({ monitors, openMonitorInfo }) {
-  const rows = monitors.map((m: any) => (
-    <Table.Tr key={m._id}>
-      <Table.Td>
-        <Tooltip label={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'Online' : 'Offline'}>
-          <ThemeIcon radius="xl" size="sm" color={m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? 'green' : 'red'}>
-            { m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120 ? (<IconCheck />) : (<IconX />)}
+  const isOnline = (m: any) => m.updateAt && m.updateAt > new Date().getTime() - 1000 * 120;
+
+  const columns = React.useMemo(() => [
+    {
+      accessor: 'status',
+      title: '',
+      width: 50,
+      render: (m: any) => (
+        <Tooltip label={isOnline(m) ? 'Online' : 'Offline'}>
+          <ThemeIcon radius="xl" size="sm" color={isOnline(m) ? 'green' : 'red'}>
+            {isOnline(m) ? (<IconCheck />) : (<IconX />)}
           </ThemeIcon>
         </Tooltip>
-      </Table.Td>
-      <Table.Td>{m._id.substring(0, 6).toUpperCase()}</Table.Td>
-      <Table.Td>{m.group}</Table.Td>
-      <Table.Td>{m.name || 'No Name'}</Table.Td>
-      <Table.Td>{m.hostname}</Table.Td>
-      <Table.Td>{(m.mac.includes(':') ? m.mac : m.mac.match(/.{1,2}/g).join(':'))}</Table.Td>
-      <Table.Td>{m.ip}</Table.Td>
-      <Table.Td>
+      ),
+    },
+    {
+      accessor: '_id',
+      title: '#',
+      width: 80,
+      render: (m: any) => m._id.substring(0, 6).toUpperCase(),
+    },
+    {
+      accessor: 'group',
+      title: 'Group',
+    },
+    {
+      accessor: 'name',
+      title: 'Name',
+      render: (m: any) => m.name || 'No Name',
+    },
+    {
+      accessor: 'hostname',
+      title: 'Hostname',
+    },
+    {
+      accessor: 'mac',
+      title: 'Mac',
+      render: (m: any) => (m.mac.includes(':') ? m.mac : m.mac.match(/.{1,2}/g).join(':')),
+    },
+    {
+      accessor: 'ip',
+      title: 'IP',
+    },
+    {
+      accessor: 'version',
+      title: 'Version',
+      render: (m: any) => (
         <Tooltip label={m.version}>
-          <Text size="sm">{m.version.substring(0, 8).toUpperCase()}{ m.version.length > 8 ? '...' : '' }</Text>
+          <Text size="sm">{m.version.substring(0, 8).toUpperCase()}{m.version.length > 8 ? '...' : ''}</Text>
         </Tooltip>
-      </Table.Td>
-      <Table.Td>
-        { m.cpu
-          ? (<HoverCard width={280} shadow="md" position='top' withArrow>
+      ),
+    },
+    {
+      accessor: 'uptime',
+      title: 'Uptime',
+      render: (m: any) => (
+        m.cpu
+          ? <HoverCard width={280} shadow="md" position='top' withArrow>
             <HoverCard.Target>
               <Text size="sm">
                 {new Date((m.uptime || 0) * 1000).toISOString().substring(11, 19)} / {m.load}
@@ -80,34 +132,25 @@ export function MonitorTable({ monitors, openMonitorInfo }) {
               <Text size="sm">Memory Used: {m.memUsed ? (parseInt(m.memUsed, 10) / parseInt(m.mem, 10)).toFixed(2) : 0}%</Text>
               <Text size="sm">Load: {m.load}</Text>
             </HoverCard.Dropdown>
-          </HoverCard>) : 'No Info' }
-      </Table.Td>
-      <Table.Td>
-        <MonitorInfoButton monitor={m} action={openMonitorInfo} />
-      </Table.Td>
-    </Table.Tr>
-  ));
+          </HoverCard> : 'No Info'
+      ),
+    },
+    {
+      accessor: 'actions',
+      title: 'Actions',
+      width: 150,
+      render: (m: any) => <MonitorInfoButton monitor={m} action={openMonitorInfo} />,
+    },
+  ], [openMonitorInfo]);
 
   return (
-    <Table
-      horizontalSpacing="md" verticalSpacing="xs" miw={700}
-      striped highlightOnHover stickyHeader
-    >
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th></Table.Th>
-          <Table.Th>#</Table.Th>
-          <Table.Th>Group</Table.Th>
-          <Table.Th>Name</Table.Th>
-          <Table.Th>Hostname</Table.Th>
-          <Table.Th>Mac</Table.Th>
-          <Table.Th>IP</Table.Th>
-          <Table.Th>Version</Table.Th>
-          <Table.Th>Uptime</Table.Th>
-          <Table.Th>Actions</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>{rows}</Table.Tbody>
-    </Table>
+    <DataTable
+      columns={columns}
+      records={monitors}
+      striped
+      highlightOnHover
+      withTableBorder
+      minHeight={200}
+    />
   );
 }
