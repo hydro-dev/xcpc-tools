@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash -e
+# SPDX-License-Identifier: AGPL-3.0-only
 
 UPTIME="$(cut -d. -f1 /proc/uptime)"
 # get machine mac address
@@ -33,7 +34,7 @@ test -z "$OS" && OS="$(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | se
 test -z "$OS" && OS="$(cat /etc/os-release | grep NAME | cut -d= -f2 | sed 's/"//g')"
 test -z "$OS" && OS="unknown"
 
-test -r /etc/icpcimage-version && VERSION="$(cat /etc/icpcimage-version)"
+test -r /icpc/version && VERSION="$(grep -Po "Revision: \K\S*" /icpc/version)"
 test -z "$VERSION" && VERSION="$(grep -Po "version=\K\S*" /proc/cmdline)"
 test -z "$VERSION" && VERSION="devel"
 
@@ -46,7 +47,7 @@ test -r /proc/cpuinfo && CPU="$(cat /proc/cpuinfo | grep 'model name' | uniq | a
 test -r /proc/cpuinfo && CPU="$(grep -c processor /proc/cpuinfo) x $CPU"
 test -z "$CPU" && CPU="unknown"
 # replace spaces with underscores
-CPU="$(echo $CPU | sed 's/ /_/g')"
+CPU="${CPU// /_}"
 
 # get machine cpu used percentage
 CPUUSED="$(top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}')"
@@ -59,10 +60,55 @@ MEM="$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')"
 MemFree="$(cat /proc/meminfo | grep MemFree | awk '{print $2}')"
 MEMUSED="$(($MEM-$MemFree))"
 
+# get active window title
+SESSIONS=$(find /tmp/.X11-unix -type s -print0 | xargs -n1 -0 basename | sed 's/^X//' | tr -dc "0-4\n")
+
+for D in $SESSIONS; do
+  export DISPLAY=":$D"
+  if xset -q &>/dev/null; then
+    break
+  fi
+  unset DISPLAY
+done
+
+_XPROP_RESULT=$(xprop -notype -id "$(xprop -root -f _NET_ACTIVE_WINDOW 0x " \$0\n" _NET_ACTIVE_WINDOW 2>/dev/null | awk "{print \$2}")" WM_NAME _NET_WM_PID 2>/dev/null || true)
+if [ -n "$_XPROP_RESULT" ]; then
+  WM_NAME=$(echo "$_XPROP_RESULT" | grep -oP '(?<=WM_NAME = ").*(?=")')
+  _NET_WM_PID=$(echo "$_XPROP_RESULT" | grep -oP '(?<=_NET_WM_PID = )\d+')
+else
+  unset WM_NAME
+  unset _NET_WM_PID
+fi
+
+if [ -z "$_NET_WM_PID" ]; then
+  WM_EXE="unknown"
+  WM_CMDLINE="unknown"
+else
+  WM_EXE="$(readlink "/proc/${_NET_WM_PID}/exe")"
+  WM_CMDLINE="$(tr '\0' ' ' < "/proc/${_NET_WM_PID}/cmdline")"
+fi
+
 if [ ! -f /root/exec-result ]; then
   touch /root/exec-result
 fi
 
+if [ -z "$HEARTBEATURL" ]; then
+  echo "Dry run mode, not sending heartbeat."
+  echo "mac=$MACADDR"
+  echo "version=$VERSION"
+  echo "uptime=$UPTIME"
+  echo "seats=$SEATS"
+  echo "os=$OS"
+  echo "kernel=$KERNEL"
+  echo "cpu=$CPU"
+  echo "cpuused=$CPUUSED"
+  echo "mem=$MEM"
+  echo "memused=$MEMUSED"
+  echo "load=$LOAD"
+  echo "window_name=$WM_NAME"
+  echo "window_exe=$WM_EXE"
+  echo "window_cmdline=$WM_CMDLINE"
+else
 curl -s $HEARTBEATURL \
   -F "file=@/root/exec-result" \
   -F "mac=$MACADDR" \
@@ -78,8 +124,16 @@ curl -s $HEARTBEATURL \
   -F "load=$LOAD" \
   -F "wifi_signal=$WIFI_SIGNAL" \
   -F "wifi_bssid=$WIFI_BSSID" \
+  -F "window_name=$(echo "$WM_NAME" | sed 's/@/%40/g')" \
+  -F "window_exe=$(echo $WM_EXE | sed 's/@/%40/g')" \
+  -F "window_cmdline=$(echo $WM_CMDLINE | sed 's/@/%40/g')" \
   -o /root/heartbeat-exec.sh
+fi
 
 if [ -f /root/heartbeat-exec.sh ]; then
-  head /root/heartbeat-exec.sh | grep '#!/bin/bash' && bash /root/heartbeat-exec.sh >/root/exec-result 2>&1 || true
+  if head -n 1 /root/heartbeat-exec.sh | grep -q '#!/bin/bash'; then
+    timeout 30 bash /root/heartbeat-exec.sh >/root/exec-result 2>&1 || {
+      echo "Execution timed out after 30 seconds" >>/root/exec-result
+    }
+  fi
 fi

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import Schema from 'schemastery';
+import { Config } from './handler/monitor';
 import { version as packageVersion } from './package.json';
 import {
     checkReceiptPrinter,
@@ -47,7 +48,6 @@ if (!fs.existsSync(configPath)) {
 type: server # server | domjudge | hydro
 viewPass: ${randomstring(8)} # use admin / viewPass to login
 secretRoute: ${randomstring(12)}
-seatFile: /home/icpc/Desktop/seats.txt
 customKeyfile: 
 # if type is server, the following is not needed
 server: 
@@ -91,11 +91,8 @@ const serverSchema = Schema.intersect([
         xhost: Schema.string().default('x-forwarded-host'),
         viewPass: Schema.string().default(randomstring(8)),
         secretRoute: Schema.string().default(randomstring(12)),
-        seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'),
         customKeyfile: Schema.string().default(''),
-        monitor: Schema.object({
-            timeSync: Schema.boolean().default(false),
-        }).default({ timeSync: false }),
+        monitor: Config,
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
