@@ -265,6 +265,7 @@ interface ArenaViewProps {
 
 export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewProps) {
   const theme = useMantineTheme();
+  const monospaceFont = theme.fontFamilyMonospace ?? 'monospace';
   const [viewMode, setViewMode] = React.useState<ArenaViewMode>('signal');
   const [selectedLayoutId, setSelectedLayoutId] = React.useState<string | null>(() => {
     if (!isBrowser) return null;
@@ -517,7 +518,15 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
             flex: '0 0 auto',
           }}
         >
-          <Text fw={600} size="sm" c="white" style={{ textShadow: '0 0 4px rgba(0,0,0,0.5)' }}>
+          <Text
+            fw={600}
+            size="sm"
+            c="white"
+            style={{
+              textShadow: '0 0 4px rgba(0,0,0,0.5)',
+              fontFamily: monospaceFont,
+            }}
+          >
             {seatId}
           </Text>
           {duplicatesCount && (
@@ -624,6 +633,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
                             color: theme.colors.gray[7],
                             fontSize: theme.fontSizes.sm,
                             flex: '0 0 auto',
+                            fontFamily: monospaceFont,
                           }}
                         >
                           {label}
