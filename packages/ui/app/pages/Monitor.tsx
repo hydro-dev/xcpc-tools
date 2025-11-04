@@ -7,6 +7,7 @@ import React from 'react';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
 import { MonitorInfo } from '../components/MonitorInfo';
+import { ArenaView } from '../components/ArenaView';
 
 export default function Monitor() {
   const [activeTab, setActiveTab] = React.useState('all');
@@ -24,7 +25,7 @@ export default function Monitor() {
 
   const openMonitorInfo = React.useCallback((monitor, tab) => {
     setDetailM(monitor);
-    setInfoTab(tab);
+    setInfoTab(tab ?? 'info');
   }, []);
 
   const cleanAll = React.useCallback(async () => {
@@ -46,64 +47,84 @@ export default function Monitor() {
     }
   }, []);
 
-  return detailM
-    ? <MonitorInfo monitor={detailM} refresh={query.refetch} back={() => setDetailM(null)} tab={infoTab} />
-    : <Card shadow="sm" padding="lg" radius="md" withBorder>
-      <LoadingOverlay visible={load} zIndex={1000} />
-      <Group justify="space-between" mb="xs">
-        <Title order={3}>Computer Status</Title>
-        <Group>
-          {activeTab !== 'all' && <Button
-            variant="outline"
-            color="gray"
-            onClick={() => setUseTableMode(!useTableMode)}
-          >
-            {useTableMode ? 'Cards View' : 'Table View'}
-          </Button>}
-          <MonitorBatchModal refresh={query.refetch} />
-          <Button
-            variant="outline"
-            color="red"
-            onClick={cleanAll}
-          >
-            Clean All
-          </Button>
-        </Group>
-      </Group>
-      <Tabs value={activeTab} keepMounted={false} onChange={(value) => setActiveTab(value!)}>
-        <Tabs.List>
-          <Tabs.Tab value="all">All({Object.values(query.data?.monitors || {}).length})</Tabs.Tab>
-          {Object.entries(query.data?.groups || {}).map(([group, monitors]) => (
-            <Tabs.Tab key={group} value={group}>{group}({monitors.length})</Tabs.Tab>
-          ))}
-        </Tabs.List>
+  const monitorsArray = React.useMemo<any[]>(
+    () => Object.values(query.data?.monitors || {}) as any[],
+    [query.data?.monitors],
+  );
 
-        <Tabs.Panel value="all">
-          {(!query.isLoading && !query.isFetching && (!Object.values(query.data?.monitors || {}).length) ? (
-            <Center mt="md">
-              <Text c="dimmed">No monitors found</Text>
-            </Center>
-          ) : <MonitorTable monitors={Object.values(query.data?.monitors || {})} openMonitorInfo={openMonitorInfo} />)}
-        </Tabs.Panel>
+  const showViewToggle = activeTab !== 'all' && activeTab !== 'arena';
 
-        {Object.keys(query.data?.groups || {}).map((group) => (
-          <Tabs.Panel key={group} value={group}>
-            {(!query.isLoading && !query.isFetching && (!query.data?.groups[group].length) ? (
-              <Center mt="md">
-                <Text c="dimmed">No monitors found</Text>
-              </Center>
-            ) : (useTableMode
-              ? <MonitorTable
-                monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
-                openMonitorInfo={openMonitorInfo}
-              />
-              : <MonitorCards
-                monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
-                openMonitorInfo={openMonitorInfo}
-              />
+  return (
+    <>
+      {detailM ? (
+        <MonitorInfo monitor={detailM} refresh={query.refetch} back={() => setDetailM(null)} tab={infoTab} />
+      ) : (
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <LoadingOverlay visible={load} zIndex={1000} />
+          <Group justify="space-between" mb="xs">
+            <Title order={3}>Computer Status</Title>
+            <Group>
+              {showViewToggle && (
+                <Button
+                  variant="outline"
+                  color="gray"
+                  onClick={() => setUseTableMode(!useTableMode)}
+                >
+                  {useTableMode ? 'Cards View' : 'Table View'}
+                </Button>
+              )}
+              <MonitorBatchModal refresh={query.refetch} />
+              <Button
+                variant="outline"
+                color="red"
+                onClick={cleanAll}
+              >
+                Clean All
+              </Button>
+            </Group>
+          </Group>
+          <Tabs value={activeTab} keepMounted={false} onChange={(value) => setActiveTab(value!)}>
+            <Tabs.List>
+              <Tabs.Tab value="all">All({Object.values(query.data?.monitors || {}).length})</Tabs.Tab>
+              <Tabs.Tab value="arena">Arena View</Tabs.Tab>
+              {Object.entries(query.data?.groups || {}).map(([group, monitors]) => (
+                <Tabs.Tab key={group} value={group}>{group}({monitors.length})</Tabs.Tab>
+              ))}
+            </Tabs.List>
+
+            <Tabs.Panel value="all">
+              {(!query.isLoading && !query.isFetching && (!Object.values(query.data?.monitors || {}).length) ? (
+                <Center mt="md">
+                  <Text c="dimmed">No monitors found</Text>
+                </Center>
+              ) : <MonitorTable monitors={Object.values(query.data?.monitors || {})} openMonitorInfo={openMonitorInfo} />)}
+            </Tabs.Panel>
+
+            <Tabs.Panel value="arena">
+              <ArenaView monitors={monitorsArray} isLoading={load} openMonitorInfo={openMonitorInfo} />
+            </Tabs.Panel>
+
+            {Object.keys(query.data?.groups || {}).map((group) => (
+              <Tabs.Panel key={group} value={group}>
+                {(!query.isLoading && !query.isFetching && (!query.data?.groups[group].length) ? (
+                  <Center mt="md">
+                    <Text c="dimmed">No monitors found</Text>
+                  </Center>
+                ) : (useTableMode
+                  ? <MonitorTable
+                    monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
+                    openMonitorInfo={openMonitorInfo}
+                  />
+                  : <MonitorCards
+                    monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
+                    openMonitorInfo={openMonitorInfo}
+                  />
+                ))}
+              </Tabs.Panel>
             ))}
-          </Tabs.Panel>
-        ))}
-      </Tabs>
-    </Card>;
+          </Tabs>
+        </Card>
+      )}
+    </>
+  );
 }
