@@ -3,7 +3,9 @@ import {
   Alert,
   Badge,
   Box,
+  Button,
   Card,
+  FileButton,
   Group,
   LoadingOverlay,
   ScrollArea,
@@ -19,14 +21,17 @@ import {
 import {
   IconAlertTriangle,
   IconRouter,
+  IconInfoCircle,
+  IconTrash,
+  IconUpload,
   IconWifi,
   IconZoomIn,
   IconZoomOut,
   IconZoomReset,
 } from '@tabler/icons-react';
 import React from 'react';
-import { arenaLayouts, defaultArenaLayoutId } from '../arena/nuaa2025.layout';
-import type { ArenaCell, ArenaLayoutConfig, ArenaSeatCell } from '../arena/types';
+import { notifications } from '@mantine/notifications';
+import type { ArenaLayoutDocument, ArenaLayoutSectionDocument } from '../arena/types';
 
 interface MonitorRecord {
   _id: string;
@@ -51,13 +56,9 @@ const ZOOM_STEP = 0.1;
 
 const getMonitorSeatId = (
   monitor: MonitorRecord,
-  layout: ArenaLayoutConfig | null,
+  layout: ArenaLayoutDocument | null,
 ): string | null => {
   if (!monitor) return null;
-  if (layout?.resolveMonitorSeat) {
-    const resolved = layout.resolveMonitorSeat(monitor);
-    return resolved ? String(resolved) : null;
-  }
   if (!layout?.seatKey) {
     return monitor.name ?? monitor.hostname ?? null;
   }
@@ -100,6 +101,134 @@ const viewModeOptions: { value: ArenaViewMode; label: string }[] = [
 
 const defaultNormalize = (value: string): string => value.trim().toUpperCase();
 
+const normalizers: Record<string, (value: string) => string> = {
+  none: (value: string) => value,
+  upper: (value: string) => value.toUpperCase(),
+  lower: (value: string) => value.toLowerCase(),
+  trim: (value: string) => value.trim(),
+  'trim-upper': defaultNormalize,
+  'trim-lower': (value: string) => value.trim().toLowerCase(),
+};
+
+const STORAGE_KEY = 'xcpc-tools/arena-layouts';
+const DEFAULT_LAYOUT_KEY = 'xcpc-tools/arena-layout-selected';
+
+const isBrowser = typeof window !== 'undefined';
+
+const randomLayoutId = () => `layout-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+const normalizeGrid = (grid: unknown): (string | null)[][] => {
+  if (!Array.isArray(grid)) return [];
+  return grid.map((row) => {
+    if (!Array.isArray(row)) return [];
+    return row.map((cell) => {
+      if (cell === null || cell === undefined) return null;
+      const value = String(cell).trim();
+      return value === '' ? null : value;
+    });
+  });
+};
+
+const normalizeRowLabels = (labels: unknown, length: number): (string | null)[] | undefined => {
+  if (!Array.isArray(labels)) return undefined;
+  const result: (string | null)[] = [];
+  for (let index = 0; index < length; index += 1) {
+    if (index >= labels.length) {
+      result.push(null);
+      continue;
+    }
+    const label = labels[index];
+    if (label === null || label === undefined) {
+      result.push(null);
+      continue;
+    }
+    const value = String(label).trim();
+    result.push(value === '' ? null : value);
+  }
+  if (!result.some((label) => label)) return undefined;
+  return result;
+};
+
+const coerceSection = (section: any, layoutId: string, index: number): ArenaLayoutSectionDocument => {
+  const fallbackId = `${layoutId}-section-${index + 1}`;
+  const id = typeof section?.id === 'string' && section.id.trim() ? section.id.trim() : fallbackId;
+  const grid = normalizeGrid(section?.grid ?? section?.rows);
+  const rowLabels = normalizeRowLabels(section?.rowLabels ?? section?.labels, grid.length);
+  return {
+    id,
+    title: typeof section?.title === 'string' ? section.title : undefined,
+    seatSize: typeof section?.seatSize === 'number' ? section.seatSize : undefined,
+    gapSize: typeof section?.gapSize === 'number' ? section.gapSize : undefined,
+    grid,
+    rowLabels,
+    meta: typeof section?.meta === 'object' && section?.meta !== null ? section.meta : undefined,
+  };
+};
+
+const coerceLayout = (source: any, fallbackId?: string): ArenaLayoutDocument | null => {
+  if (!source || typeof source !== 'object') return null;
+  const rawId = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : undefined;
+  const id = rawId ?? fallbackId ?? randomLayoutId();
+  const name = typeof source.name === 'string' && source.name.trim() ? source.name : id;
+  let sections: ArenaLayoutSectionDocument[] = [];
+  if (Array.isArray(source.sections) && source.sections.length) {
+    sections = source.sections.map((section: any, index: number) => coerceSection(section, id, index));
+  } else if (Array.isArray(source.grid)) {
+    const grid = normalizeGrid(source.grid);
+    if (grid.length) {
+      sections = [coerceSection({
+        id: `${id}-section-1`,
+        title: typeof source.sectionTitle === 'string' ? source.sectionTitle : undefined,
+        grid,
+        rowLabels: source.rowLabels,
+        seatSize: source.seatSize,
+        gapSize: source.gapSize,
+      }, id, 0)];
+    }
+  }
+  sections = sections.filter((section) => section.grid.length && section.grid.some((row) => row.length));
+  if (!sections.length) return null;
+  return {
+    id,
+    name,
+    description: typeof source.description === 'string' ? source.description : undefined,
+    seatKey: typeof source.seatKey === 'string' ? source.seatKey : undefined,
+    normalize: typeof source.normalize === 'string' ? source.normalize : undefined,
+    default: source.default === true,
+    sections,
+    meta: typeof source.meta === 'object' && source.meta !== null ? source.meta : undefined,
+  };
+};
+
+const parseLayouts = (input: unknown): ArenaLayoutDocument[] => {
+  const map = new Map<string, ArenaLayoutDocument>();
+  const pushLayout = (candidate: ArenaLayoutDocument | null) => {
+    if (!candidate) return;
+    map.set(candidate.id, candidate);
+  };
+  if (Array.isArray(input)) {
+    input.forEach((item, index) => {
+      pushLayout(coerceLayout(item, `layout-${index + 1}`));
+    });
+  } else {
+    pushLayout(coerceLayout(input, undefined));
+  }
+  return Array.from(map.values());
+};
+
+const loadLayoutsFromStorage = (): ArenaLayoutDocument[] => {
+  if (!isBrowser) return [];
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parseLayouts(parsed);
+  } catch (error) {
+    console.warn('Failed to parse stored arena layouts:', error);
+    return [];
+  }
+};
+
 const pickPrimaryMonitor = (monitors: MonitorRecord[]): MonitorRecord | null => {
   if (!monitors?.length) return null;
   return monitors.reduce<MonitorRecord | null>((best, candidate) => {
@@ -137,8 +266,43 @@ interface ArenaViewProps {
 export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewProps) {
   const theme = useMantineTheme();
   const [viewMode, setViewMode] = React.useState<ArenaViewMode>('signal');
-  const [selectedLayoutId, setSelectedLayoutId] = React.useState<string | null>(defaultArenaLayoutId);
+  const [selectedLayoutId, setSelectedLayoutId] = React.useState<string | null>(() => {
+    if (!isBrowser) return null;
+    const stored = window.localStorage.getItem(DEFAULT_LAYOUT_KEY);
+    if (stored) return stored;
+    const existing = loadLayoutsFromStorage();
+    return existing[0]?.id ?? null;
+  });
   const [zoom, setZoom] = React.useState(0.40);
+  const [layouts, setLayouts] = React.useState<ArenaLayoutDocument[]>(() => loadLayoutsFromStorage());
+
+  React.useEffect(() => {
+    if (!isBrowser) return;
+    if (!layouts.length) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts));
+  }, [layouts]);
+
+  React.useEffect(() => {
+    if (!isBrowser) return;
+    if (selectedLayoutId) {
+      window.localStorage.setItem(DEFAULT_LAYOUT_KEY, selectedLayoutId);
+    } else {
+      window.localStorage.removeItem(DEFAULT_LAYOUT_KEY);
+    }
+  }, [selectedLayoutId]);
+
+  React.useEffect(() => {
+    if (!layouts.length) {
+      if (selectedLayoutId !== null) setSelectedLayoutId(null);
+      return;
+    }
+    if (!selectedLayoutId || !layouts.some((item) => item.id === selectedLayoutId)) {
+      setSelectedLayoutId(layouts[0].id);
+    }
+  }, [layouts, selectedLayoutId]);
 
   const updateZoom = React.useCallback((delta: number) => {
     setZoom((current) => {
@@ -151,19 +315,24 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
     setZoom(1);
   }, []);
 
-  const layout = React.useMemo(() => arenaLayouts.find((item) => item.id === selectedLayoutId) ?? null, [selectedLayoutId]);
+  const layout = React.useMemo(
+    () => layouts.find((item) => item.id === selectedLayoutId) ?? null,
+    [layouts, selectedLayoutId],
+  );
 
-  const normalizeSeatId = layout?.normalizeSeatId ?? defaultNormalize;
+  const normalizeSeatId = React.useMemo(() => {
+    if (!layout?.normalize) return defaultNormalize;
+    const key = String(layout.normalize).toLowerCase();
+    return normalizers[key] ?? defaultNormalize;
+  }, [layout]);
 
   const definedSeatIds = React.useMemo(() => {
     const ids = new Set<string>();
     if (!layout) return ids;
-    for (const section of layout.sections) {
-      for (const row of section.rows) {
-        for (const cell of row) {
-          if (cell.type === 'seat') {
-            ids.add(normalizeSeatId(cell.seatId));
-          }
+    for (const section of layout.sections ?? []) {
+      for (const row of section.grid ?? []) {
+        for (const seatId of row) {
+          if (seatId) ids.add(normalizeSeatId(seatId));
         }
       }
     }
@@ -176,7 +345,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
     if (!monitors?.length) {
       return { seatMap, overflow };
     }
-    if (!layout || !layout.sections.length) {
+    if (!layout || !layout.sections?.length) {
       return { seatMap, overflow: [...monitors] };
     }
     for (const monitor of monitors) {
@@ -186,11 +355,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
         continue;
       }
       const normalized = normalizeSeatId(String(rawSeat));
-      if (!normalized) {
-        overflow.push(monitor);
-        continue;
-      }
-      if (!definedSeatIds.has(normalized)) {
+      if (!normalized || !definedSeatIds.has(normalized)) {
         overflow.push(monitor);
         continue;
       }
@@ -204,10 +369,61 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
     return { seatMap, overflow };
   }, [definedSeatIds, layout, monitors, normalizeSeatId]);
 
+  const handleImportLayouts = React.useCallback(async (file: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsedRaw = JSON.parse(text) as unknown;
+      const imported = parseLayouts(parsedRaw);
+      if (!imported.length) {
+        notifications.show({ title: 'Import skipped', message: 'No valid layouts were found in the JSON file.', color: 'yellow' });
+        return;
+      }
+      setLayouts((prev) => {
+        const merged = [...prev];
+        imported.forEach((layoutDoc) => {
+          const index = merged.findIndex((item) => item.id === layoutDoc.id);
+          if (index === -1) {
+            merged.push(layoutDoc);
+          } else {
+            merged[index] = layoutDoc;
+          }
+        });
+        return merged;
+      });
+      const preferred = imported.find((item) => item.default) ?? imported[0];
+      if (preferred) {
+        setSelectedLayoutId((current) => {
+          if (current && imported.some((item) => item.id === current)) return current;
+          return preferred.id;
+        });
+      }
+      notifications.show({
+        title: 'Layouts imported',
+        message: `Loaded ${imported.length} layout${imported.length > 1 ? 's' : ''} from ${file.name}.`,
+        color: 'green',
+      });
+    } catch (error) {
+      console.error('Failed to import arena layouts', error);
+      const message = error instanceof Error ? error.message : 'Invalid JSON file.';
+      notifications.show({ title: 'Import failed', message, color: 'red' });
+    }
+  }, []);
+
+  const handleClearLayouts = React.useCallback(() => {
+    setLayouts([]);
+    setSelectedLayoutId(null);
+    if (isBrowser) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(DEFAULT_LAYOUT_KEY);
+    }
+    notifications.show({ title: 'Layouts cleared', message: 'Arena layouts were removed from this browser.', color: 'orange' });
+  }, []);
+
   const unmatchedMonitors = overflow;
 
-  const getSeatStatusColor = (seat: ArenaSeatCell): { color: string; monitor: MonitorRecord | null; monitors: MonitorRecord[] } => {
-    const monitorsForSeat = seatMap.get(normalizeSeatId(seat.seatId)) ?? [];
+  const getSeatStatusColor = (seatId: string): { color: string; monitor: MonitorRecord | null; monitors: MonitorRecord[] } => {
+    const monitorsForSeat = seatMap.get(normalizeSeatId(seatId)) ?? [];
     const monitor = pickPrimaryMonitor(monitorsForSeat);
     if (!monitor) {
       return { color: theme.colors.gray[3], monitor: null, monitors: monitorsForSeat };
@@ -229,58 +445,20 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
     return { color: getSignalColor(signal, theme.colors.yellow[4]), monitor, monitors: monitorsForSeat };
   };
 
-  const renderCell = (
-    cell: ArenaCell,
-    section: ArenaLayoutConfig['sections'][number],
+  const renderSeatCard = (
+    seatId: string,
+    section: ArenaLayoutSectionDocument,
     rowIndex: number,
     cellIndex: number,
+    seatWidth: number,
+    seatHeight: number,
   ) => {
-    const baseSeatSize = section.seatSize ?? 36;
-    const baseGapSize = section.gapSize ?? 8;
-    const height = baseSeatSize * zoom;
-    const gapSize = baseGapSize * zoom;
-    const span = cell.span ?? 1;
-    const seatWidth = height * SEAT_ASPECT_RATIO;
-    const width = seatWidth * span + gapSize * (span - 1);
-    const keySuffix = cell.type === 'seat'
-      ? normalizeSeatId(cell.seatId)
-      : cell.type === 'label'
-        ? cell.label
-        : 'gap';
-    const cellKey = `${section.id}-${rowIndex}-${cellIndex}-${keySuffix}`;
-
-    if (cell.type === 'gap') {
-  return <Box key={cellKey} style={{ width, height, flex: '0 0 auto' }} />;
-    }
-
-    if (cell.type === 'label') {
-      return (
-        <Box
-          key={cellKey}
-          style={{
-            width,
-            height,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: cell.align ?? 'flex-end',
-            paddingRight: Math.max(2, 4 * zoom),
-            color: theme.colors.gray[7],
-            fontSize: theme.fontSizes.sm,
-            flex: '0 0 auto',
-          }}
-        >
-          {cell.label}
-        </Box>
-      );
-    }
-
-    const { color, monitor, monitors: monitorsForSeat } = getSeatStatusColor(cell);
+    const { color, monitor, monitors: monitorsForSeat } = getSeatStatusColor(seatId);
     const duplicatesCount = monitorsForSeat.length > 1 ? monitorsForSeat.length : null;
-
     const tooltipContent = (
       <Stack gap={4}>
         <Text fw={600} size="sm">
-          {cell.label ?? cell.seatId}
+          {seatId}
         </Text>
         {monitor ? (
           <>
@@ -316,6 +494,9 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
       }
     };
 
+    const cellKey = `${section.id}-${rowIndex}-${cellIndex}-${normalizeSeatId(seatId)}`;
+    const badgeOffset = Math.max(4, 4 * zoom);
+
     return (
       <Tooltip key={cellKey} label={tooltipContent} position="top" withArrow>
         <Card
@@ -324,8 +505,8 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
           radius="sm"
           onClick={handleSeatClick}
           style={{
-            width,
-            height,
+            width: seatWidth,
+            height: seatHeight,
             cursor: monitor ? 'pointer' : 'default',
             backgroundColor: color,
             display: 'flex',
@@ -337,14 +518,14 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
           }}
         >
           <Text fw={600} size="sm" c="white" style={{ textShadow: '0 0 4px rgba(0,0,0,0.5)' }}>
-            {cell.label ?? cell.seatId}
+            {seatId}
           </Text>
           {duplicatesCount && (
             <Badge
               size="xs"
               color="yellow"
               variant="filled"
-              style={{ position: 'absolute', top: 4 * zoom, right: 4 * zoom }}
+              style={{ position: 'absolute', top: badgeOffset, right: badgeOffset }}
             >
               x{duplicatesCount}
             </Badge>
@@ -394,44 +575,99 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
   };
 
   const renderSection = () => {
-    if (!layout || !layout.sections.length) {
+    if (!layouts.length) {
       return (
-        <Alert icon={<IconAlertTriangle size={16} />} title="Layout Configuration Missing" color="orange" variant="light">
-          Define an arena layout in <code>packages/ui/app/arena/layouts.ts</code>.
+        <Alert icon={<IconAlertTriangle size={16} />} color="orange" variant="light" title="No Layouts Loaded">
+          <Text size="sm">Use the Import JSON button to load a seat map. Imported layouts are saved in this browser&apos;s local storage.</Text>
+        </Alert>
+      );
+    }
+    if (!layout) {
+      return (
+        <Alert icon={<IconAlertTriangle size={16} />} color="blue" variant="light" title="Choose A Layout">
+          <Text size="sm">Select a layout from the dropdown. You can import additional layouts at any time.</Text>
+        </Alert>
+      );
+    }
+    if (!layout.sections?.length) {
+      return (
+        <Alert icon={<IconAlertTriangle size={16} />} color="orange" variant="light" title="Layout Is Empty">
+          <Text size="sm">The current layout contains no sections. Double-check the JSON file to ensure it includes a two-dimensional grid.</Text>
         </Alert>
       );
     }
 
-    return layout.sections.map((section) => {
-      const gapSize = (section.gapSize ?? 8) * zoom;
-      return (
-        <Stack key={section.id} gap="xs">
-          {section.title && <Title order={5}>{section.title}</Title>}
-          <Stack gap={gapSize}>
-            {section.rows.map((row, rowIndex) => (
-              <Group key={`${section.id}-row-${rowIndex}`} gap={gapSize} wrap="nowrap">
-                {row.map((cell, cellIndex) => renderCell(cell, section, rowIndex, cellIndex))}
-              </Group>
-            ))}
-          </Stack>
-        </Stack>
-      );
-    });
+    return (
+      <>
+        {layout.sections.map((section) => {
+          const gapSize = (section.gapSize ?? 8) * zoom;
+          const seatHeight = (section.seatSize ?? 36) * zoom;
+          const seatWidth = seatHeight * SEAT_ASPECT_RATIO;
+          return (
+            <Stack key={section.id} gap="xs">
+              {section.title && <Title order={5}>{section.title}</Title>}
+              <Stack gap={gapSize}>
+                {section.grid.map((row, rowIndex) => {
+                  const label = section.rowLabels?.[rowIndex] ?? null;
+                  return (
+                    <Group key={`${section.id}-row-${rowIndex}`} gap={gapSize} wrap="nowrap" align="center">
+                      {label ? (
+                        <Box
+                          style={{
+                            width: seatWidth,
+                            minWidth: seatWidth,
+                            height: seatHeight,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            paddingRight: Math.max(2, 4 * zoom),
+                            color: theme.colors.gray[7],
+                            fontSize: theme.fontSizes.sm,
+                            flex: '0 0 auto',
+                          }}
+                        >
+                          {label}
+                        </Box>
+                      ) : null}
+                      {row.map((value, cellIndex) => {
+                        if (!value) {
+                          return (
+                            <Box
+                              key={`${section.id}-${rowIndex}-${cellIndex}-gap`}
+                              style={{ width: seatWidth, height: seatHeight, flex: '0 0 auto' }}
+                            />
+                          );
+                        }
+                        return renderSeatCard(value, section, rowIndex, cellIndex, seatWidth, seatHeight);
+                      })}
+                    </Group>
+                  );
+                })}
+              </Stack>
+            </Stack>
+          );
+        })}
+      </>
+    );
   };
 
   return (
     <Card padding="md" withBorder radius="md" pos="relative">
-      <LoadingOverlay visible={!!isLoading} zIndex={100} overlayProps={{ radius: 'sm', blur: 2 }} />
+      <LoadingOverlay
+        visible={Boolean(isLoading)}
+        zIndex={100}
+        overlayProps={{ radius: 'sm', blur: 2 }}
+      />
       <Stack gap="md">
         <Group justify="space-between" align="center">
           <Group gap="sm">
             <Select
               label="Layout"
-              placeholder="Choose an arena layout"
+              placeholder="Import an arena layout JSON"
               value={selectedLayoutId}
               onChange={(value) => setSelectedLayoutId(value)}
-              data={arenaLayouts.map((item) => ({ value: item.id, label: item.name }))}
-              clearable={arenaLayouts.length > 1}
+              data={layouts.map((item) => ({ value: item.id, label: item.name }))}
+              disabled={!layouts.length}
               style={{ width: 220 }}
             />
             <SegmentedControl
@@ -469,15 +705,42 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
               </Group>
               <Text size="sm" c="dimmed">{Math.round(zoom * 100)}%</Text>
             </Group>
+            <Group gap="xs">
+              <FileButton onChange={handleImportLayouts} accept="application/json">
+                {(fileProps) => (
+                  <Button
+                    {...fileProps}
+                    variant="light"
+                    leftSection={<IconUpload size={16} />}
+                  >
+                    Import JSON
+                  </Button>
+                )}
+              </FileButton>
+              <Button
+                variant="light"
+                color="red"
+                leftSection={<IconTrash size={16} />}
+                onClick={handleClearLayouts}
+                disabled={!layouts.length}
+              >
+                Clear Layouts
+              </Button>
+            </Group>
           </Group>
           {renderLegend()}
         </Group>
+        {layout?.description && (
+          <Alert color="blue" variant="light" title={layout.name} icon={<IconInfoCircle size={16} />}>
+            <Text size="sm">{layout.description}</Text>
+          </Alert>
+        )}
         <ScrollArea h="65vh" type="scroll">
           <Stack gap="lg" pr="md">
             {renderSection()}
           </Stack>
         </ScrollArea>
-        {unmatchedMonitors.length > 0 && (
+        {layout && unmatchedMonitors.length > 0 && (
           <Alert icon={<IconAlertTriangle size={16} />} color="red" variant="light" title="Unmatched Machines">
             <Text size="sm">
               The following machines do not map to the current layout: {unmatchedMonitors.map((m) => m.name ?? m.hostname ?? m._id).join(', ')}
