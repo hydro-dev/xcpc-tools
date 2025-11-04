@@ -48,3 +48,10 @@ export const Languages = {
   swift: 'Swift',
   txt: 'Plain Text',
 };
+
+export const formatWifiSignal = (value: unknown) => {
+  if (value === undefined || value === null || value === '') return '';
+  const num = Number(value);
+  if (Number.isNaN(num)) return String(value);
+  return `${Math.round(num)} dBm`;
+};

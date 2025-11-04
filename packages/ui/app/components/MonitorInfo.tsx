@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 import mpegts from 'mpegts.js';
 import React, { useState } from 'react';
+import { formatWifiSignal } from '../utils';
 
 function VideoPlayer({ client, type = 'camera' }) {
   const videoRef = React.useRef(null);
@@ -44,6 +45,7 @@ export function MonitorInfo({
   const [group, setGroup] = useState(monitor.group || '');
   const [camera, setCamera] = useState(monitor.camera || '');
   const [desktop, setDesktop] = useState(monitor.desktop || '');
+  const wifiSignalText = formatWifiSignal(monitor.wifiSignal);
 
   const updateInfo = React.useCallback(async () => {
     setUpdating(true);
@@ -108,6 +110,8 @@ export function MonitorInfo({
               <Text>Kernel: {monitor.kernel}</Text>
               <Text>Memory Used: {monitor.memUsed ? (monitor.memUsed / monitor.mem).toFixed(2) : 0}%</Text>
               <Text>Load: {monitor.load}</Text>
+              <Text>Wi-Fi Signal: {wifiSignalText || 'No Data'}</Text>
+              <Text>Wi-Fi BSSID: {monitor.wifiBssid || 'No Data'}</Text>
               <Text>Camera Stream URL: {monitor.camera ?? 'No Camera'}</Text>
               <Text>Desktop Stream URL: {monitor.desktop ?? 'No Desktop'}</Text>
             </Grid.Col>
