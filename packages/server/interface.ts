@@ -7,6 +7,8 @@ declare module 'cordis' {
         'app/started': () => void
         'app/ready': () => VoidReturn
         'app/exit': () => VoidReturn
+        'command/status': (commandId: string, status: any) => void
+        'command/output': (commandId: string, mac: string, output: string) => void
     }
 }
 

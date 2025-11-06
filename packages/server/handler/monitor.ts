@@ -189,6 +189,13 @@ export async function apply(ctx: Context, config: ReturnType<typeof Config>) {
                         executionResult[params.mac] = output;
                         const newPending = cmd.pending.filter((t: string) => t !== params.mac);
                         await ctx.db.command.updateOne({ _id: commandId }, { $set: { executionResult, pending: newPending } });
+                        await ctx.parallel('command/output', commandId, params.mac, output);
+                        const status = {
+                            total: cmd.target?.length || 0,
+                            completed: Object.keys(executionResult).length,
+                            pending: newPending.length
+                        };
+                        await ctx.parallel('command/status', commandId, status);
                     }
                 }));
             }

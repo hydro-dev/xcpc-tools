@@ -1,5 +1,5 @@
 import { Context } from 'cordis';
-import { BadRequestError } from '@hydrooj/framework';
+import { BadRequestError, ConnectionHandler, KoaContext } from '@hydrooj/framework';
 import { config } from '../config';
 import { executeOnHost } from '../utils';
 import { AuthHandler } from './misc';
@@ -84,6 +84,34 @@ systemctl restart gdm`);
     }
 }
 
+class CommandsConnectionHandler extends ConnectionHandler<Context> {
+    constructor(context: KoaContext, ctx: Context) {
+        super(context, ctx);
+        ctx.on('command/status', this.sendCommandStatus.bind(this));
+        ctx.on('command/output', this.sendCommandOutput.bind(this));
+    }
+
+    sendCommandStatus(commandId, status) {
+        this.send({
+            type: 'command_status',
+            commandId,
+            status,
+            timestamp: Date.now()
+        });
+    }
+
+    sendCommandOutput(commandId, mac, output) {
+        this.send({
+            type: 'command_output',
+            commandId,
+            mac,
+            output,
+            timestamp: Date.now()
+        });
+    }
+}
+
 export async function apply(ctx: Context) {
     ctx.Route('commands', '/commands', CommandsHandler);
+    ctx.Connection('commands_ws', '/commands/ws', CommandsConnectionHandler);
 }

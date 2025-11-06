@@ -5,16 +5,23 @@ import { notifications } from '@mantine/notifications';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 import { CommandHistoryTable } from '../components/CommandHistoryTable';
+import { useCommandsWs } from '../hooks/useCommandsWs';
 
 export default function Commands() {
   const [command, setCommand] = React.useState('');
   const [target, setTarget] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('history');
 
+  const { connected } = useCommandsWs((msg) => {
+    if (msg.type === 'command_status' || msg.type === 'command_output') {
+      query.refetch();
+    }
+  });
+
   const query = useQuery({
     queryKey: ['commands'],
     queryFn: () => fetch('/commands').then((res) => res.json()),
-    refetchInterval: 10000,
+    refetchInterval: connected ? 600000 : 10000, // ws 断开，进行服务降级
   });
 
   const operation = async (op: string, withCommand = false) => {
