@@ -2,7 +2,7 @@ import {
   Button, Card, Center, Divider, Group, LoadingOverlay, Tabs, Text, Textarea, TextInput, Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { CommandHistoryTable } from '../components/CommandHistoryTable';
 import { useCommandsWs } from '../hooks/useCommandsWs';
@@ -12,17 +12,35 @@ export default function Commands() {
   const [target, setTarget] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('history');
 
+  const queryClient = useQueryClient();
   const { connected } = useCommandsWs((msg) => {
-    if (msg.type === 'command_status' || msg.type === 'command_output') {
-      query.refetch();
+    if (msg.type === 'command_status') {
+      queryClient.setQueryData(['commands'], (oldData: any) => {
+        if (!oldData?.commands) return oldData;
+        const updatedCommands = oldData.commands.map((cmd: any) => {
+          if (cmd._id === msg.commandId) {
+            return {
+              ...cmd,
+              status: msg.status,
+              executionResult: msg.executionResult,
+            };
+          }
+          return cmd;
+        });
+        return {
+          ...oldData,
+          commands: updatedCommands,
+        };
+      });
     }
   });
 
   const query = useQuery({
     queryKey: ['commands'],
     queryFn: () => fetch('/commands').then((res) => res.json()),
-    refetchInterval: connected ? 600000 : 10000, // ws 断开，进行服务降级
+    refetchInterval: connected ? 600000 : 10000, // ws disconnected, use polling primarily
   });
+
 
   const operation = async (op: string, withCommand = false) => {
     try {

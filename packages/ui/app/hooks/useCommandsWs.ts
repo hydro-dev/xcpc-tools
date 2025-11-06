@@ -1,20 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 
 interface WebSocketMessage {
   type: string;
   commandId?: string;
+  executionResult?: Record<string, string>;
   status?: any;
-  mac?: string;
-  output?: string;
-  timestamp: number;
 }
 
 export function useCommandsWs(onMessage?: (msg: WebSocketMessage) => void) {
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const queryClient = useQueryClient();
 
   const connect = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -27,12 +23,13 @@ export function useCommandsWs(onMessage?: (msg: WebSocketMessage) => void) {
     };
 
     ws.onmessage = (event) => {
+      if(event.data === 'ping') {
+        ws.send('pong');
+        return;
+      }
       try {
         const msg: WebSocketMessage = JSON.parse(event.data);
         console.log('[WS] Message:', msg.type);
-        if (msg.type === 'command_status' || msg.type === 'command_output') {
-          queryClient.invalidateQueries({ queryKey: ['commands'] });
-        }
         onMessage?.(msg);
       } catch (e) {
         console.error('[WS] Parse error:', e);
