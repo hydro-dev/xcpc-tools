@@ -60,28 +60,6 @@ class CommandsHandler extends AuthHandler {
             result: result.map((i) => (i.status === 'fulfilled' ? i.value : i.reason)),
         };
     }
-
-    async postShowIds() {
-        this.response.body = await this.executeForAll(`
-export ISAUTOLOGIN=$(cat /etc/gdm3/custom.conf | grep AutomaticLoginEnable | grep true)
-if [ -z "$ISAUTOLOGIN" ]; then
-    export DISPLAY=:1
-else
-    export DISPLAY=:0
-fi
-export XAUTHORITY=/run/user/1000/gdm/Xauthority
-zenity --info --text "<span font='256'>$(cat /etc/hostname)</span>"`);
-    }
-
-    async postAutologin({ }, autologin = false) {
-        this.response.body = await this.executeForAll(`
-cp /etc/gdm3/custom-${autologin ? 'autologin' : 'nologin'}.conf /etc/gdm3/custom.conf
-systemctl restart gdm`);
-    }
-
-    async postReboot() {
-        this.response.body = await this.executeForAll('reboot');
-    }
 }
 
 export async function apply(ctx: Context) {

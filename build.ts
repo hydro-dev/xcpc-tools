@@ -38,9 +38,10 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
         plugins: [{
             name: 'base16384',
             setup(b) {
-                b.onLoad({ filter: /\.(frontend|ttf|wasm)$/, namespace: 'file' }, (t) => {
-                    const file = fs.readFileSync(path.join(t.path));
-                    const contents = `module.exports = "${process.argv.includes('--no-binary') ? '' : encodeBinary(file)}";\n${nopMap}`;
+                b.onLoad({ filter: /\.(frontend|ttf|wasm|sh)$/, namespace: 'file' }, (t) => {
+                    const contents = `module.exports = ${process.argv.includes('--use-readfile')
+                        ? `require('fs').readFileSync('${t.path}')`
+                        : `"${encodeBinary(fs.readFileSync(t.path))}"`};\n${nopMap}`;
                     console.log(t.path, size(contents));
                     return {
                         contents,

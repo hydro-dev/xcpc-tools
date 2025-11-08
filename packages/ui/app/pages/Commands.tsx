@@ -1,9 +1,11 @@
 import {
-  Button, Card, Center, Divider, Group, LoadingOverlay, Tabs, Text, Textarea, TextInput, Title,
+  Button, Card, Center, Grid, Group, LoadingOverlay, Stack,
+  Tabs, Text, Textarea, TextInput, Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
+import * as builtinCommands from '../commands/index';
 import { CommandHistoryTable } from '../components/CommandHistoryTable';
 
 export default function Commands() {
@@ -65,32 +67,48 @@ export default function Commands() {
         </Tabs.List>
 
         <Tabs.Panel value="send" pt="md">
-          <Textarea
-            label="Command"
-            my="md"
-            rows={10}
-            cols={100}
-            style={{ fontFamily: 'monospace' }}
-            value={command}
-            onChange={(ev) => setCommand(ev.target.value)}
-          />
-          <TextInput
-            label="Target (Optional)"
-            placeholder="MAC addresses, separated by comma or newline. Leave empty to execute on all online hosts."
-            my="md"
-            value={target}
-            onChange={(ev) => setTarget(ev.target.value)}
-          />
-          <Group justify="center" my="md">
-            <Button onClick={() => operation('command', true)}>Send</Button>
-          </Group>
-          <Divider my="md" />
-          <Title order={4}>Quick Commands</Title>
-          <Group my="md" justify="space-start">
-            <Button onClick={() => operation('reboot')}>Reboot All</Button>
-            <Button onClick={() => operation('set_hostname')}>Update Hostname</Button>
-            <Button onClick={() => operation('show_ids')}>Show IDS</Button>
-          </Group>
+          <Grid>
+            <Grid.Col span={4}>
+              <Title order={4} mb="md">Builtin Commands</Title>
+              <Stack gap="xs">
+                {Object.entries(builtinCommands).map(([name, content]) => (
+                  <Card
+                    key={name}
+                    padding="sm"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setCommand(content)}
+                    withBorder
+                  >
+                    <Text size="sm" fw={500}>
+                      {name.replace(/([A-Z])/g, ' $1').trim().replace(/^\w/, (c) => c.toUpperCase())}
+                    </Text>
+                  </Card>
+                ))}
+              </Stack>
+            </Grid.Col>
+            <Grid.Col span={8}>
+              <Textarea
+                label="Command"
+                my="md"
+                autosize
+                minRows={10}
+                cols={100}
+                styles={{ input: { fontFamily: 'monospace' } }}
+                value={command}
+                onChange={(ev) => setCommand(ev.target.value)}
+              />
+              <TextInput
+                label="Target (Optional)"
+                placeholder="MAC addresses, separated by comma or newline. Leave empty to execute on all online hosts."
+                my="md"
+                value={target}
+                onChange={(ev) => setTarget(ev.target.value)}
+              />
+              <Group justify="center" my="md">
+                <Button onClick={() => operation('command', true)}>Send</Button>
+              </Group>
+            </Grid.Col>
+          </Grid>
         </Tabs.Panel>
 
         <Tabs.Panel value="history" pt="md">

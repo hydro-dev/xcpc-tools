@@ -5,8 +5,8 @@ import {
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { DataTable } from 'mantine-datatable';
 import React from 'react';
-import { MonitorInfoButton } from './MonitorInfo';
 import { formatWifiSignal } from '../utils';
+import { MonitorInfoButton } from './MonitorInfo';
 
 function getLastOnlineTime(updateAt: number | undefined): string {
   if (!updateAt) return '未知';

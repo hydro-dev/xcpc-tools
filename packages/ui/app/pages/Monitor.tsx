@@ -4,10 +4,10 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
+import { ArenaView } from '../components/ArenaView';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
 import { MonitorInfo } from '../components/MonitorInfo';
-import { ArenaView } from '../components/ArenaView';
 
 export default function Monitor() {
   const [activeTab, setActiveTab] = React.useState('all');
