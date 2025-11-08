@@ -18,10 +18,11 @@ import {
   Tooltip,
   useMantineTheme,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconAlertTriangle,
-  IconRouter,
   IconInfoCircle,
+  IconRouter,
   IconTrash,
   IconUpload,
   IconWifi,
@@ -30,7 +31,6 @@ import {
   IconZoomReset,
 } from '@tabler/icons-react';
 import React from 'react';
-import { notifications } from '@mantine/notifications';
 import type { ArenaLayoutDocument, ArenaLayoutSectionDocument } from '../arena/types';
 
 interface MonitorRecord {
@@ -549,15 +549,21 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
       return (
         <Group gap="sm">
           <Group gap={6}>
-            <Box style={{ width: 16, height: 16, backgroundColor: theme.colors.green[6], borderRadius: 3 }} />
+            <Box style={{
+              width: 16, height: 16, backgroundColor: theme.colors.green[6], borderRadius: 3,
+            }} />
             <Text size="sm">Online</Text>
           </Group>
           <Group gap={6}>
-            <Box style={{ width: 16, height: 16, backgroundColor: theme.colors.gray[5], borderRadius: 3 }} />
+            <Box style={{
+              width: 16, height: 16, backgroundColor: theme.colors.gray[5], borderRadius: 3,
+            }} />
             <Text size="sm">Offline</Text>
           </Group>
           <Group gap={6}>
-            <Box style={{ width: 16, height: 16, backgroundColor: theme.colors.gray[3], borderRadius: 3 }} />
+            <Box style={{
+              width: 16, height: 16, backgroundColor: theme.colors.gray[3], borderRadius: 3,
+            }} />
             <Text size="sm">Unmatched</Text>
           </Group>
         </Group>

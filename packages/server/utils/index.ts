@@ -22,11 +22,11 @@ export function StaticHTML(context, randomHash) {
     return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=JSON.parse('${JSON.stringify(context).replace(/\\/g, '\\\\').replace(/'/g, '\\\'')}')</script><script src="/main.js?${randomHash}"></script></body></html>`;
 }
 
-export function decodeBinary(file: string, name: string) {
-    if (process.env.NODE_ENV === 'development') return Buffer.from(file, 'base64');
+export function decodeBinary(file: string | Buffer, name: string) {
+    if (process.env.NODE_ENV === 'development') return Buffer.from(file as string, 'base64');
     if ('Deno' in globalThis) return globalThis.Deno.readFileSync(name);
-    const buf = decode(file);
-    return gunzipSync(buf);
+    if (typeof file === 'string') return gunzipSync(decode(file));
+    return file;
 }
 
 export * from './commandRunner';

@@ -65,6 +65,10 @@ const compiler = webpack({
         type: 'asset/resource',
       },
       {
+        test: /\.sh$/,
+        type: 'asset/source',
+      },
+      {
         test: /\.[mc]?[jt]sx?$/,
         type: 'javascript/auto',
         use: [esbuildLoader()],
