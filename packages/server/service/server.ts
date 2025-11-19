@@ -1,6 +1,9 @@
 import { Context } from 'cordis';
 import proxy from 'koa-proxies';
-import { ForbiddenError, WebService } from '@hydrooj/framework';
+import {
+    ForbiddenError, HydroError, NotFoundError, UserFacingError, WebService,
+} from '@hydrooj/framework';
+import { errorMessage } from '@hydrooj/utils';
 import { config } from '../config';
 import { randomstring } from '../utils';
 export * from '@hydrooj/framework/decorators';
@@ -62,6 +65,35 @@ export async function apply(pluginContext: Context) {
                     },
                 },
             })(ctx, next);
+        });
+        server.httpHandlerMixin({
+            async onerror(error: HydroError) {
+                error.msg ||= () => error.message;
+                if (error instanceof UserFacingError && !process.env.DEV) error.stack = '';
+                if (!(error instanceof NotFoundError) && !('nolog' in error)) {
+                    console.error(`${this.request.method}: ${this.request.path}`, error.msg(), error.params);
+                    if (error.stack) console.error(error.stack);
+                }
+                this.response.status = error instanceof UserFacingError ? error.code : 500;
+                this.response.body = {
+                    UserFacingError,
+                    error: { message: error.msg(), params: error.params, stack: errorMessage(error.stack || '') },
+                };
+            },
+        });
+        server.wsHandlerMixin({
+            async onerror(err: HydroError) {
+                console.error(`Path:${this.request.path}`);
+                console.error(err);
+                if (err instanceof UserFacingError) err.stack = this.request.path;
+                this.send({
+                    error: {
+                        name: err.name,
+                        params: err.params || [],
+                    },
+                });
+                this.close(4000, err.toString());
+            },
         });
     });
 }

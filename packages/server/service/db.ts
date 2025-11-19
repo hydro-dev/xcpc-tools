@@ -1,8 +1,8 @@
-import path from 'path';
+import path from 'node:path';
 import { Context, Service } from 'cordis';
 import Datastore from 'nedb-promises';
 import {
-    BalloonDoc, ClientDoc, MonitorDoc, PrintCodeDoc, TeamDoc,
+    BalloonDoc, ClientDoc, CommandTask, MonitorDoc, PrintCodeDoc, TeamDoc,
 } from '../interface';
 import { fs } from '../utils';
 
@@ -12,6 +12,7 @@ export interface Collections {
     client: ClientDoc;
     balloon: BalloonDoc;
     teams: TeamDoc;
+    command: CommandTask;
 }
 
 declare module 'cordis' {
@@ -43,6 +44,7 @@ export default class DBService extends Service {
         await this.initDatabase('monitor', ['_id', 'mac', 'name', 'group']);
         await this.initDatabase('client', ['id', 'name', 'type', 'group']);
         await this.initDatabase('balloon', ['id', 'time', 'problem', 'teamid', 'awards', 'done', 'printDone']);
+        await this.initDatabase('command', ['_id', 'command', 'target', 'pending', 'time', 'executionResult']);
         await this.initDatabase('teams', []);
     }
 }

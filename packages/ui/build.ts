@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import cac from 'cac';
 import fs from 'fs-extra';
 import webpack from 'webpack';
@@ -63,6 +63,10 @@ const compiler = webpack({
       {
         test: /\.(ttf|eot|woff|woff2|png|jpg|jpeg|gif)$/,
         type: 'asset/resource',
+      },
+      {
+        test: /\.sh$/,
+        type: 'asset/source',
       },
       {
         test: /\.[mc]?[jt]sx?$/,

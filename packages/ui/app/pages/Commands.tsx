@@ -24,7 +24,11 @@ export default function Commands() {
       const res = await (await fetch('commands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operation: op, command: withCommand ? command : undefined }),
+        body: JSON.stringify({
+          operation: op,
+          command: withCommand ? command : undefined,
+          ...(targetArray?.length && { target: targetArray }),
+        }),
       })).json();
       if (res.error) {
         notifications.show({ title: 'Error', message: `${res.error.message}(${res.error.params})`, color: 'red' });
@@ -175,6 +179,8 @@ export default function Commands() {
       notifications.show({ title: 'Error', message: 'Windows批量命令发送失败', color: 'red' });
     }
   };
+
+  const load = query.isLoading || query.isFetching || query.isRefetching;
 
   return (
     <>

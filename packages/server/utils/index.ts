@@ -1,7 +1,7 @@
-import { gunzipSync } from 'zlib';
+import { gunzipSync } from 'node:zlib';
 import { decode } from 'base16384';
 
-export { Logger, sleep, randomstring } from '@hydrooj/utils/lib/utils';
+export { Logger, sleep, randomstring } from '@hydrooj/utils';
 
 // https://github.com/andrasq/node-mongoid-js/blob/master/mongoid.js
 export function mongoId(idstring: string) {
@@ -19,13 +19,14 @@ export * as yaml from 'js-yaml';
 
 export function StaticHTML(context, randomHash) {
     // eslint-disable-next-line max-len
-    return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=JSON.parse('${JSON.stringify(context)}')</script><script src="/main.js?${randomHash}"></script></body></html>`;
+    return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=JSON.parse('${JSON.stringify(context).replace(/\\/g, '\\\\').replace(/'/g, '\\\'')}')</script><script src="/main.js?${randomHash}"></script></body></html>`;
 }
 
-export function decodeBinary(file: string) {
-    if (process.env.NODE_ENV === 'development') return Buffer.from(file, 'base64');
-    const buf = decode(file);
-    return gunzipSync(buf);
+export function decodeBinary(file: string | Buffer, name: string) {
+    if (process.env.NODE_ENV === 'development') return Buffer.from(file as string, 'base64');
+    if ('Deno' in globalThis) return globalThis.Deno.readFileSync(name);
+    if (typeof file === 'string') return gunzipSync(decode(file));
+    return file;
 }
 
 export * from './commandRunner';

@@ -1,6 +1,6 @@
-import child from 'child_process';
-import path from 'path';
-import zlib from 'zlib';
+import child from 'node:child_process';
+import path from 'node:path';
+import zlib from 'node:zlib';
 import { encode } from 'base16384';
 import esbuild from 'esbuild';
 import { chunk } from 'lodash';
@@ -34,12 +34,14 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
         charset: 'utf8',
         sourcemap: process.argv.includes('--debug') ? 'inline' : false,
         metafile: true,
+        external: ['mongodb', 'bson', 'moment-timezone', 'moment'],
         plugins: [{
             name: 'base16384',
             setup(b) {
-                b.onLoad({ filter: /\.(frontend|ttf|wasm)$/, namespace: 'file' }, (t) => {
-                    const file = fs.readFileSync(path.join(t.path));
-                    const contents = `module.exports = "${process.argv.includes('--no-binary') ? '' : encodeBinary(file)}";\n${nopMap}`;
+                b.onLoad({ filter: /\.(frontend|ttf|wasm|sh)$/, namespace: 'file' }, (t) => {
+                    const contents = `module.exports = ${process.argv.includes('--use-readfile')
+                        ? `require('fs').readFileSync('${t.path}')`
+                        : `"${encodeBinary(fs.readFileSync(t.path))}"`};\n${nopMap}`;
                     console.log(t.path, size(contents));
                     return {
                         contents,

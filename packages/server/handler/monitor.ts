@@ -1,6 +1,12 @@
+import path from 'path';
 import { Context, Schema } from 'cordis';
+import fs from 'fs-extra';
 import { BadRequestError, Handler } from '@hydrooj/framework';
+import { Logger } from '../utils';
 import { AuthHandler } from './misc';
+
+const logger = new Logger('monitor');
+const actions = fs.createWriteStream(path.join(process.cwd(), 'data/actions.log'), { flags: 'a' });
 
 class MonitorAdminHandler extends AuthHandler {
     async get(params) {
@@ -90,37 +96,59 @@ class MonitorAdminHandler extends AuthHandler {
     }
 }
 
-async function saveMonitorInfo(ctx: Context, monitor: any) {
+const escape = (str: string) => str.trim().replace(/"/g, '\\"').replace(/\r/g, '').replace(/\n/g, '\\n');
+
+async function saveMonitorInfo(ctx: Context, monitor: any, config) {
     const {
         mac, version, uptime, seats, ip,
         os, kernel, cpu, cpuused, mem, memused, load,
+        wifi_signal, wifi_bssid,
+        window_cmdline, window_exe, window_name,
     } = monitor;
+    logger.debug('save monitor info %o', monitor);
+    actions.write(`${Date.now()},${seats},"${escape(window_cmdline)}","${escape(window_exe)}","${escape(window_name)}"\n`);
     const monitors = await ctx.db.monitor.find({ mac });
     const warn = monitors.length > 1 || (monitors.length && monitors[0].ip !== ip);
     if (warn) ctx.logger('monitor').warn(`Duplicate monitor ${mac} from (${ip}, ${monitors.length ? monitors[0].ip : 'null'})`);
-    await ctx.db.monitor.updateOne({ mac }, {
-        $set: {
-            mac,
-            ip,
-            version,
-            uptime,
-            hostname: seats,
-            oldMonitor: true,
-            updateAt: new Date().getTime(),
-            ...os && { os },
-            ...kernel && { kernel },
-            ...cpu && { cpu: cpu.replaceAll('_', ' ') },
-            ...cpuused && { cpuUsed: cpuused },
-            ...mem && { mem },
-            ...mem && { memUsed: memused },
-            ...load && { load },
-        },
-    }, { upsert: true });
+    const hasWifiSignal = wifi_signal !== undefined && wifi_signal !== '';
+    const wifiSignalValue = hasWifiSignal ? Number.parseFloat(String(wifi_signal)) : Number.NaN;
+    const normalizedBssid = typeof wifi_bssid === 'string' ? wifi_bssid.trim() : '';
+    const shouldSetBssid = normalizedBssid && !/^not-?associated$/i.test(normalizedBssid);
+    const autoGroupPayload = (config.autoGroup && /^[A-Z][0-9]+$/.test(seats)) ? {
+        group: seats[0],
+        name: seats,
+    } : {};
+    const setPayload: Record<string, any> = {
+        mac,
+        ip,
+        version,
+        uptime,
+        hostname: seats,
+        oldMonitor: true,
+        updateAt: new Date().getTime(),
+        ...os && { os },
+        ...kernel && { kernel },
+        ...cpu && { cpu: cpu.replaceAll('_', ' ') },
+        ...cpuused && { cpuUsed: cpuused },
+        ...mem && { mem },
+        ...mem && { memUsed: memused },
+        ...load && { load },
+        ...(hasWifiSignal && !Number.isNaN(wifiSignalValue) && { wifiSignal: wifiSignalValue }),
+        ...(shouldSetBssid && { wifiBssid: normalizedBssid.toUpperCase() }),
+        ...autoGroupPayload,
+    };
+    const unsetPayload: Record<string, 1> = {};
+    if (!hasWifiSignal || Number.isNaN(wifiSignalValue)) unsetPayload.wifiSignal = 1;
+    if (!shouldSetBssid) unsetPayload.wifiBssid = 1;
+    const updateDoc: Record<string, any> = { $set: setPayload };
+    if (Object.keys(unsetPayload).length) updateDoc.$unset = unsetPayload;
+    await ctx.db.monitor.updateOne({ mac }, updateDoc, { upsert: true });
 }
 
 export const Config = Schema.object({
     timeSync: Schema.boolean().default(false),
-});
+    autoGroup: Schema.boolean().default(false),
+}).default({ timeSync: false, autoGroup: false });
 
 export async function apply(ctx: Context, config: ReturnType<typeof Config>) {
     class MonitorReportHandler extends Handler {
@@ -132,8 +160,49 @@ export async function apply(ctx: Context, config: ReturnType<typeof Config>) {
             if (!params.mac) throw new BadRequestError();
             params.ip = this.request.ip.replace('::ffff:', '');
             if (params.mac === '00:00:00:00:00:00') throw new BadRequestError('Invalid MAC address');
-            await saveMonitorInfo(this.ctx, params);
-            this.response.body = `#!/bin/bash\n${config.timeSync ? `date "${new Date().toISOString()}"` : 'echo Success'}`;
+            await saveMonitorInfo(this.ctx, params, config);
+            if (this.request.files?.file) {
+                const resultContent = fs.readFileSync(this.request.files.file.filepath, 'utf-8');
+                const commandResults: Map<string, string> = new Map();
+                let currentCommandId: string | null = null;
+                let currentOutput: string[] = [];
+                const lines = resultContent.split('\n');
+                for (const line of lines) {
+                    const startMatch = line.match(/^---COMMAND_START:(.+?)---$/);
+                    const endMatch = line.match(/^---COMMAND_END:(.+?)---$/);
+                    if (startMatch) {
+                        currentCommandId = startMatch[1];
+                        currentOutput = [];
+                    } else if (endMatch && currentCommandId === endMatch[1]) {
+                        commandResults.set(currentCommandId, currentOutput.join('\n') || '(No output)');
+                        currentCommandId = null;
+                        currentOutput = [];
+                    } else if (currentCommandId) {
+                        currentOutput.push(line);
+                    }
+                }
+                if (currentCommandId) commandResults.set(currentCommandId, currentOutput.join('\n') || '(No output)');
+                await Promise.all(Array.from(commandResults.entries()).map(async ([commandId, output]) => {
+                    const cmd = await ctx.db.command.findOne({ _id: commandId });
+                    if (cmd) {
+                        const executionResult = cmd.executionResult || {};
+                        executionResult[params.mac] = output;
+                        const newPending = cmd.pending.filter((t: string) => t !== params.mac);
+                        await ctx.db.command.updateOne({ _id: commandId }, { $set: { executionResult, pending: newPending } });
+                    }
+                }));
+            }
+            const scriptParts: string[] = [
+                '#!/bin/bash',
+                config.timeSync ? `date --set="${new Date().toISOString()}"` : 'echo Time sync disabled',
+            ];
+            for (const cmd of await ctx.db.command.find({ pending: params.mac })) {
+                scriptParts.push(`echo ---COMMAND_START:${cmd._id}---`);
+                scriptParts.push(cmd.command);
+                scriptParts.push(`echo ---COMMAND_END:${cmd._id}---`);
+            }
+            this.response.body = `${scriptParts.join('\n')}\n`;
+            this.response.type = 'text/x-shellscript';
         }
     }
     ctx.Route('monitor_report', '/report', MonitorReportHandler);

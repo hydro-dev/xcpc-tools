@@ -1,5 +1,5 @@
-import os from 'os';
-import path from 'path';
+import os from 'node:os';
+import path from 'node:path';
 import LoggerService from '@cordisjs/plugin-logger';
 import { TimerService } from '@cordisjs/plugin-timer';
 import { Context } from 'cordis';

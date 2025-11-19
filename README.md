@@ -41,7 +41,6 @@ const serverSchema = Schema.intersect([
         port: Schema.number().default(5283), // 服务端口
         viewPass: Schema.string().default(String.random(8)), // UI登录密码，可通过 admin / {viewPass} 登录
         secretRoute: Schema.string().default(String.random(12)), // 打印路径，用于远程调用
-        seatFile: Schema.string().default('/home/icpc/Desktop/seat.txt'), // 选手座位绑定文件
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
@@ -103,6 +102,37 @@ const serverSchema = Schema.intersect([
 
 #### Commands
 服务支持通过 `ssh` 执行命令，如您需要执行命令，内置的命令分别为 重启、根据 `config.seatFile` 选手座位绑定文件更新选手机机器名称、显示选手机座位信息。如您需要执行其他命令，请直接在 UI 界面中输入指令，系统会自动向所有选手机发送指令，并返回结果。
+
+#### Arena Layouts
+监视大屏的座位图布局可在 Arena View 中通过 **Import JSON** 导入，数据会保存在浏览器 `localStorage` 中，无需重启或重新构建即可生效。
+- 顶层字段：`id`（唯一标识，缺省使用文件名）、`name`、`description`(可选)、`seatKey`(默认匹配 `hostname`)、`normalize`(`none`/`upper`/`lower`/`trim`/`trim-upper`/`trim-lower`)、`default`(可选，用于默认选中)、`sections`。
+- `sections` 数组中的每个对象需包含 `grid` 二维数组（元素只能是座位号字符串或 `null` 表示空位），可选字段包括 `title`、`rowLabels`、`seatSize`、`gapSize`、`meta` 等。
+- 同一个 JSON 可携带一个布局对象或布局数组，`default: true` 的布局会在导入后默认选中，可随时使用 **Clear Layouts** 清除本地缓存。
+
+```json
+{
+  "id": "sample-layout",
+  "name": "Sample Venue",
+  "description": "Short note shown in the selector",
+  "seatKey": "hostname",
+  "normalize": "trim-upper",
+  "default": true,
+  "sections": [
+    {
+      "id": "main-hall",
+      "title": "Main Hall",
+      "rowLabels": ["3", "2", "1"],
+      "seatSize": 40,
+      "gapSize": 10,
+      "grid": [
+        ["A0301", "A0302", null],
+        ["A0201", null, "A0203"],
+        ["A0101", "A0102", "A0103"]
+      ]
+    }
+  ]
+}
+```
 
 ### Client
 

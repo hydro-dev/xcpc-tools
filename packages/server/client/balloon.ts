@@ -8,6 +8,7 @@ import {
 
 const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
 const encoder = new EscPosEncoder();
+const logger = new Logger('balloon');
 
 const i18n = {
     zh: {
@@ -32,39 +33,42 @@ const i18n = {
 
 export const receiptBalloonText = (
     id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
-) => encoder
-    .initialize()
-    .codepage('cp936')
-    .setPinterType(config.balloonType ?? 80) // wrong typo in the library
-    .align('center')
-    .bold(true)
-    .size(2)
-    .line(i18n[lang].receipt)
-    .emptyLine(1)
-    .line(`ID: ${id}`)
-    .emptyLine(1)
-    .bold(false)
-    .size(1)
-    .line('===============================')
-    .emptyLine(1)
-    .oneLine(i18n[lang].location, location)
-    .oneLine(i18n[lang].problem, problem)
-    .oneLine(i18n[lang].color, color)
-    .oneLine(i18n[lang].comment, comment)
-    .emptyLine(1)
-    .align('center')
-    .bold(true)
-    .line('================================')
-    .emptyLine(2)
-    .size(0)
-    .line(`${i18n[lang].team}: ${teamname}`)
-    .line(`${i18n[lang].status}:`)
-    .line(`${status}`)
-    .emptyLine(2)
-    .line('Powered by hydro-dev/xcpc-tools')
-    .emptyLine(3)
-    .cut()
-    .encode();
+) => {
+    let enc = encoder.initialize().codepage('cp936').setPinterType(config.balloonType ?? 80);
+    const whitelist = [
+        'align', 'barcode', 'bold', 'cut', 'curPartial',
+        'emptyLine', 'image', 'italic', 'line', 'newLine',
+        'oneLine', 'qrcode', 'size', 'text', 'underline',
+    ];
+    const replace = (input: string) => input
+        .replace(/\{id\}/g, String(id).substring(0, 8))
+        .replace(/\{location\}/g, location)
+        .replace(/\{problem\}/g, problem)
+        .replace(/\{color\}/g, color)
+        .replace(/\{comment\}/g, comment)
+        .replace(/\{team\}/g, teamname)
+        .replace(/\{status\}/g, status)
+        .replace(/\{time\}/g, new Date().toLocaleString())
+        .replace(/%LOCATION/g, i18n[lang].location)
+        .replace(/%PROBLEM/g, i18n[lang].problem)
+        .replace(/%COLOR/g, i18n[lang].color)
+        .replace(/%COMMENT/g, i18n[lang].comment)
+        .replace(/%TEAM/g, i18n[lang].team)
+        .replace(/%STATUS/g, i18n[lang].status)
+        .replace(/%RECEIPT/g, i18n[lang].receipt);
+    for (const line of config.balloonTemplate.split('\n')) {
+        if (!line.startsWith('#')) enc = enc.line(replace(line));
+        const [command, ...rawArgs] = line.slice(1).split(' ');
+        const args = rawArgs.map((arg) => (arg === 'true' ? true : arg === 'false' ? false : Number.isSafeInteger(arg) ? +arg : replace(arg)));
+        if (whitelist.includes(command)) enc = enc[command](...args);
+        else logger.warn(`Unsupported printer command: ${command}`);
+    }
+    return enc
+        .line('Powered by hydro-dev/xcpc-tools')
+        .emptyLine(1)
+        .cut()
+        .encode();
+};
 
 export const plainBalloonText = (
     id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
@@ -77,8 +81,6 @@ ${i18n[lang].problem}: ${problem}
 ${i18n[lang].color}: ${color}
 ${i18n[lang].comment}: ${comment}
 `;
-
-const logger = new Logger('balloon');
 
 let timer = null;
 let printer = null;

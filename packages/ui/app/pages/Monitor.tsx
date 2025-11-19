@@ -4,6 +4,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
+import { ArenaView } from '../components/ArenaView';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorCards, MonitorTable } from '../components/MonitorDisplay';
 import { MonitorInfo } from '../components/MonitorInfo';
@@ -22,12 +23,12 @@ export default function Monitor() {
 
   const load = query.isLoading || query.isFetching || query.isRefetching;
 
-  const openMonitorInfo = (monitor, tab) => {
+  const openMonitorInfo = React.useCallback((monitor, tab) => {
     setDetailM(monitor);
-    setInfoTab(tab);
-  };
+    setInfoTab(tab ?? 'info');
+  }, []);
 
-  const cleanAll = async () => {
+  const cleanAll = React.useCallback(async () => {
     try {
       const res = await (await fetch('/monitor', {
         method: 'POST',
@@ -44,7 +45,14 @@ export default function Monitor() {
       console.error(e);
       notifications.show({ title: 'Error', message: 'Failed to clean all monitors', color: 'red' });
     }
-  };
+  }, []);
+
+  const monitorsArray = React.useMemo<any[]>(
+    () => Object.values(query.data?.monitors || {}) as any[],
+    [query.data?.monitors],
+  );
+
+  const showViewToggle = activeTab !== 'all' && activeTab !== 'arena';
 
   return (
     <>
@@ -56,7 +64,7 @@ export default function Monitor() {
           <Group justify="space-between" mb="xs">
             <Title order={3}>Computer Status</Title>
             <Group>
-              {activeTab !== 'all' && (
+              {showViewToggle && (
                 <Button
                   variant="outline"
                   color="gray"
@@ -75,11 +83,12 @@ export default function Monitor() {
               </Button>
             </Group>
           </Group>
-          <Tabs value={activeTab} onChange={(value) => setActiveTab(value!)}>
+          <Tabs value={activeTab} keepMounted={false} onChange={(value) => setActiveTab(value!)}>
             <Tabs.List>
-              <Tabs.Tab value="all">All({query.data?.monitors ? Object.values(query.data?.monitors || {}).length : 0})</Tabs.Tab>
-              {Object.keys(query.data?.groups || {}).map((group) => (
-                <Tabs.Tab key={group} value={group}>{group}({query.data?.groups[group].length})</Tabs.Tab>
+              <Tabs.Tab value="all">All({Object.values(query.data?.monitors || {}).length})</Tabs.Tab>
+              <Tabs.Tab value="arena">Arena View</Tabs.Tab>
+              {Object.entries(query.data?.groups || {}).map(([group, monitors]) => (
+                <Tabs.Tab key={group} value={group}>{group}({monitors.length})</Tabs.Tab>
               ))}
             </Tabs.List>
 
@@ -88,7 +97,11 @@ export default function Monitor() {
                 <Center mt="md">
                   <Text c="dimmed">No monitors found</Text>
                 </Center>
-              ) : (<MonitorTable monitors={Object.values(query.data?.monitors || {})} openMonitorInfo={openMonitorInfo} />))}
+              ) : <MonitorTable monitors={Object.values(query.data?.monitors || {})} openMonitorInfo={openMonitorInfo} />)}
+            </Tabs.Panel>
+
+            <Tabs.Panel value="arena">
+              <ArenaView monitors={monitorsArray} isLoading={load} openMonitorInfo={openMonitorInfo} />
             </Tabs.Panel>
 
             {Object.keys(query.data?.groups || {}).map((group) => (
@@ -97,23 +110,21 @@ export default function Monitor() {
                   <Center mt="md">
                     <Text c="dimmed">No monitors found</Text>
                   </Center>
-                ) : (useTableMode ? (
-                  <MonitorTable
+                ) : (useTableMode
+                  ? <MonitorTable
                     monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
                     openMonitorInfo={openMonitorInfo}
                   />
-                ) : (
-                  <MonitorCards
+                  : <MonitorCards
                     monitors={(query.data?.groups[group] || []).map((m) => query.data?.monitors[m])}
                     openMonitorInfo={openMonitorInfo}
                   />
-                )))}
+                ))}
               </Tabs.Panel>
             ))}
           </Tabs>
         </Card>
-      )
-      }
+      )}
     </>
   );
 }

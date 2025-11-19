@@ -10,12 +10,12 @@ import {
 } from '@tabler/icons-react';
 import mpegts from 'mpegts.js';
 import React, { useState } from 'react';
+import { formatWifiSignal } from '../utils';
 
 function VideoPlayer({ client, type = 'camera' }) {
   const videoRef = React.useRef(null);
   const needProxy = client && client[type].startsWith('proxy://');
-  const src = `${needProxy ? '/stream/' : 'http://'}${client.ip}${
-    client[type].startsWith('proxy://') ? client[type].substring(8) : client[type]}`;
+  const src = `${needProxy ? '/stream/' : 'http://'}${client.ip}${client[type].startsWith('proxy://') ? client[type].substring(8) : client[type]}`;
   React.useEffect(() => {
     if (videoRef.current) {
       const player = mpegts.createPlayer({
@@ -29,7 +29,7 @@ function VideoPlayer({ client, type = 'camera' }) {
         player.destroy();
       };
     }
-    return () => {};
+    return () => { };
   }, [src]);
 
   return (
@@ -56,7 +56,7 @@ export function MonitorInfo({
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string>('');
 
-  const updateInfo = async () => {
+  const updateInfo = React.useCallback(async () => {
     setUpdating(true);
     try {
       const res = await (await fetch('/monitor', {
@@ -140,7 +140,7 @@ export function MonitorInfo({
           <Tooltip label="Back to List">
             <ActionIcon variant="transparent" aria-label='Back' onClick={back}><IconCircleChevronLeft /></ActionIcon>
           </Tooltip>
-          <Title order={3}>{ monitor.name || 'No Name' }</Title>
+          <Title order={3}>{monitor.name || 'No Name'}</Title>
         </Group>
       </Group>
       <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
@@ -168,6 +168,8 @@ export function MonitorInfo({
               <Text>Kernel: {monitor.kernel}</Text>
               <Text>Memory Used: {monitor.memUsed ? (monitor.memUsed / monitor.mem).toFixed(2) : 0}%</Text>
               <Text>Load: {monitor.load}</Text>
+              <Text>Wi-Fi Signal: {wifiSignalText || 'No Data'}</Text>
+              <Text>Wi-Fi BSSID: {monitor.wifiBssid || 'No Data'}</Text>
               <Text>Camera Stream URL: {monitor.camera ?? 'No Camera'}</Text>
               <Text>Desktop Stream URL: {monitor.desktop ?? 'No Desktop'}</Text>
             </Grid.Col>
@@ -185,12 +187,12 @@ export function MonitorInfo({
             </Grid.Col>
           </Grid>
         </Tabs.Panel>
-        { monitor.camera && (
+        {monitor.camera && (
           <Tabs.Panel value="camera">
             <VideoPlayer client={monitor} type="camera" />
           </Tabs.Panel>
         )}
-        { monitor.desktop && (
+        {monitor.desktop && (
           <Tabs.Panel value="desktop">
             <VideoPlayer client={monitor} type="desktop" />
           </Tabs.Panel>
@@ -221,7 +223,7 @@ export function MonitorInfo({
 }
 
 export function MonitorInfoButton({ monitor, action }) {
-  const del = async (m) => {
+  const del = React.useCallback(async (m) => {
     try {
       const res = await (await fetch('/monitor', {
         method: 'POST',
@@ -237,21 +239,21 @@ export function MonitorInfoButton({ monitor, action }) {
       console.error(e);
       notifications.show({ title: 'Error', message: 'Failed to delete client', color: 'red' });
     }
-  };
+  }, []);
 
   return (
     <Group>
       <Tooltip label="Info">
         <ActionIcon variant="transparent" color="green" aria-label='Info' onClick={() => action(monitor, 'info')}><IconInfoCircle /></ActionIcon>
       </Tooltip>
-      { monitor.camera && (
+      {monitor.camera && (
         <Tooltip label="Camera">
           <ActionIcon variant="transparent" color="red" aria-label='Camera' onClick={() => action(monitor, 'camera')}>
             <IconDeviceComputerCamera />
           </ActionIcon>
         </Tooltip>
       )}
-      { monitor.desktop && (
+      {monitor.desktop && (
         <Tooltip label="Desktop">
           <ActionIcon variant="transparent" color="blue" aria-label='Desktop' onClick={() => action(monitor, 'desktop')}>
             <IconDeviceDesktop />

@@ -28,7 +28,7 @@
 <script setup lang="ts">
 import { filesystem, os } from '@neutralinojs/lib';
 import { NCard, NGrid, NGi, NButton, NInput, NSpace } from 'naive-ui';
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 const netInfo = ref<any[]>([]);
 
@@ -75,7 +75,7 @@ const saveConfig = async () => {
     }
 };
 
-onMounted(async () => {
+const getIp = async () => {
     try {
         const res = await os.execCommand('ip --json address');
         const info = JSON.parse(res.stdOut);
@@ -92,7 +92,17 @@ onMounted(async () => {
         window.ip = ips?.[0]?.v4;
     } catch (error) {
         console.error(error);
-    
     }
+};
+
+let intervalId: NodeJS.Timeout;
+
+onMounted(async () => {
+    await getIp();
+    intervalId = setInterval(getIp, 5000);
+});
+
+onUnmounted(() => {
+    clearInterval(intervalId);
 });
 </script>

@@ -1,6 +1,6 @@
 {
   "name": "xcpc-tools-workspace",
-  "packageManager": "yarn@4.2.0",
+  "packageManager": "yarn@4.9.2",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -15,18 +15,20 @@
     "build:pkg": "yarn build:ui && node -r ./register.js build.ts && pkg dist/xcpc-tools.js --targets linux,macos,win --out-path dist/pkg"
   },
   "devDependencies": {
-    "@expo-google-fonts/noto-sans-sc": "^0.4.1",
-    "@hydrooj/eslint-config": "^2.0.0",
+    "@expo-google-fonts/noto-sans-sc": "^0.4.2",
+    "@hydrooj/eslint-config": "^2.0.3",
     "@hydrooj/register": "^1.0.3",
-    "@hydrooj/utils": "^1.4.34-beta.3",
-    "@neutralinojs/neu": "^11.4.0",
-    "@types/node": "^20.17.58",
-    "@yao-pkg/pkg": "^6.5.1",
-    "chardet": "^2.1.0",
+    "@hydrooj/utils": "^1.4.37",
+    "@neutralinojs/neu": "^11.6.0",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^20.19.24",
+    "@yao-pkg/pkg": "^6.10.1",
+    "chardet": "^2.1.1",
     "dejavu-fonts-ttf": "^2.37.3",
-    "eslint": "^9.28.0",
-    "eslint-import-resolver-typescript": "^4.4.2",
+    "eslint": "^9.39.1",
+    "eslint-import-resolver-typescript": "^4.4.4",
     "iconv-lite": "^0.6.3",
+    "lodash": "^4.17.21",
     "postject": "^1.0.0-alpha.6",
     "typescript": "5.8.3"
   },
