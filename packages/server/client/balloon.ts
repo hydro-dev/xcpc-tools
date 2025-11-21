@@ -56,8 +56,11 @@ export const receiptBalloonText = (
         .replace(/%TEAM/g, i18n[lang].team)
         .replace(/%STATUS/g, i18n[lang].status)
         .replace(/%RECEIPT/g, i18n[lang].receipt);
-    for (const line of config.balloonTemplate.split('\n')) {
-        if (!line.startsWith('#')) enc = enc.line(replace(line));
+    for (const line of config.balloonTemplate.replace(/\r/g, '').split('\n')) {
+        if (!line.startsWith('#')) {
+            enc = enc.line(replace(line));
+            continue;
+        }
         const [command, ...rawArgs] = line.slice(1).split(' ');
         const args = rawArgs.map((arg) => (arg === 'true' ? true : arg === 'false' ? false : Number.isSafeInteger(arg) ? +arg : replace(arg)));
         if (whitelist.includes(command)) enc = enc[command](...args);
