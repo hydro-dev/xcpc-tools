@@ -3,7 +3,7 @@ import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import superagent from 'superagent';
 import { config } from '../config';
 import {
-    checkReceiptStatus, getBalloonName, Logger, receiptPrint, sleep,
+    getBalloonName, Logger, receiptPrint, sleep,
 } from '../utils';
 
 const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
@@ -87,7 +87,7 @@ Powered by hydro-dev/xcpc-tools
 `;
 
 let timer = null;
-let printer = null;
+let printer: string = null;
 
 async function printBalloon(doc, lang) {
     let status = '';
@@ -105,7 +105,6 @@ async function printBalloon(doc, lang) {
         status,
         lang,
     );
-    printer = await checkReceiptStatus(printer);
     await receiptPrint(printer, bReceipt, config.balloonCommand);
 }
 
@@ -133,7 +132,7 @@ async function fetchTask(c) {
 }
 
 export async function apply() {
-    printer = { printer: config.balloon };
+    printer = config.balloon;
     if (config.token && config.server && config.balloon) await fetchTask(config);
     else logger.error('Config not found, please check the config.yaml');
 }
