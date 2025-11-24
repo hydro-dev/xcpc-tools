@@ -17,11 +17,11 @@
   "devDependencies": {
     "@expo-google-fonts/noto-sans-sc": "^0.4.2",
     "@hydrooj/eslint-config": "^2.0.3",
-    "@hydrooj/register": "^1.0.3",
-    "@hydrooj/utils": "^1.4.37",
+    "@hydrooj/register": "^1.0.4",
+    "@hydrooj/utils": "^1.5.1",
     "@neutralinojs/neu": "^11.6.0",
-    "@types/lodash": "^4.17.20",
-    "@types/node": "^20.19.24",
+    "@types/lodash": "^4.17.21",
+    "@types/node": "^20.19.25",
     "@yao-pkg/pkg": "^6.10.1",
     "chardet": "^2.1.1",
     "dejavu-fonts-ttf": "^2.37.3",
@@ -34,6 +34,7 @@
   },
   "resolutions": {
     "formidable": "patch:formidable@npm%3A2.1.2#~/.yarn/patches/formidable-npm-2.1.2-40ba18d67f.patch",
-    "http-proxy@npm:^1.18.1": "patch:http-proxy@npm%3A1.18.1#~/.yarn/patches/http-proxy-npm-1.18.1-a313c479c5.patch"
+    "http-proxy@npm:^1.18.1": "patch:http-proxy@npm%3A1.18.1#~/.yarn/patches/http-proxy-npm-1.18.1-a313c479c5.patch",
+    "koa@npm:^3.0.3": "patch:koa@npm%3A3.0.3#~/.yarn/patches/koa-npm-3.0.3-69f0f9bdfc.patch"
   }
 }
