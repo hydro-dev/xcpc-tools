@@ -220,15 +220,14 @@ class HydroFetcher extends BasicFetcher {
         if (!body?.bdocs?.length) return;
         const baloons = body.bdocs.map((b) => ({ ...b, time: mongoId(b._id).timestamp * 1000 })).sort((a, b) => a.time - b.time);
         for (const balloon of baloons) {
-            balloon.time = mongoId(balloon._id).timestamp * 1000;
             const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.uid, time: { $lt: balloon.time } });
             const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
             const totalDict = {};
             for (const t of teamTotal) {
                 totalDict[t.problem] = t.contestproblem;
             }
-            const shouldPrint = this.contest.info.freeze_time ? (balloon.time * 1000) < this.contest.info.freeze_time || encourage : true;
-            if (!shouldPrint && !balloon.sent) await this.setBalloonDone(balloon.balloonid);
+            const shouldPrint = this.contest.info.freeze_time ? balloon.time < new Date(this.contest.info.freeze_time).getTime() || encourage : true;
+            if (!shouldPrint && !balloon.sent) await this.setBalloonDone(balloon._id);
             const contestproblem = {
                 id: balloon.pid.toString(),
                 short_name: String.fromCharCode(this.contest.info.pids.indexOf(balloon.pid) + 65),
@@ -236,16 +235,17 @@ class HydroFetcher extends BasicFetcher {
                 rgb: this.contest.info.balloon[balloon.pid].color,
                 color: this.contest.info.balloon[balloon.pid].name,
             };
+            const udoc = body.udict[balloon.uid];
             await this.ctx.db.balloon.update({ balloonid: balloon._id }, {
                 $set: {
                     balloonid: balloon._id,
                     time: balloon.time,
                     problem: contestproblem.short_name,
                     contestproblem,
-                    team: body.udict[balloon.uid].displayName,
+                    team: udoc.displayName || udoc.uname,
                     teamid: balloon.uid,
-                    location: body.udict[balloon.uid].uname,
-                    affiliation: body.udict[balloon.uid].school,
+                    location: udoc.seat || udoc.studentId,
+                    affiliation: udoc.school,
                     awards: balloon.first ? 'First of Problem' : (
                         this.contest.info.freeze_time && (balloon.time * 1000) > this.contest.info.freeze_time
                             && encourage ? 'Encourage Balloon' : ''
@@ -279,7 +279,7 @@ class HydroFetcher extends BasicFetcher {
                 _id: task._id,
                 tid: task.owner,
                 team: `${udoc.school ? `${udoc.school}: ` : ''}${udoc.displayName || udoc.uname}`,
-                location: udoc.studentId,
+                location: udoc.seat || udoc.studentId,
                 filename: task.title,
                 lang: task.title.split('.').pop() || 'txt',
                 createAt: new Date(parseInt(task._id.substring(0, 8), 16) * 1000).getTime(),
