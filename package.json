@@ -1,6 +1,6 @@
 {
   "name": "xcpc-tools-workspace",
-  "packageManager": "yarn@4.9.2",
+  "packageManager": "yarn@4.12.0",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -33,8 +33,6 @@
     "typescript": "5.8.3"
   },
   "resolutions": {
-    "formidable": "patch:formidable@npm%3A2.1.2#~/.yarn/patches/formidable-npm-2.1.2-40ba18d67f.patch",
-    "http-proxy@npm:^1.18.1": "patch:http-proxy@npm%3A1.18.1#~/.yarn/patches/http-proxy-npm-1.18.1-a313c479c5.patch",
-    "koa@npm:^3.0.3": "patch:koa@npm%3A3.0.3#~/.yarn/patches/koa-npm-3.0.3-69f0f9bdfc.patch"
+    "http-proxy@npm:^1.18.1": "patch:http-proxy@npm%3A1.18.1#~/.yarn/patches/http-proxy-npm-1.18.1-a313c479c5.patch"
   }
 }
