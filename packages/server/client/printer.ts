@@ -44,12 +44,24 @@ function toUtf8(code: Buffer) {
     return iconv.decode(code, info).toString();
 }
 
+function escapeText(s: string) {
+    let res = '';
+    for (const c of Array.from(s)) {
+        res += /^[\p{L}\p{M}\p{N}\p{P}\p{S}\r\n\t ]$/u.test(c)
+            ? c
+            : (c.length === 1 && c.codePointAt(0) <= 0x7F)
+                ? c.charCodeAt(0).toString(16).padStart(2, '0')
+                : `U+${c.codePointAt(0).toString(16).toUpperCase()}`;
+    }
+    return res;
+}
+
 export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, location, codeColor = false) {
     compiler ||= await createTypstCompiler();
     const fakeFilename = randomstring(8); // cubercsl: do not trust filename from user
     const typst = generateTypst(team, location, fakeFilename, filename, lang, codeColor);
     compiler.addSource('/main.typst', typst);
-    compiler.addSource(`/${fakeFilename}`, toUtf8(code));
+    compiler.addSource(`/${fakeFilename}`, escapeText(toUtf8(code)));
     logger.info(`Convert ${filename} to PDF`);
     try {
         return await compiler.compile({
