@@ -13,10 +13,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Use Node.js
+      - name: Setup Corepack
+        run: corepack enable
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: yarn
       - name: Build Tools Core
         run: yarn build
@@ -32,10 +34,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Corepack
+        run: corepack enable
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: yarn
       - name: Build
         run: yarn build:pkg
