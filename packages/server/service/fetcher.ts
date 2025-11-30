@@ -152,7 +152,10 @@ class DOMjudgeFetcher extends BasicFetcher {
                     balloonid: balloon.balloonid.toString(),
                     time: (balloon.time * 1000).toFixed(0),
                     problem: balloon.problem,
-                    contestproblem: balloon.contestproblem,
+                    contestproblem: {
+                        ...balloon.contestproblem,
+                        color: null,
+                    },
                     team: balloon.team,
                     teamid: balloon.teamid,
                     location: balloon.location,

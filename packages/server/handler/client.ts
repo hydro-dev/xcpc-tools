@@ -84,7 +84,7 @@ class ClientPrintDoneHandler extends Handler {
         await this.ctx.fetcher.setPrintDone(code._id);
         await this.ctx.parallel('print/doneTask', client._id, `${client._id}#${params.printer || 'unknown'}`);
         this.response.body = { code: 1 };
-        logger.info(`Client ${client.name} connected, print task ${code.tid}#${code._id} completed.`);
+        logger.info(`Client ${client.name} connected, print task ${code.tid}#${code._id} (${code.id} at remote) completed.`);
     }
 }
 

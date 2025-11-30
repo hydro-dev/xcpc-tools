@@ -99,7 +99,7 @@ async function printBalloon(doc, lang) {
         doc.balloonid,
         doc.location ? doc.location : 'N/A',
         doc.problem,
-        getBalloonName(doc.contestproblem.rgb, lang),
+        doc.contestproblem.color || getBalloonName(doc.contestproblem.rgb, lang),
         doc.awards ? doc.awards : 'N/A',
         doc.team,
         status,

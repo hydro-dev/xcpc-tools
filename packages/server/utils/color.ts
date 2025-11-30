@@ -272,7 +272,7 @@ export const CHINESE_NAME = {
     tan: '茶色',
     teal: '水鸭色',
     thistle: '蓟色',
-    tomato: '番茄红',
+    tomato: '番茄',
     turquoise: '宝石绿',
     violet: '紫罗兰',
     wheat: '小麦色',
