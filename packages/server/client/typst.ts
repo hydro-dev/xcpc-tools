@@ -57,7 +57,7 @@ class TypstCompilerDriver {
     }
 }
 
-export function generateTypst(team: string, location: string, filename: string, originalFilename: string, lang: string, codeColor: boolean) {
+export function generateTypst(team: string, location: string, filename: string, originalFilename: string, lang: string, createAt: number, codeColor: boolean) {
     return `
 #let fit(name: "", width: 147mm) = {
   context {
@@ -92,6 +92,8 @@ export function generateTypst(team: string, location: string, filename: string, 
         text(weight: "black", size: 10pt)[[#location] ]
       }
       #fit(name: team)
+      #h(1fr)
+      ${new Date(createAt).toLocaleString('zh')}
       #linebreak()
       filename: #original
       #h(1fr)

@@ -56,10 +56,10 @@ function escapeText(s: string) {
     return res;
 }
 
-export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, location, codeColor = false) {
+export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, location, createAt, codeColor = false) {
     compiler ||= await createTypstCompiler();
     const fakeFilename = randomstring(8); // cubercsl: do not trust filename from user
-    const typst = generateTypst(team, location, fakeFilename, filename, lang, codeColor);
+    const typst = generateTypst(team, location, fakeFilename, filename, lang, createAt, codeColor);
     compiler.addSource('/main.typst', typst);
     compiler.addSource(`/${fakeFilename}`, escapeText(toUtf8(code)));
     logger.info(`Convert ${filename} to PDF`);
