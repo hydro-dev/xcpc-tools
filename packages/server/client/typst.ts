@@ -59,7 +59,7 @@ class TypstCompilerDriver {
 
 export function generateTypst(team: string, location: string, filename: string, originalFilename: string, lang: string, createAt: number, codeColor: boolean) {
     return `
-#let fit(name: "", width: 147mm) = {
+#let fit(name: "", width: 100mm) = {
   context {
     if measure(text(name)).width < width {
       return name
