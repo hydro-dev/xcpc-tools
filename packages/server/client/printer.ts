@@ -82,7 +82,7 @@ export async function printFile(docs) {
     const files = [];
     for (const doc of docs) {
         const {
-            _id, tid, code, lang, filename, team, location,
+            _id, tid, code, lang, filename, team, location, createAt,
         } = doc;
         const pdf = await ConvertCodeToPDF(
             code ? Buffer.from(code, 'base64') : Buffer.from('empty file'),
@@ -90,6 +90,7 @@ export async function printFile(docs) {
             filename,
             team,
             location,
+            createAt,
             config.printColor,
         );
         fs.writeFileSync(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`), pdf);
