@@ -76,30 +76,40 @@ export function generateTypst(team: string, location: string, filename: string, 
   }
 }
 
-#let split_to_lines(name: "", width: 147mm) = {
-  name = name.trim("\n", at:end)
-  let lines = ()
-  
-  if measure(text(name)).width < width {
-    lines.push(name)
-    return lines
-  }
-  
-  let l = 0
-  let total = name.codepoints().len()
-  
-  while l < total {
-    for len in range(total - 1, 1, step: -1) {
-      let line = text(name.codepoints().slice(l, len).join());
-      if measure(line).width < width {
-        lines.push(line)
-        l += len
-        break
-      }
+#let split_to_lines(name: "", width: 163mm) = {
+    name = name.trim("\n", at:end)
+    let lines = ()
+    
+    if measure(text(name)).width <= width {
+      lines.push(name)
+      return lines
     }
-  }
+    
+    let l = 0
+    let total = name.codepoints().len()
+    let remain = total;
+    
+    while l < total {
+      let low = 1;
+      let high = remain;
+      
+      while low < high {
+        let mid = int((low + high + 1)/2)
+        let line = name.codepoints().slice(l, count: mid).join()
+        if measure(line).width <= width {
+          low = mid
+        } else {
+          high = mid - 1
+        }
+      }
 
-  return lines
+      let len = low;
+      lines.push(name.codepoints().slice(l, count: len).join())
+      l += len
+      remain -= len
+    }
+
+    return lines
 }
 
 #let print(
@@ -124,21 +134,22 @@ export function generateTypst(team: string, location: string, filename: string, 
       By Hydro/XCPC-TOOLS | Page #context counter(page).display("1 of 1", both: true)
     ],
   )
-  show raw.where(block: true): code => {
-    show raw.line: it => {
-      let lines = split_to_lines(name: it.text)
-      for i in range(0, lines.len()) {
+  show raw.where(block: true): it => {
+    show raw.where(block: false): set text(size: 1.2em)
+    for (i, line) in it.lines.enumerate() {
+      let sub_lines = split_to_lines(name: line.text)
+      for (j, sub_line) in sub_lines.enumerate() {
         box(
           stack(
             dir: ltr,
-            box(width: 0em, align(right, text(fill: gray)[ #if i == 0 [#it.number] ])),
+            box(width: 0em, align(right, text(fill: gray)[ #if j == 0 [#(i + 1)] ])),
             h(1em),
-            lines.at(i),
+            raw(sub_line, lang: lang, block: false)
           ),
         )
+        linebreak()
       }
     }
-    code
   }
   raw(read(filename), lang: lang, block: true${codeColor ? '' : ', theme: "/XCPCTOOLS/BW.tmtheme"'})
 }
