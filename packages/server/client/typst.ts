@@ -76,11 +76,11 @@ export function generateTypst(team: string, location: string, filename: string, 
   }
 }
 
-#let split_to_lines(name: "", width: 163mm) = {
+#let split_to_lines(name: "", width: 222mm, text_size: 1.5em) = {
     name = name.trim("\n", at:end)
     let lines = ()
     
-    if measure(text(name)).width <= width {
+    if measure(text(name, size: text_size)).width <= width {
       lines.push(name)
       return lines
     }
@@ -95,7 +95,7 @@ export function generateTypst(team: string, location: string, filename: string, 
       
       while low < high {
         let mid = int((low + high + 1)/2)
-        let line = name.codepoints().slice(l, count: mid).join()
+        let line = text(name.codepoints().slice(l, count: mid).join(), size: text_size)
         if measure(line).width <= width {
           low = mid
         } else {
