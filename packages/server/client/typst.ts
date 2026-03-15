@@ -76,6 +76,32 @@ export function generateTypst(team: string, location: string, filename: string, 
   }
 }
 
+#let split_to_lines(name: "", width: 147mm) = {
+  name = name.trim("\n", at:end)
+  let lines = ()
+  
+  if measure(text(name)).width < width {
+    lines.push(name)
+    return lines
+  }
+  
+  let l = 0
+  let total = name.codepoints().len()
+  
+  while l < total {
+    for len in range(total - 1, 1, step: -1) {
+      let line = text(name.codepoints().slice(l, len).join());
+      if measure(line).width < width {
+        lines.push(line)
+        l += len
+        break
+      }
+    }
+  }
+
+  return lines
+}
+
 #let print(
   team: "",
   location: "",
@@ -100,14 +126,17 @@ export function generateTypst(team: string, location: string, filename: string, 
   )
   show raw.where(block: true): code => {
     show raw.line: it => {
-      box(
-        stack(
-          dir: ltr,
-          box(width: 0em, align(right, text(fill: gray)[#it.number])),
-          h(1em),
-          it.body,
-        ),
-      )
+      let lines = split_to_lines(name: it.text)
+      for i in range(0, lines.len()) {
+        box(
+          stack(
+            dir: ltr,
+            box(width: 0em, align(right, text(fill: gray)[ #if i == 0 [#it.number] ])),
+            h(1em),
+            lines.at(i),
+          ),
+        )
+      }
     }
     code
   }
