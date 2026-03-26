@@ -137,7 +137,7 @@ class DOMjudgeFetcher extends BasicFetcher {
         if (all) this.logger.info('Sync all balloons...');
         const { body } = await fetch(`./api/v4/contests/${this.contest.id}/balloons?todo=${all ? 'false' : 'true'}`);
         if (!body || !body.length) return;
-        const balloons = body;
+        const balloons = body.sort((a, b) => a.time - b.time);
         for (const balloon of balloons) {
             const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.teamid, time: { $lt: (balloon.time * 1000).toFixed(0) } });
             const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
