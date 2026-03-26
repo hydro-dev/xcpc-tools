@@ -29,6 +29,7 @@ class PrintAdminHandler extends AuthHandler {
             code.filename,
             code.team,
             code.location,
+            code.createAt,
             params.color ?? true,
         );
         this.response.type = 'application/pdf';
