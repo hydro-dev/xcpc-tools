@@ -91,7 +91,7 @@ let printer: string = null;
 async function printBalloon(doc, lang) {
     let status = '';
     for (const i in doc.total) {
-        status += `- ${i}: ${getBalloonName(doc.total[i].color, lang)}\n`;
+        status += `- ${i}: ${doc.total[i].color || getBalloonName(doc.total[i].rgb, lang)}\n`;
     }
     const genText = config.balloonType === 'plain' ? plainBalloonText : receiptBalloonText;
     const bReceipt = await genText(
