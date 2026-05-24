@@ -47,6 +47,7 @@
 import { app, filesystem, os } from '@neutralinojs/lib';
 import { NCard, NGrid, NGi, NButton, NInput, NPopconfirm } from 'naive-ui';
 import { onMounted, ref } from 'vue';
+import { writePrivilegedFile } from '../utils/privileged';
 
 const nowSeat = ref('');
 const editSeat = ref('');
@@ -54,7 +55,7 @@ const editSeat = ref('');
 const saveSeat = async () => {
     try {
         console.log('save seat', editSeat.value);
-        await filesystem.writeFile('/var/lib/icpc/config.json', JSON.stringify({ seat: editSeat.value }));
+        await writePrivilegedFile('/var/lib/icpc/config.json', JSON.stringify({ seat: editSeat.value }));
         const read = await filesystem.readFile('/var/lib/icpc/config.json');
         console.log('read seat', read);
         const res = await os.execCommand(`hostnamectl set-hostname ${editSeat.value}`);
@@ -97,7 +98,7 @@ const checkAll = async (force = false) => {
     }
     await os.execCommand(`systemctl enable heartbeat.timer --now`);
     window.$notification.success({ title: '已成功完成配置', content: '5s后程序自动关闭', duration: 5000 });
-    setTimeout(() => app.exit(), 5000);
+    setTimeout(() => app.exit().catch(() => {}), 5000);
     os.execCommand(`zenity --info --text "<span font='${nowSeat.value.length > 4 ? 128 : 256}'>${nowSeat.value}\n</span><span font='128'>${window.ip}</span>" > /dev/null 2>&1 &`);
 };
 

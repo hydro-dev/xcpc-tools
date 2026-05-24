@@ -36,15 +36,15 @@
       "maximize": false,
       "hidden": false,
       "resizable": true,
-      "exitProcessOnClose": false
+      "exitProcessOnClose": true
     }
   },
   "cli": {
     "binaryName": "hydro-xcpctools-machine-setup",
     "resourcesPath": "/frontend/",
     "extensionsPath": "/extensions/",
-    "binaryVersion": "5.5.0",
-    "clientVersion": "5.4.0",
+    "binaryVersion": "6.5.0",
+    "clientVersion": "6.5.0",
     "frontendLibrary": {
       "projectPath": "/frontend/",
       "initCommand": "yarn",

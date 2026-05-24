@@ -1,6 +1,6 @@
 import './style.css';
 
-import { app, events, init } from '@neutralinojs/lib';
+import { init } from '@neutralinojs/lib';
 import {
     create, NButton, NCard, NConfigProvider, NGi, NGrid, NInput,
     NNotificationProvider,
@@ -16,7 +16,3 @@ const naive = create({
 createApp(App).use(naive).mount('#app');
 
 init();
-// hack for: https://github.com/neutralinojs/neutralinojs/issues/1179
-events.on('windowClose', () => {
-    app.exit();
-});

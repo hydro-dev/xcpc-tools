@@ -2,12 +2,25 @@
     <n-card bordered shadow="always">
         <n-grid x-gap="12" :cols="2">
             <n-gi>
-                <div style="display: flex; justify-content: center; align-items: center;">
-                    <p>摄像头服务：</p> 
-                    <n-space>
-                        <n-tag :type="hasCamera ? 'success' : 'error'">{{ hasCamera ? hasCamera : '未连接' }}</n-tag>
-                        <n-tag :type="runCamera ? 'success' : 'error'">{{ runCamera ? '运行中' : '未运行' }}</n-tag>
-                    </n-space>
+                <div style="display: flex; align-items: center; gap: 0.5em; flex-wrap: wrap;">
+                    <p style="margin: 0;">摄像头服务：</p>
+                    <n-tooltip v-if="cameraDevices.length > 0" trigger="hover">
+                        <template #trigger>
+                            <n-tag type="success">已连接</n-tag>
+                        </template>
+                        <div v-for="(dev, i) in cameraDevices" :key="i" style="margin-bottom: 0.3em;">
+                            <div style="font-weight: bold;">{{ dev.name }}</div>
+                            <div v-for="node in dev.nodes" :key="node" style="padding-left: 1em;">{{ node }}</div>
+                        </div>
+                    </n-tooltip>
+                    <n-tooltip v-else-if="hasCamera" trigger="hover">
+                        <template #trigger>
+                            <n-tag type="success">已连接</n-tag>
+                        </template>
+                        {{ hasCamera }}
+                    </n-tooltip>
+                    <n-tag v-else type="error">未连接</n-tag>
+                    <n-tag :type="runCamera ? 'success' : 'error'">{{ runCamera ? '运行中' : '未运行' }}</n-tag>
                 </div>
                 <n-space>
                     <n-button size="small" type="primary" @click="runService('vlc-webcam', 'restart')">启动</n-button>
@@ -49,10 +62,17 @@
 
 <script setup lang="ts">
 import { filesystem, os } from '@neutralinojs/lib';
-import { NCard, NGrid, NGi, NButton, NInput, NTabs, NTabPane } from 'naive-ui';
+import { NCard, NGrid, NGi, NButton, NInput, NTabs, NTabPane, NTooltip, NTag, NSpace } from 'naive-ui';
 import { onMounted, ref } from 'vue';
+import { writePrivilegedFile } from '../utils/privileged';
 
 const hasCamera = ref('');
+
+interface V4l2Device {
+    name: string;
+    nodes: string[];
+}
+const cameraDevices = ref<V4l2Device[]>([]);
 
 const runCamera = ref(false);
 const runScreen = ref(false);
@@ -70,8 +90,8 @@ const runService = async (service: string, action: string) => {
         console.log(`systemctl ${action} ${service} status`, res.stdOut);
         if (res.stdErr) throw new Error(res.stdErr);
         if (action === 'restart') {
-            const status = await os.execCommand(`systemctl status ${service}`);
-            if (status.stdOut.includes('dead') && status.stdOut.includes('exited')) throw new Error('服务启动失败');
+            const status = await os.execCommand(`systemctl is-active ${service}`);
+            if (status.stdOut.trim() !== 'active') throw new Error('服务启动失败');
             if (service === 'vlc-screen') runScreen.value = true;
             if (service === 'vlc-webcam') runCamera.value = true;
         } else if (action === 'stop') {
@@ -84,10 +104,16 @@ const runService = async (service: string, action: string) => {
     }
 };
 
+const parseConfigValue = (config: string, key: string): string | undefined => {
+    const match = config.match(new RegExp(`^${key}=(.*)$`, 'm'));
+    return match?.[1]?.trim();
+};
+
 const runVLC = async (service: string) => {
-    const port = service === 'webcam' ? '8080' : '9090';
+    const config = service === 'webcam' ? cameraInfo.value : screenInfo.value;
+    const port = parseConfigValue(config, 'VLC_PORT') ?? (service === 'webcam' ? '8080' : '8090');
     try {
-        const res = await os.execCommand(`su icpc -c "vlc http://localhost:${port}/"`);
+        const res = await os.execCommand(`vlc http://localhost:${port}/`);
         console.log('run vlc on test', res);
         if (res.exitCode) throw new Error(res.stdErr);
         window.$notification.success({ title: 'VLC启动成功', content: '请查看VLC播放器，确认视频正常后关闭', duration: 3000 });
@@ -111,9 +137,9 @@ const statusService = async (service: string) => {
 const saveConfig = async (service: string) => {
     try {
         if (service === 'camera') {
-            await filesystem.writeFile('/etc/default/vlc-webcam', cameraInfo.value);
+            await writePrivilegedFile('/etc/default/vlc-webcam', cameraInfo.value);
         } else if (service === 'screen') {
-            await filesystem.writeFile('/etc/default/vlc-screen', screenInfo.value);
+            await writePrivilegedFile('/etc/default/vlc-screen', screenInfo.value);
         }
         window.$notification.success({ title: '配置保存成功', content: '请重启服务以应用配置', duration: 3000 });
     } catch (error) {
@@ -127,6 +153,22 @@ onMounted(async () => {
     try {
         const checkCamera = await filesystem.readDirectory('/dev');
         hasCamera.value = checkCamera.map((item) => item.entry).filter((item) => item.startsWith('video')).join(', ') || '';
+        try {
+            const v4l2 = await os.execCommand('v4l2-ctl --list-devices');
+            const devices: V4l2Device[] = [];
+            let current: V4l2Device | null = null;
+            for (const line of v4l2.stdOut.split('\n')) {
+                if (line.length === 0) continue;
+                if (!line.startsWith('\t')) {
+                    current = { name: line.replace(/\s*\(.*\)\s*:?$/, '').trim(), nodes: [] };
+                    devices.push(current);
+                } else if (current) {
+                    const node = line.trim();
+                    if (node.startsWith('/dev/video')) current.nodes.push(node);
+                }
+            }
+            cameraDevices.value = devices.filter((d) => d.nodes.length > 0);
+        } catch { /* v4l2-ctl not available */ }
         const camera = await filesystem.readFile('/etc/default/vlc-webcam');
         const screen = await filesystem.readFile('/etc/default/vlc-screen');
         cameraInfo.value = camera;
@@ -137,12 +179,10 @@ onMounted(async () => {
         screenInfo.value = 'no screen config found';
     }
     try {
-        const res = await os.execCommand('systemctl status vlc-screen');
-        console.log('systemctl status vlc-screen status', res.stdOut);
-        if (!res.stdOut.includes('dead') && !res.stdOut.includes('exited')) runScreen.value = true;
-        const res2 = await os.execCommand('systemctl status vlc-webcam');
-        console.log('systemctl status vlc-webcam status', res2.stdOut);
-        if (!res2.stdOut.includes('dead') && !res.stdOut.includes('exited')) runCamera.value = true;
+        const res = await os.execCommand('systemctl is-active vlc-screen');
+        runScreen.value = res.stdOut.trim() === 'active';
+        const res2 = await os.execCommand('systemctl is-active vlc-webcam');
+        runCamera.value = res2.stdOut.trim() === 'active';
     } catch (error) {
         console.error(error);
     }

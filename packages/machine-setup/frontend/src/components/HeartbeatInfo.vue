@@ -6,7 +6,7 @@
                 <n-space>
                     <n-tag :type="onHeartbeat ? 'success' : 'error'">{{ onHeartbeat ? '已开启上报' : '未开启上报' }}</n-tag>
                     <n-button type="warning" size="small" @click="getHeartbeatVersion(nowHeartbeat)">中心状态</n-button>
-                    <n-button type="warning" size="small" @click="getHeartbeatTimer()">服务状态</n-button>
+                    <n-button :type="heartbeatServiceButtonType" size="small" @click="getHeartbeatService()">服务状态</n-button>
                 </n-space>
             </n-gi>
             <n-gi>
@@ -29,12 +29,62 @@
 
 <script setup lang="ts">
 import { filesystem, os } from '@neutralinojs/lib';
-import { NCard, NGrid, NGi, NButton, NInput } from 'naive-ui';
-import { onMounted, ref } from 'vue';
+import { NCard, NGrid, NGi, NButton, NInput, NSpace, NTag } from 'naive-ui';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { writePrivilegedFile } from '../utils/privileged';
+
+const HEARTBEAT_SEARCH_PATHS = [
+    '/usr/local/sbin/heartbeat',
+    '/usr/local/bin/heartbeat',
+    '/usr/sbin/heartbeat',
+    '/usr/bin/heartbeat',
+];
+
+let cachedHeartbeatPath: string | null = null;
+
+async function getHeartbeatPath(): Promise<string> {
+    if (cachedHeartbeatPath) return cachedHeartbeatPath;
+    for (const p of HEARTBEAT_SEARCH_PATHS) {
+        try {
+            const stat = await filesystem.getStats(p);
+            if (stat.isFile) {
+                cachedHeartbeatPath = p;
+                return p;
+            }
+        } catch { /* not found, try next */ }
+    }
+    try {
+        const res = await os.execCommand('which heartbeat');
+        if (res.exitCode === 0 && res.stdOut.trim()) {
+            cachedHeartbeatPath = res.stdOut.trim();
+            return cachedHeartbeatPath;
+        }
+    } catch { /* ignore */ }
+    throw new Error(
+        `heartbeat not found in any of: ${HEARTBEAT_SEARCH_PATHS.join(', ')}`,
+    );
+}
 
 const editHeartbeat = ref<string>('');
 const nowHeartbeat = ref<string>('');
 const onHeartbeat = ref<boolean>(false);
+const heartbeatServiceResult = ref<string>('');
+
+const heartbeatServiceButtonType = computed(() => {
+    if (!heartbeatServiceResult.value) return 'warning';
+    return heartbeatServiceResult.value === 'success' ? 'success' : 'error';
+});
+
+const checkHeartbeatServiceResult = async () => {
+    try {
+        const res = await os.execCommand('systemctl show heartbeat.service --property=Result');
+        const result = res.stdOut.trim().split('=')[1];
+        heartbeatServiceResult.value = result || '';
+    } catch (error) {
+        console.error('check heartbeat service result error:', error);
+        heartbeatServiceResult.value = '';
+    }
+};
 
 const getRealHeartbeatUrl = async () => {
     const iporHost = editHeartbeat.value.trim();
@@ -56,7 +106,8 @@ const getHeartbeatVersion = async (url: string) => {
 
 const runHeartbeat = async (url: string) => {
     try {
-        const res = await os.execCommand(`HEARTBEATURL=${url} /usr/sbin/icpc-heartbeat`);
+        const heartbeatPath = await getHeartbeatPath();
+        const res = await os.execCommand(`HEARTBEATURL=${url} '${heartbeatPath}'`);
         if (res.stdErr || res.exitCode) throw new Error(res.stdErr);
         console.log('run heartbeat on test', res);
     } catch (error) {
@@ -84,7 +135,7 @@ const saveHeartbeat = async (force = false) => {
             await runHeartbeat(url);
         }
         console.log('save heartbeat', url);
-        await filesystem.writeFile('/etc/default/icpc-heartbeat', `HEARTBEATURL=${url}`);
+        await writePrivilegedFile('/etc/default/icpc-heartbeat', `HEARTBEATURL=${url}`);
         const res = await os.execCommand('systemctl enable heartbeat.timer --now');
         console.log('run enable heartbeat on save', res);
         nowHeartbeat.value = url;
@@ -96,13 +147,14 @@ const saveHeartbeat = async (force = false) => {
     }
 };
 
-const getHeartbeatTimer = async () => {
+const getHeartbeatService = async () => {
     try {
-        const res = await os.execCommand('systemctl status heartbeat.timer');
-        console.log('systemctl status heartbeat.timer status', res.stdOut);
+        const res = await os.execCommand('systemctl status heartbeat.service');
+        console.log('systemctl status heartbeat.service', res.stdOut);
+        await checkHeartbeatServiceResult();
         window.$notification.success({ title: '心跳上报服务状态', content: res.stdOut, duration: 10000 });
     } catch (error) {
-        console.error(`get heartbeat timer error: ${error}`);
+        console.error(`get heartbeat service error: ${error}`);
         window.$notification.error({ title: '获取心跳上报服务状态失败', content: (error as any).message, duration: 3000 });
     }
 };
@@ -117,12 +169,15 @@ onMounted(async () => {
             console.log('disable heartbeat.timer', res);
             onHeartbeat.value = false;
         } else {
-            const res = await os.execCommand('systemctl status heartbeat.timer');
-            console.log('systemctl status heartbeat.timer status', res.stdOut);
-            if (!res.stdOut.includes('dead')) onHeartbeat.value = true;
+            const res = await os.execCommand('systemctl is-active heartbeat.timer');
+            onHeartbeat.value = res.stdOut.trim() === 'active';
         }
+        await checkHeartbeatServiceResult();
     } catch (error) {
         console.error('mount heartbeat error:', error);
     }
 });
+
+const pollInterval = setInterval(checkHeartbeatServiceResult, 30000);
+onUnmounted(() => clearInterval(pollInterval));
 </script>
