@@ -91,6 +91,46 @@ const serverSchema = Schema.intersect([
 
 如您有可直接访问的 TS 流地址，可直接填写，您可通过 CDS 等服务获得此类流地址，注意流地址需要支持跨域访问，否则无法在 UI 上正常显示，如您的流地址不支持跨域访问，您可以使用代理服务进行转发，同时 CDS 服务提供的流在封榜后将无法观看，请自行取舍。如修改成功， Info 选项卡后便会多出桌面和摄像头的预览标签页，同时在选手机列表中也会支持直接查看选手机的摄像头和桌面。
 
+#### Prometheus 服务发现
+
+如您需要使用 Prometheus 采集选手机上的各类 exporter（如 `node_exporter`、`keyboard` 等）监控数据，服务提供了 `/sd` 端点，可作为 Prometheus 的 [HTTP 服务发现](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_sd_config)（`http_sd_configs`）使用。服务会根据当前上报的选手机 IP 自动生成采集目标列表，无需手动维护 IP。
+
+首先在 `config.server.yaml` 的 `monitor` 下配置各选手机运行的 exporter 及其端口，服务会为每个 exporter 生成一组采集目标；若不配置 `exporters`，默认使用 `node_exporter`（端口 `9100`）：
+
+```yaml
+monitor:
+  timeSync: false
+  exporters:
+    - { job: node, port: 9100 }         # node_exporter
+    - { job: keyboard, port: 9160 }     # keyboard exporter
+```
+
+`/sd` 端点返回如下格式（每个 exporter 一组，`targets` 为所有选手机的 `IP:端口`）：
+
+```json
+[
+  { "targets": ["192.168.0.2:9100", "192.168.0.3:9100"], "labels": { "__meta_prometheus_job": "node" } },
+  { "targets": ["192.168.0.2:9160", "192.168.0.3:9160"], "labels": { "__meta_prometheus_job": "keyboard" } }
+]
+```
+
+在 `prometheus.yml` 中配置该端点，该端点与 UI 共用鉴权，需填写 `basic_auth`（用户名 `admin` ，密码为 `viewPass` ）。**注意：所有 exporter 的目标在同一次响应中返回，必须通过 `relabel_configs` 将 `__meta_prometheus_job` 映射到 `job` ，否则所有目标会共用同一个 `job_name` ，无法区分不同 exporter ：**
+
+```yaml
+scrape_configs:
+  - job_name: xcpc-machines            # 占位，实际 job 由下方 relabel 决定
+    http_sd_configs:
+      - url: http://服务IP:5283/sd
+        basic_auth:
+          username: admin
+          password: <viewPass>
+    relabel_configs:
+      - source_labels: [__meta_prometheus_job]   # 必须，用于区分不同 exporter
+        target_label: job
+```
+
+由于采用按 `job` 聚合的紧凑格式，采集目标仅以 `IP:端口` 标识（Prometheus 默认 `instance` 即为 `IP:端口`），不包含选手机座位名/组别等标签。如需在指标中标识具体机器，`node_exporter` 会通过 `node_uname_info` 指标的 `nodename` 标签导出选手机的 hostname（即 `/monitor` 中看到的 `hostname`），可据此在查询/告警中关联到对应机器。掉线的选手机仍会包含在目标列表中，Prometheus 会将其标记为 `up=0` ，便于告警。
+
 #### Batch / Quick Operation
 为了方便修改选手机信息，服务支持批量操作和根据选手机字段快速操作，如您需要批量修改选手机信息，可通过 `Batch Operation` 选项卡进行批量操作。
 

@@ -148,7 +148,11 @@ async function saveMonitorInfo(ctx: Context, monitor: any, config) {
 export const Config = Schema.object({
     timeSync: Schema.boolean().default(false),
     autoGroup: Schema.boolean().default(false),
-}).default({ timeSync: false, autoGroup: false });
+    exporters: Schema.array(Schema.object({
+        job: Schema.string().required(),
+        port: Schema.number().required(),
+    })).default([{ job: 'node', port: 9100 }]),
+}).default({ timeSync: false, autoGroup: false, exporters: [{ job: 'node', port: 9100 }] });
 
 export async function apply(ctx: Context, config: ReturnType<typeof Config>) {
     class MonitorReportHandler extends Handler {
@@ -205,6 +209,21 @@ export async function apply(ctx: Context, config: ReturnType<typeof Config>) {
             this.response.type = 'text/x-shellscript';
         }
     }
+    class MonitorPrometheusSDHandler extends AuthHandler {
+        notUsage = true;
+
+        async get() {
+            const exporters = config.exporters?.length ? config.exporters : [{ job: 'node', port: 9100 }];
+            const monitors = await this.ctx.db.monitor.find({});
+            const ips = monitors.map((m) => m.ip).filter(Boolean);
+            this.response.body = exporters.map((e) => ({
+                targets: ips.map((ip) => `${ip}:${e.port}`),
+                labels: { __meta_prometheus_job: e.job },
+            }));
+            this.response.type = 'application/json';
+        }
+    }
     ctx.Route('monitor_report', '/report', MonitorReportHandler);
     ctx.Route('monitor_admin', '/monitor', MonitorAdminHandler);
+    ctx.Route('monitor_prometheus_sd', '/sd', MonitorPrometheusSDHandler);
 }
