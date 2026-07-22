@@ -11,15 +11,13 @@ const logger = new Logger('handler/client');
 
 class ClientControlHandler extends AuthHandler {
     async get() {
-        const clients = (await this.ctx.db.client.find({}).sort({ createAt: 1 }))
-            .filter((client) => Array.isArray(client.type));
+        const clients = await this.ctx.db.client.find({}).sort({ createAt: 1 });
         this.response.body = { clients };
     }
-
 }
 
 const supports = (client, service: 'printer' | 'balloon') => (
-    Array.isArray(client.type) && client.type.includes(service)
+    client.type.includes(service)
 );
 
 async function getClient(ctx: Context, id: string, service: 'printer' | 'balloon') {
@@ -29,7 +27,7 @@ async function getClient(ctx: Context, id: string, service: 'printer' | 'balloon
 }
 
 async function syncConfiguredClients(ctx: Context) {
-    const clients = config.clients || [];
+    const clients = (config.clients || []).filter((client) => client.type !== 'webhook');
     const tokens = new Set<string>();
     const names = new Set<string>();
     for (const client of clients) {
@@ -46,12 +44,7 @@ async function syncConfiguredClients(ctx: Context) {
     }
     const existing = await ctx.db.client.find({});
     for (const client of existing) {
-        if (tokens.has(client.id) && client.type === 'webhook') {
-            throw new Error(`Client token conflicts with webhook id: ${client.id}`);
-        }
-    }
-    for (const client of existing) {
-        if (client.type !== 'webhook' && !tokens.has(client.id)) await ctx.db.client.removeOne({ id: client.id }, {});
+        if (!tokens.has(client.id)) await ctx.db.client.removeOne({ id: client.id }, {});
     }
     for (const client of clients) {
         const current = await ctx.db.client.findOne({ id: client.token });

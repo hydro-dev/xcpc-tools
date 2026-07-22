@@ -7,6 +7,7 @@ declare module 'cordis' {
         'app/started': () => void
         'app/ready': () => VoidReturn
         'app/exit': () => VoidReturn
+        'notifier/balloonTask': (balloons: BalloonDoc[], source: BalloonNotificationSource) => VoidReturn
     }
 }
 
@@ -63,20 +64,18 @@ export interface ClientDoc {
     _id: string;
     id: string;
     name: string;
-    type: Array<'printer' | 'balloon'> | 'webhook';
+    type: Array<'printer' | 'balloon'>;
     configured?: boolean;
-    subType?: string;
     group?: string[];
 
     // for print client
     printer?: string[];
     printersInfo?: any[];
+}
 
-    // for ballon client
-    token?: string;
-    chatId?: string;
-    endpoint?: string;
-    template?: string;
+export interface BalloonNotificationSource {
+    name: string;
+    force?: boolean;
 }
 
 export interface BalloonDoc {
@@ -93,6 +92,9 @@ export interface BalloonDoc {
     printDone: boolean;
     receivedAt?: number;
     printAt?: number;
+    notifierSent?: Record<string, number>;
+    notifierPending?: boolean;
+    notifierSource?: string;
 }
 
 export interface TeamDoc {

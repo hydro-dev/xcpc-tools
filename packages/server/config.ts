@@ -88,6 +88,25 @@ monitor:
     throw new Error('no-config');
 }
 
+const serviceClientSchema = Schema.object({
+    token: Schema.string().required().description('16-128 character URL-safe secret used by config.client.yaml'),
+    name: Schema.string().required(),
+    type: Schema.array(Schema.union(['printer', 'balloon'] as const)).min(1).default(['printer']),
+});
+
+const webhookClientSchema = Schema.object({
+    id: Schema.string().required().description('Unique notifier identifier'),
+    name: Schema.string().required(),
+    type: Schema.const('webhook').required(),
+    subType: Schema.union(['telegram', 'discord', 'wxwork', 'dingtalk', 'lark'] as const).required(),
+    token: Schema.string().required(),
+    chatId: Schema.string().default(''),
+    endpoint: Schema.string().default(''),
+    balloonTemplate: Schema.string().default(''),
+    report: Schema.boolean().default(false),
+    enabled: Schema.boolean().default(true),
+});
+
 const serverSchema = Schema.intersect([
     Schema.object({
         type: Schema.union([
@@ -101,11 +120,10 @@ const serverSchema = Schema.intersect([
         customKeyfile: Schema.string().default(''),
         arenaLayouts: Schema.string().pattern(/\.json$/i).default('data/arena-layouts.json')
             .description('Path to arena layouts JSON file (.json)'),
-        clients: Schema.array(Schema.object({
-            token: Schema.string().required().description('16-128 character URL-safe secret used by config.client.yaml'),
-            name: Schema.string().required(),
-            type: Schema.array(Schema.union(['printer', 'balloon'] as const)).min(1).default(['printer']),
-        })).default([]).description('Print and balloon clients managed by config.server.yaml'),
+        clients: Schema.array(Schema.union([
+            serviceClientSchema,
+            webhookClientSchema,
+        ])).default([]).description('Print, balloon and bot clients managed by config.server.yaml'),
         monitor: Config,
     }).description('Basic Config'),
     Schema.union([
@@ -142,6 +160,14 @@ const clientSchema = Schema.object({
 });
 
 export const config = (isClient ? clientSchema : serverSchema)(yaml.load(fs.readFileSync(configPath, 'utf8')) as any);
+if (!isClient) {
+    const reportingWebhooks = (config.clients || [])
+        .filter((client: any) => client.type === 'webhook' && client.report);
+    if (reportingWebhooks.length > 1) {
+        const ids = reportingWebhooks.map((client: any) => client.id).join(', ');
+        throw new Error(`Only one webhook client may set report: true: ${ids}`);
+    }
+}
 export const saveConfig = () => {
     fs.writeFileSync(configPath, yaml.dump(config));
 };

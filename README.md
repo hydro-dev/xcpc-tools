@@ -179,6 +179,35 @@ clients:
     type: [printer, balloon]
 ```
 
-`token` 是客户端接口的唯一凭据，必须使用随机生成的密钥，切勿使用机房名、用途或连续编号。允许字符为字母、数字、下划线和连字符，长度为 16-128 位。每个 token 必须唯一且保持稳定；泄漏后应立即替换服务端和客户端配置。修改 `config.server.yaml` 后重启服务端即可同步打印与气球客户端清单。
+`token` 是客户端接口的唯一凭据，必须使用随机生成的密钥，切勿使用机房名、用途或连续编号。允许字符为字母、数字、下划线和连字符，长度为 16-128 位。每个 token 必须唯一且保持稳定；泄漏后应立即替换服务端和客户端配置。修改 `config.server.yaml` 后重启服务端即可同步打印与气球客户端清单。Webhook bot 也从该配置读取，`enabled: false` 可停用同 ID 的旧 bot。
+
+### Bot 推送
+
+气球事件可同时推送到 Telegram、Discord、企业微信、钉钉、Lark。Bot 同样在 `config.server.yaml` 的 `clients` 中配置，推送状态与实体气球打印状态相互独立。
+
+```yaml
+clients:
+  - id: balloon-discord
+    name: Balloon Discord Bot
+    type: webhook
+    subType: discord # telegram | discord | wxwork | dingtalk | lark
+    token: your-discord-bot-token
+    chatId: your-discord-channel-id
+    endpoint: '' # 可选，自定义 Discord API 地址
+    enabled: true
+    report: false # true 时推送成功后向赛事系统回报气球已完成
+    balloonTemplate: |-
+      🎈 New balloon
+      Team: {team}
+      Location: {location}
+      Problem: {problem}
+      Color: {color}
+      Award: {award}
+      Time: {time}
+```
+
+整个配置最多允许一个 Webhook 设置 `report: true`；配置多个时服务端会在启动时报错，避免不同推送通道竞争回报同一个气球。
+
+模板支持 `{source}`、`{id}`、`{team}`、`{location}`、`{problem}`、`{color}`、`{rgb}`、`{award}` 和 `{time}`。每个 bot 单独记录已推送状态，失败的通道会在后续同步时重试，不会阻止打印客户端领取任务。
 
 首次启动时，系统会检测打印机并提示您填写配置文件，填写好配置文件后即可启动客户端，客户端会自动连接服务端并获取打印信息。

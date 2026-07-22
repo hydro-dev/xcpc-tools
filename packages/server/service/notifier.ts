@@ -1,176 +1,223 @@
-import { Context, Service } from 'cordis';
+import { Context } from 'cordis';
 import superagent from 'superagent';
-import { Logger } from '../utils';
+import { config } from '../config';
+import type { BalloonDoc, BalloonNotificationSource } from '../interface';
+import { getBalloonName, Logger } from '../utils';
 
 const logger = new Logger('notifier');
 
-declare module 'cordis' {
-    interface Context {
-        notifyservice: NotifyService;
-        notifier: Record<string, Notifier>;
-    }
+interface NotifierClient {
+    id: string;
+    name: string;
+    type: 'webhook';
+    subType: keyof typeof Notifier;
+    token: string;
+    chatId?: string;
+    endpoint?: string;
+    balloonTemplate?: string;
+    report?: boolean;
+    enabled?: boolean;
 }
 
-interface Notifier {
-    sendText(text: string): Promise<superagent.Response>;
-    sendCustom(data: any): Promise<superagent.Response>;
+interface TextNotifier {
+    sendText(text: string): Promise<unknown>;
 }
 
-class WXWorkNotifier implements Notifier {
-    private readonly token: string;
-    private readonly endpoint: string;
+const requestTimeout = { response: 5_000, deadline: 10_000 };
 
-    constructor(key: string, endpoint = '') {
-        this.token = key;
-        this.endpoint = endpoint || 'https://qyapi.weixin.qq.com/';
+function assertBotResponse(response) {
+    const body = response.body || {};
+    const code = body.errcode ?? body.code ?? body.StatusCode;
+    if (body.ok === false || (code !== undefined && Number(code) !== 0)) {
+        throw new Error(`Bot API rejected message: ${JSON.stringify(body)}`);
     }
+    return response;
+}
 
-    async sendText(text: string) {
-        logger.info(`Sending text to wxwork: ${text}`);
-        return await superagent.post(`${this.endpoint}/cgi-bin/webhook/send`)
+class WXWorkNotifier implements TextNotifier {
+    constructor(private readonly token: string, private readonly endpoint = 'https://qyapi.weixin.qq.com') { }
+
+    sendText(text: string) {
+        return superagent.post(`${this.endpoint.replace(/\/$/, '')}/cgi-bin/webhook/send`)
             .type('json')
             .query({ key: this.token })
-            .send({
-                msgtype: 'text',
-                text: {
-                    content: text,
-                },
-                safe: 0,
-            });
-    }
-
-    async sendCustom(data: any) {
-        logger.info(`Sending custom to wxwork: ${JSON.stringify(data)}`);
-        return await superagent.post(`${this.endpoint}/cgi-bin/webhook/send`)
-            .type('json')
-            .query({ key: this.token })
-            .send(data);
+            .send({ msgtype: 'text', text: { content: text }, safe: 0 })
+            .timeout(requestTimeout)
+            .then(assertBotResponse);
     }
 }
 
-class TelegramNotifier implements Notifier {
-    private readonly token: string;
-    private readonly chatId: string;
-    private readonly endpoint: string;
+class TelegramNotifier implements TextNotifier {
+    constructor(
+        private readonly token: string,
+        private readonly endpoint = 'https://api.telegram.org',
+        private readonly chatId = '',
+    ) { }
 
-    constructor(token: string, endpoint = '', chatId = '') {
-        this.token = token;
-        this.chatId = chatId;
-        this.endpoint = endpoint || 'https://api.telegram.org';
-    }
-
-    async sendText(text: string) {
-        logger.info(`Sending text to telegram: ${text}`);
-        return await superagent.post(`${this.endpoint}/bot${this.token}/sendMessage`)
+    sendText(text: string) {
+        return superagent.post(`${this.endpoint.replace(/\/$/, '')}/bot${this.token}/sendMessage`)
             .type('json')
-            .send({
-                chat_id: this.chatId,
-                text,
-            });
-    }
-
-    async sendCustom(data: any) {
-        logger.info(`Sending custom to telegram: ${JSON.stringify(data)}`);
-        return await superagent.post(`${this.endpoint}/bot${this.token}/sendMessage`)
-            .type('json')
-            .send(data);
+            .send({ chat_id: this.chatId, text })
+            .timeout(requestTimeout)
+            .then(assertBotResponse);
     }
 }
 
-class DingTalkNotifier implements Notifier {
-    private readonly token: string;
-    private readonly endpoint: string;
+class DingTalkNotifier implements TextNotifier {
+    constructor(private readonly token: string, private readonly endpoint = 'https://oapi.dingtalk.com/robot/send') { }
 
-    constructor(token: string, endpoint = '') {
-        this.token = token;
-        this.endpoint = endpoint || 'https://oapi.dingtalk.com/robot/send';
-    }
-
-    async sendText(content: string) {
-        logger.info(`Sending text to dingtalk: ${content}`);
-        return await superagent.post(this.endpoint)
+    sendText(text: string) {
+        return superagent.post(this.endpoint)
             .type('json')
             .query({ access_token: this.token })
-            .send({
-                msgtype: 'text',
-                text: { content },
-            });
-    }
-
-    async sendCustom(data: any) {
-        logger.info(`Sending custom to dingtalk: ${JSON.stringify(data)}`);
-        return await superagent.post(this.endpoint)
-            .type('json')
-            .query({ access_token: this.token })
-            .send(data);
+            .send({ msgtype: 'text', text: { content: text } })
+            .timeout(requestTimeout)
+            .then(assertBotResponse);
     }
 }
 
-class LarkNotifier implements Notifier {
-    private readonly token: string;
-    private readonly endpoint: string;
+class LarkNotifier implements TextNotifier {
+    constructor(private readonly token: string, private readonly endpoint = '') { }
 
-    constructor(token: string, endpoint = '') {
-        this.token = token;
-        this.endpoint = endpoint || 'https://open.larksuite.com/open-apis/bot/v2/hook';
+    sendText(text: string) {
+        const target = this.endpoint
+            ? this.endpoint.replace('{token}', this.token)
+            : `https://open.feishu.cn/open-apis/bot/v2/hook/${this.token}`;
+        return superagent.post(target)
+            .type('json')
+            .send({ msg_type: 'text', content: { text } })
+            .timeout(requestTimeout)
+            .then(assertBotResponse);
     }
+}
+
+class DiscordNotifier implements TextNotifier {
+    constructor(
+        private readonly token: string,
+        private readonly endpoint = 'https://discord.com/api/v10',
+        private readonly chatId = '',
+    ) { }
 
     async sendText(text: string) {
-        logger.info(`Sending text to lark: ${text}`);
-        return await superagent.post(`${this.endpoint}/${this.token}`)
-            .type('json')
-            .send({
-                msg_type: 'text',
-                content: { text },
-            });
-    }
-
-    async sendCustom(data: any) {
-        logger.info(`Sending custom to lark: ${JSON.stringify(data)}`);
-        return await superagent.post(`${this.endpoint}/${this.token}`)
-            .type('json')
-            .send(data);
-    }
-}
-
-class FeishuNotifier extends LarkNotifier {
-    constructor(token: string, endpoint = '') {
-        endpoint ||= 'https://open.feishu.cn/open-apis/bot/v2/hook';
-        super(token, endpoint);
+        const target = `${this.endpoint.replace(/\/$/, '')}/channels/${this.chatId}/messages`;
+        for (let offset = 0; offset < text.length; offset += 2000) {
+            // eslint-disable-next-line no-await-in-loop
+            await superagent.post(target)
+                .set('Authorization', `Bot ${this.token}`)
+                .type('json')
+                .send({ content: text.slice(offset, offset + 2000) || '\u200b' })
+                .timeout(requestTimeout);
+        }
     }
 }
 
 const Notifier = {
-    wxwork: WXWorkNotifier,
     telegram: TelegramNotifier,
+    discord: DiscordNotifier,
+    wxwork: WXWorkNotifier,
     dingtalk: DingTalkNotifier,
     lark: LarkNotifier,
-    feishu: FeishuNotifier,
 };
 
-class NotifyService extends Service {
-    constructor(ctx: Context) {
-        super(ctx, 'notifyservice', true);
-        ctx.mixin('notifyservice', ['notifier']);
-        this.start();
-    }
+const DEFAULT_TEMPLATE = `🎈 New balloon
+Source: {source}
+Balloon: {id}
+Team: {team}
+Location: {location}
+Problem: {problem}
+Color: {color}
+Award: {award}
+Time: {time}`;
 
-    notifier: Record<string, Notifier> = {};
+function renderMessage(balloonTemplate: string, balloon: BalloonDoc, source: BalloonNotificationSource) {
+    const rgb = balloon.contestproblem?.rgb || '';
+    const color = balloon.contestproblem?.color || getBalloonName(rgb) || rgb || 'Unknown';
+    const values = {
+        source: source.name,
+        id: balloon.balloonid,
+        team: balloon.team,
+        location: balloon.location || 'N/A',
+        problem: balloon.problem,
+        color,
+        rgb,
+        award: balloon.awards || '',
+        time: new Date(Number(balloon.time)).toLocaleString('zh-CN'),
+    };
+    return (balloonTemplate || DEFAULT_TEMPLATE).replace(/\{(source|id|team|location|problem|color|rgb|award|time)\}/g, (_, key) => values[key]);
+}
 
-    async addNotifier(id: string, subType: keyof typeof Notifier, token: string, endpoint = '', chatId = '') {
-        this.notifier[id] = new Notifier[subType](token, endpoint, chatId);
-        this.ctx.logger('notifier').info(`Notifier ${subType}(${id}) loaded`);
-    }
+function createNotifier(client: NotifierClient): TextNotifier {
+    const NotifierClass = Notifier[client.subType];
+    if (!NotifierClass) throw new Error(`Unknown notifier type: ${client.subType}`);
+    return new NotifierClass(client.token, client.endpoint, client.chatId);
 }
 
 export async function apply(ctx: Context) {
-    ctx.provide('notifier', undefined, true);
-    ctx.notifyservice = new NotifyService(ctx);
-    const clients = await ctx.db.client.find({ type: 'webhook' });
+    const clients = (config.clients || []).filter((client) => client.type === 'webhook') as NotifierClient[];
+
+    const notifiers = new Map<string, { client: NotifierClient; notifier: TextNotifier }>();
     for (const client of clients) {
-        const {
-            _id, subType, token, chatId, endpoint,
-        } = client;
-        ctx.notifyservice.addNotifier(_id, subType as keyof typeof Notifier, token, endpoint, chatId);
+        if (client.enabled === false) continue;
+        try {
+            if (!client.id || !client.name || !client.subType || !client.token) throw new Error('Missing notifier fields');
+            notifiers.set(client.id, { client, notifier: createNotifier(client) });
+            logger.info(`Notifier ${client.subType}(${client.id}) loaded`);
+        } catch (error) {
+            logger.error(`Failed to load notifier ${client.id || 'unknown'}`, error);
+        }
     }
+
+    if (!notifiers.size) {
+        await ctx.db.balloon.update({ notifierPending: true }, { $set: { notifierPending: false } }, { multi: true });
+        return;
+    }
+
+    ctx.on('notifier/balloonTask', async (balloons, source) => {
+        if (!notifiers.size) return;
+        await Promise.all(balloons.map(async (eventBalloon) => {
+            const balloon = await ctx.db.balloon.findOne({ balloonid: eventBalloon.balloonid }) || eventBalloon;
+            const notifierSent = source.force ? {} : { ...(balloon.notifierSent || {}) };
+            await ctx.db.balloon.updateOne({ balloonid: balloon.balloonid }, {
+                $set: {
+                    notifierPending: true,
+                    notifierSource: source.name,
+                    ...(source.force ? { notifierSent: {} } : {}),
+                },
+            });
+
+            const entries = Array.from(notifiers.entries()).filter(([id]) => !notifierSent[id]);
+            const results = await Promise.allSettled(entries.map(async ([id, entry]) => {
+                const message = renderMessage(entry.client.balloonTemplate || '', balloon, source);
+                await entry.notifier.sendText(message);
+                return id;
+            }));
+            for (const [index, result] of results.entries()) {
+                const id = entries[index][0];
+                if (result.status === 'fulfilled') {
+                    notifierSent[id] = Date.now();
+                    logger.info(`Balloon ${balloon.balloonid} sent to notifier ${id}`);
+                } else {
+                    logger.error(`Failed to send balloon ${balloon.balloonid} to notifier ${id}`, result.reason);
+                }
+            }
+
+            const shouldReport = !balloon.done && Array.from(notifiers.entries())
+                .some(([id, entry]) => entry.client.report && notifierSent[id]);
+            let reportComplete = !shouldReport;
+            if (shouldReport) {
+                try {
+                    await ctx.fetcher.setBalloonDone(balloon.balloonid);
+                    reportComplete = true;
+                    logger.info(`Balloon ${balloon.balloonid} reported done after webhook delivery`);
+                } catch (error) {
+                    logger.error(`Failed to report balloon ${balloon.balloonid} done`, error);
+                }
+            }
+
+            const complete = reportComplete && Array.from(notifiers.keys()).every((id) => notifierSent[id]);
+            await ctx.db.balloon.updateOne({ balloonid: balloon.balloonid }, {
+                $set: { notifierSent, notifierPending: !complete },
+            });
+        }));
+    });
 }

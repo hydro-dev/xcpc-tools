@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Context, Service } from 'cordis';
 import superagent from 'superagent';
 import { config } from '../config';
+import type { BalloonDoc } from '../interface';
 import {
     fs, Logger, mongoId, sleep,
 } from '../utils';
@@ -138,6 +139,7 @@ class DOMjudgeFetcher extends BasicFetcher {
         const { body } = await fetch(`./api/v4/contests/${this.contest.id}/balloons?todo=${all ? 'false' : 'true'}`);
         if (!body || !body.length) return;
         const balloons = body.sort((a, b) => a.time - b.time);
+        const pending: BalloonDoc[] = [];
         for (const balloon of balloons) {
             const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.teamid, time: { $lt: (balloon.time * 1000).toFixed(0) } });
             const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
@@ -147,7 +149,7 @@ class DOMjudgeFetcher extends BasicFetcher {
             }
             const shouldPrint = this.contest.info.freeze_time ? (balloon.time * 1000) < this.contest.info.freeze_time || encourage : true;
             if (!shouldPrint && !balloon.done) await this.setBalloonDone(balloon.balloonid.toString());
-            await this.ctx.db.balloon.update({ balloonid: balloon.balloonid.toString() }, {
+            const updated = await this.ctx.db.balloon.updateOne({ balloonid: balloon.balloonid.toString() }, {
                 $set: {
                     balloonid: balloon.balloonid.toString(),
                     time: (balloon.time * 1000).toFixed(0),
@@ -169,9 +171,12 @@ class DOMjudgeFetcher extends BasicFetcher {
                     printDone: balloon.done ? 1 : 0,
                     shouldPrint,
                 },
-            }, { upsert: true });
+            }, { upsert: true, returnUpdatedDocs: true });
+            if (!updated.done) pending.push(updated);
         }
         await this.ctx.parallel('balloon/newTask', balloons.length);
+        this.ctx.parallel('notifier/balloonTask', pending, { name: 'Contest sync' })
+            .catch((error) => this.logger.error(error));
         this.logger.debug(`Found ${balloons.length} balloons`);
     }
 
@@ -222,6 +227,7 @@ class HydroFetcher extends BasicFetcher {
         const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon?todo=${all ? 'false' : 'true'}`);
         if (!body?.bdocs?.length) return;
         const baloons = body.bdocs.map((b) => ({ ...b, time: mongoId(b._id).timestamp * 1000 })).sort((a, b) => a.time - b.time);
+        const pending: BalloonDoc[] = [];
         for (const balloon of baloons) {
             const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.uid, time: { $lt: balloon.time } });
             const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
@@ -239,7 +245,7 @@ class HydroFetcher extends BasicFetcher {
                 color: this.contest.info.balloon[balloon.pid].name,
             };
             const udoc = body.udict[balloon.uid];
-            await this.ctx.db.balloon.update({ balloonid: balloon._id }, {
+            const updated = await this.ctx.db.balloon.updateOne({ balloonid: balloon._id }, {
                 $set: {
                     balloonid: balloon._id,
                     time: balloon.time,
@@ -258,9 +264,12 @@ class HydroFetcher extends BasicFetcher {
                     printDone: balloon.sent ? 1 : 0,
                     shouldPrint,
                 },
-            }, { upsert: true });
+            }, { upsert: true, returnUpdatedDocs: true });
+            if (!updated.done) pending.push(updated);
         }
         await this.ctx.parallel('balloon/newTask', body.bdocs.length);
+        this.ctx.parallel('notifier/balloonTask', pending, { name: 'Contest sync' })
+            .catch((error) => this.logger.error(error));
         this.logger.debug(`Found ${body.bdocs.length} balloons`);
     }
 

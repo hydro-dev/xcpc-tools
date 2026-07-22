@@ -28,6 +28,7 @@ async function applyServer(ctx: Context) {
         ctx.plugin(require('./service/fetcher')),
     ]);
     await ctx.inject(['server', 'dbservice', 'fetcher'], async (c) => {
+        await c.plugin(require('./service/notifier'));
         await Promise.all([
             c.plugin(require('./handler/misc')),
             c.plugin(require('./handler/printer')),
