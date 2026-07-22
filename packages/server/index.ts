@@ -28,6 +28,7 @@ async function applyServer(ctx: Context) {
         ctx.plugin(require('./service/fetcher')),
     ]);
     await ctx.inject(['server', 'dbservice', 'fetcher'], async (c) => {
+        await c.plugin(require('./service/ssh'));
         await c.plugin(require('./service/notifier'));
         await Promise.all([
             c.plugin(require('./handler/misc')),
@@ -36,6 +37,7 @@ async function applyServer(ctx: Context) {
             c.plugin(require('./handler/client')),
             c.plugin(require('./handler/balloon')),
             c.plugin(require('./handler/commands')),
+            c.plugin(require('./handler/ssh')),
         ]);
         c.server.listen();
     });

@@ -13,6 +13,7 @@ interface WindowContext {
   secretRoute?: string;
   contest?: { id?: string; name: string };
   arenaLayouts: unknown[];
+  sshEnabled?: boolean;
 }
 
 interface Window {

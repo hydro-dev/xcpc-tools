@@ -258,6 +258,7 @@ class HomeHandler extends AuthHandler {
             secretRoute: config.secretRoute,
             contest: this.ctx.fetcher?.contest || { name: 'Server Mode' },
             arenaLayouts,
+            sshEnabled: config.ssh.enabled,
         };
         if (this.request.headers.accept === 'application/json') {
             this.response.body = context;

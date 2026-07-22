@@ -56,6 +56,9 @@ clients:
     name: Balloon
     type: [balloon]
 arenaLayouts: data/arena-layouts.json # path to arena layout JSON
+ssh:
+  enabled: false
+  username: root
 # if type is server, the following is not needed
 server: 
 token: 
@@ -104,6 +107,14 @@ const serviceClientSchema = Schema.object({
     type: Schema.array(Schema.union(['printer', 'balloon'] as const)).min(1).default(['printer']),
 });
 
+const sshSchema = Schema.object({
+    enabled: Schema.boolean().default(false),
+    username: Schema.string().default('root'),
+}).default({
+    enabled: false,
+    username: 'root',
+});
+
 const webhookClientSchema = Schema.object({
     id: Schema.string().required().description('Unique notifier identifier'),
     name: Schema.string().required(),
@@ -149,6 +160,7 @@ const serverSchema = Schema.intersect([
         customKeyfile: Schema.string().default(''),
         arenaLayouts: Schema.string().pattern(/\.json$/i).default('data/arena-layouts.json')
             .description('Path to arena layouts JSON file (.json)'),
+        ssh: sshSchema,
         clients: Schema.array(Schema.union([
             serviceClientSchema,
             webhookClientSchema,
@@ -201,6 +213,7 @@ const clientSchema = Schema.object({
 
 export const config = (isClient ? clientSchema : serverSchema)(yaml.load(fs.readFileSync(configPath, 'utf8')) as any);
 if (!isClient) {
+    if (config.ssh.enabled && !config.customKeyfile) throw new Error('customKeyfile is required when WebSSH is enabled');
     const reportingWebhooks = (config.clients || [])
         .filter((client: any) => client.type === 'webhook' && client.report);
     if (reportingWebhooks.length > 1) {

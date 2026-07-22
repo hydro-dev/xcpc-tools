@@ -47,6 +47,10 @@ const serverSchema = Schema.intersect([
             type: Schema.array(Schema.union(['printer', 'balloon'])).min(1).default(['printer']),
         })).default([]), // 打印与气球客户端，统一由服务端配置管理
         arenaLayouts: Schema.string().default('data/arena-layouts.json'), // Arena View 布局 JSON 文件路径
+        ssh: Schema.object({
+            enabled: Schema.boolean().default(false),
+            username: Schema.string().default('root'),
+        }),
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
@@ -156,6 +160,10 @@ hydro-machine-tools --presentation  # 赛前展示
 - `Fetch logos` 按完整学校名从 `hydro-dev/avatar-registry` 获取 WebP 校徽，下载后由本服务本地缓存和提供。
 - `Export with IP` 会先显示实时 IP 的匹配、缺失和歧义统计，确认后下载 JSON 或带 UTF-8 BOM 的 CSV。
 - `/presentation?seat=A01` 始终从该 roster 精确匹配座位，为 machine-tools 展示队名、学校、座位和校徽。
+
+#### WebSSH
+
+设置 `customKeyfile` 并启用 `ssh` 后，管理员可从 Computers 页面打开已上报机器的 WebSSH。服务端使用 `ssh.username` 和该私钥直接连接机器上报的 IP。
 
 #### Arena Layouts
 监视页面的座位图布局由服务端 `config.server.yaml` 的 `arenaLayouts` 指定，仅支持 JSON，默认保存到 `data/arena-layouts.json`。管理员可在 Computers 页的 Arena 视图打开编辑器，按区域数量、各区域排数/列数、通道、编号方向、指定行的左右留空和指定列的上下留空生成座位图。保存采用 revision 冲突保护并立即热更新，不需要重启服务端。

@@ -34,7 +34,9 @@ const nopMap = '//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIj
         charset: 'utf8',
         sourcemap: process.argv.includes('--debug') ? 'inline' : false,
         metafile: true,
-        external: ['mongodb', 'bson', 'moment-timezone', 'moment'],
+        // ssh2 treats cpu-features as an optional acceleration binding and
+        // safely falls back to pure JavaScript when it is unavailable.
+        external: ['mongodb', 'bson', 'moment-timezone', 'moment', 'cpu-features'],
         plugins: [{
             name: 'base16384',
             setup(b) {

@@ -40,6 +40,7 @@ export interface MonitorDoc {
     hostname: string;
     ip: string;
     updateAt: number;
+    sshFingerprint?: string;
     // new version collect
     name?: string;
     group?: string;

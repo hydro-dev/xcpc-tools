@@ -1,6 +1,7 @@
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 import '@mantine/nprogress/styles.css';
+import '@xterm/xterm/css/xterm.css';
 
 import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';

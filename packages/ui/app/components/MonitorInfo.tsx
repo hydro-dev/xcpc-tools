@@ -1,14 +1,16 @@
 import {
   ActionIcon, Button, Card, Fieldset,
-  Grid, Group, LoadingOverlay, Tabs, Text, TextInput, Title, Tooltip,
+  Grid, Group, LoadingOverlay, Stack, Tabs, Text, TextInput, Title, Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
   IconCircleChevronLeft,
-  IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle, IconX,
+  IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle, IconTerminal2, IconX,
 } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
 import mpegts from 'mpegts.js';
 import React, { useState } from 'react';
 import { formatWifiSignal } from '../utils';
@@ -37,6 +39,134 @@ function VideoPlayer({ client, type = 'camera' }) {
     // Live camera and desktop streams do not provide a captions track.
     // eslint-disable-next-line jsx-a11y/media-has-caption
     <video src={src} ref={videoRef} autoPlay controls style={{ width: '100%' }} />
+  );
+}
+
+function TerminalPanel({ monitor }) {
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [error, setError] = React.useState('');
+  const [retry, setRetry] = React.useState(0);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return () => {};
+    let socket: WebSocket | null = null;
+    let disposed = false;
+    let receivedError = false;
+    setError('');
+    const terminal = new Terminal({
+      cursorBlink: true,
+      convertEol: true,
+      fontSize: 14,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      theme: { background: '#111318', foreground: '#e8eaed', cursor: '#4dabf7' },
+    });
+    const fit = new FitAddon();
+    terminal.loadAddon(fit);
+    terminal.open(container);
+    fit.fit();
+    terminal.writeln('Connecting to workstation...');
+    const resize = () => {
+      fit.fit();
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }));
+      }
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    const input = terminal.onData((data) => {
+      if (socket?.readyState !== WebSocket.OPEN) return;
+      if (socket.bufferedAmount > 256 * 1024) {
+        receivedError = true;
+        setError('Terminal input buffer is full. Reconnect and try again.');
+        socket.close(4008, 'SSH input overflow');
+        return;
+      }
+      socket.send(JSON.stringify({ type: 'input', data }));
+    });
+    (async () => {
+      try {
+        const response = await fetch('/ssh/ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ monitorId: monitor._id }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.error?.message || `Ticket request failed (${response.status})`);
+        }
+        const ticket = await response.json();
+        if (disposed) return;
+        const endpoint = new URL('/ssh/ws', window.location.origin);
+        endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:';
+        socket = new WebSocket(endpoint);
+        const handleOpen = () => {
+          socket?.send(JSON.stringify({
+            type: 'auth', ticket: ticket.token, cols: terminal.cols, rows: terminal.rows,
+          }));
+        };
+        const handleMessage = (event: MessageEvent) => {
+          const payload = JSON.parse(String(event.data));
+          if (payload.type === 'data') {
+            const raw = window.atob(payload.data);
+            terminal.write(Uint8Array.from(raw, (char) => char.charCodeAt(0)));
+          } else if (payload.type === 'ready') {
+            terminal.clear();
+          } else if (payload.type === 'exit') {
+            terminal.writeln(`\r\nSession closed${payload.code === null ? '' : ` (${payload.code})`}.`);
+          } else if (payload.type === 'error' || payload.error) {
+            receivedError = true;
+            const message = payload.message || payload.error?.message || payload.error?.name || 'SSH session failed.';
+            setError(message);
+            terminal.writeln(`\r\n${message}`);
+          }
+        };
+        const handleError = () => {
+          receivedError = true;
+          setError('WebSSH connection failed.');
+        };
+        socket.onopen = handleOpen;
+        socket.onmessage = handleMessage;
+        socket.onerror = handleError;
+        socket.onclose = (event) => {
+          if (!disposed && !receivedError && event.code !== 1000) {
+            setError(event.reason || 'WebSSH connection closed before the session was ready.');
+          }
+        };
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'WebSSH connection failed.');
+      }
+    })();
+    return () => {
+      disposed = true;
+      input.dispose();
+      observer.disconnect();
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        socket.close();
+      }
+      terminal.dispose();
+    };
+  }, [monitor._id, retry]);
+
+  return (
+    <Stack gap="xs" mt="md">
+      {error && (
+        <Group justify="space-between">
+          <Text c="red" size="sm">{error}</Text>
+          <Button size="xs" variant="light" onClick={() => setRetry((value) => value + 1)}>Retry</Button>
+        </Group>
+      )}
+      <div
+        ref={containerRef}
+        style={{
+          height: 'min(64vh, 620px)', minHeight: 360, background: '#111318', padding: 8, borderRadius: 8,
+        }}
+      />
+    </Stack>
   );
 }
 
@@ -105,6 +235,7 @@ export function MonitorInfo({
           <Tabs.Tab value="info">Info</Tabs.Tab>
           {monitor.camera && (<Tabs.Tab value="camera">Camera</Tabs.Tab>)}
           {monitor.desktop && (<Tabs.Tab value="desktop">Desktop</Tabs.Tab>)}
+          {window.Context.sshEnabled && (<Tabs.Tab value="terminal" leftSection={<IconTerminal2 size={16} />}>Terminal</Tabs.Tab>)}
         </Tabs.List>
 
         <Tabs.Panel value="info">
@@ -150,6 +281,11 @@ export function MonitorInfo({
             <VideoPlayer client={monitor} type="desktop" />
           </Tabs.Panel>
         )}
+        {window.Context.sshEnabled && (
+          <Tabs.Panel value="terminal">
+            <TerminalPanel monitor={monitor} />
+          </Tabs.Panel>
+        )}
       </Tabs>
     </Card>
   );
@@ -188,27 +324,37 @@ export function MonitorInfoButton({ monitor, action }) {
   }, [del, monitor]);
 
   return (
-    <Group>
-      <Tooltip label="Info">
-        <ActionIcon variant="transparent" color="green" aria-label='Info' onClick={() => action(monitor, 'info')}><IconInfoCircle /></ActionIcon>
-      </Tooltip>
+    <Group justify="center" gap={2} wrap="nowrap">
+      <ActionIcon title="Info" variant="transparent" color="green" aria-label='Info' onClick={() => action(monitor, 'info')}>
+        <IconInfoCircle />
+      </ActionIcon>
       {monitor.camera && (
-        <Tooltip label="Camera">
-          <ActionIcon variant="transparent" color="red" aria-label='Camera' onClick={() => action(monitor, 'camera')}>
-            <IconDeviceComputerCamera />
-          </ActionIcon>
-        </Tooltip>
+        <ActionIcon title="Camera" variant="transparent" color="red" aria-label='Camera' onClick={() => action(monitor, 'camera')}>
+          <IconDeviceComputerCamera />
+        </ActionIcon>
       )}
       {monitor.desktop && (
-        <Tooltip label="Desktop">
-          <ActionIcon variant="transparent" color="blue" aria-label='Desktop' onClick={() => action(monitor, 'desktop')}>
-            <IconDeviceDesktop />
-          </ActionIcon>
-        </Tooltip>
+        <ActionIcon title="Desktop" variant="transparent" color="blue" aria-label='Desktop' onClick={() => action(monitor, 'desktop')}>
+          <IconDeviceDesktop />
+        </ActionIcon>
       )}
-      <Tooltip label="Delete">
-        <ActionIcon variant="transparent" color="red" aria-label='Delete' onClick={confirmDelete}><IconX /></ActionIcon>
-      </Tooltip>
+      <span
+        title={window.Context.sshEnabled ? 'WebSSH' : 'WebSSH is disabled in server config'}
+        style={{ display: 'inline-flex' }}
+      >
+        <ActionIcon
+          variant="transparent"
+          color="blue"
+          aria-label="WebSSH"
+          disabled={!window.Context.sshEnabled}
+          onClick={() => action(monitor, 'terminal')}
+        >
+          <IconTerminal2 />
+        </ActionIcon>
+      </span>
+      <ActionIcon title="Delete" variant="transparent" color="red" aria-label='Delete' onClick={confirmDelete}>
+        <IconX />
+      </ActionIcon>
     </Group>
   );
 }
