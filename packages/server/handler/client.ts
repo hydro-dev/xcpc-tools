@@ -3,43 +3,78 @@ import { Context } from 'cordis';
 import {
     BadRequestError, ForbiddenError, Handler, ValidationError,
 } from '@hydrooj/framework';
-import { fs, Logger, randomstring } from '../utils';
+import { config } from '../config';
+import { fs, Logger } from '../utils';
 import { AuthHandler } from './misc';
 
 const logger = new Logger('handler/client');
 
 class ClientControlHandler extends AuthHandler {
     async get() {
-        const clients = await this.ctx.db.client.find({}).sort({ createAt: 1 });
+        const clients = (await this.ctx.db.client.find({}).sort({ createAt: 1 }))
+            .filter((client) => Array.isArray(client.type));
         this.response.body = { clients };
     }
 
-    async postAdd(params) {
-        const { name, type } = params;
-        const client = await this.ctx.db.client.findOne({ name });
-        if (client) throw new ValidationError('Client', null, 'Client already exists');
-        const id = randomstring(6);
-        await this.ctx.db.client.insert({
-            id,
-            name,
-            type,
-            createAt: new Date().getTime(),
-        });
-        this.response.body = { id };
-    }
+}
 
-    async postRemove(params) {
-        const client = await this.ctx.db.client.findOne({ id: params.id });
-        if (!client) throw new ValidationError('Client', null, 'Client not found');
-        await this.ctx.db.client.removeOne({ id: params.id }, {});
-        this.response.body = { success: true };
+const supports = (client, service: 'printer' | 'balloon') => (
+    Array.isArray(client.type) && client.type.includes(service)
+);
+
+async function getClient(ctx: Context, id: string, service: 'printer' | 'balloon') {
+    const client = await ctx.db.client.findOne({ id });
+    if (!client || !supports(client, service)) throw new ForbiddenError('Client', null, 'Client not found');
+    return client;
+}
+
+async function syncConfiguredClients(ctx: Context) {
+    const clients = config.clients || [];
+    const tokens = new Set<string>();
+    const names = new Set<string>();
+    for (const client of clients) {
+        if (!/^[A-Za-z0-9_-]{16,128}$/.test(client.token)) {
+            throw new Error(`Client token must be 16-128 URL-safe characters: ${client.name}`);
+        }
+        if (new Set(client.type).size !== client.type.length) {
+            throw new Error(`Client services must not contain duplicates: ${client.name}`);
+        }
+        if (tokens.has(client.token)) throw new Error(`Duplicate client token in config.server.yaml: ${client.token}`);
+        if (names.has(client.name)) throw new Error(`Duplicate client name in config.server.yaml: ${client.name}`);
+        tokens.add(client.token);
+        names.add(client.name);
     }
+    const existing = await ctx.db.client.find({});
+    for (const client of existing) {
+        if (tokens.has(client.id) && client.type === 'webhook') {
+            throw new Error(`Client token conflicts with webhook id: ${client.id}`);
+        }
+    }
+    for (const client of existing) {
+        if (client.type !== 'webhook' && !tokens.has(client.id)) await ctx.db.client.removeOne({ id: client.id }, {});
+    }
+    for (const client of clients) {
+        const current = await ctx.db.client.findOne({ id: client.token });
+        if (current) {
+            await ctx.db.client.updateOne({ id: client.token }, {
+                $set: { name: client.name, type: client.type, configured: true },
+            });
+        } else {
+            await ctx.db.client.insert({
+                id: client.token,
+                name: client.name,
+                type: client.type,
+                configured: true,
+                createAt: Date.now(),
+            });
+        }
+    }
+    logger.info(`Loaded ${clients.length} print/balloon client(s) from config.server.yaml`);
 }
 
 class ClientPrintConnectHandler extends Handler {
     async post(params) {
-        const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
+        const client = await getClient(this.ctx, params.cid, 'printer');
         const ip = this.request.ip.replace('::ffff:', '');
         logger.info(`Client ${client.name}(${ip}) connected.`);
         if (params.printersInfo) {
@@ -75,8 +110,7 @@ class ClientPrintConnectHandler extends Handler {
 
 class ClientPrintDoneHandler extends Handler {
     async post(params) {
-        const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
+        const client = await getClient(this.ctx, params.cid, 'printer');
         const code = await this.ctx.db.code.findOne({ _id: params.tid });
         if (!code) throw new ValidationError('Code', null, 'Code not found');
         if (code.printer !== params.cid) throw new BadRequestError('Client', null, 'Client not match');
@@ -90,8 +124,7 @@ class ClientPrintDoneHandler extends Handler {
 
 class ClientBallloonConnectHandler extends Handler {
     async post(params) {
-        const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
+        const client = await getClient(this.ctx, params.cid, 'balloon');
         const ip = this.request.ip.replace('::ffff:', '');
         logger.info(`Client ${client.name}(${ip}) connected.`);
         const balloons = await this.ctx.db.balloon.find({ printDone: 0, shouldPrint: true }).sort({ time: 1 });
@@ -106,8 +139,7 @@ class ClientBallloonConnectHandler extends Handler {
 
 class ClientBalloonDoneHandler extends Handler {
     async post(params) {
-        const client = await this.ctx.db.client.findOne({ id: params.cid });
-        if (!client) throw new ForbiddenError('Client', null, 'Client not found');
+        const client = await getClient(this.ctx, params.cid, 'balloon');
         const balloon = await this.ctx.db.balloon.findOne({ balloonid: params.bid });
         if (!balloon) throw new ValidationError('Balloon', params.bid, 'Balloon not found');
         await this.ctx.db.balloon.updateOne({ balloonid: params.bid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
@@ -119,6 +151,7 @@ class ClientBalloonDoneHandler extends Handler {
 }
 
 export async function apply(ctx: Context) {
+    await syncConfiguredClients(ctx);
     ctx.Route('client_control', '/client', ClientControlHandler);
     ctx.Route('client_print_fetch', '/client/:cid/print', ClientPrintConnectHandler);
     ctx.Route('client_print_done', '/client/:cid/doneprint/:tid', ClientPrintDoneHandler);

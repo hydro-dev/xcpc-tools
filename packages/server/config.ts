@@ -49,6 +49,13 @@ type: server # server | domjudge | hydro
 viewPass: ${randomstring(8)} # use admin / viewPass to login
 secretRoute: ${randomstring(12)}
 customKeyfile: 
+clients:
+  - token: ${randomstring()}
+    name: Printer
+    type: [printer]
+  - token: ${randomstring()}
+    name: Balloon
+    type: [balloon]
 # if type is server, the following is not needed
 server: 
 token: 
@@ -91,6 +98,11 @@ const serverSchema = Schema.intersect([
         viewPass: Schema.string().default(randomstring(8)),
         secretRoute: Schema.string().default(randomstring(12)),
         customKeyfile: Schema.string().default(''),
+        clients: Schema.array(Schema.object({
+            token: Schema.string().required().description('16-128 character URL-safe secret used by config.client.yaml'),
+            name: Schema.string().required(),
+            type: Schema.array(Schema.union(['printer', 'balloon'] as const)).min(1).default(['printer']),
+        })).default([]).description('Print and balloon clients managed by config.server.yaml'),
         monitor: Config,
     }).description('Basic Config'),
     Schema.union([

@@ -8,7 +8,8 @@ const logger = new Logger('handler/print');
 class BalloonAdminHandler extends AuthHandler {
     async get() {
         const balloons = await this.ctx.db.balloon.find({ shouldPrint: true }).sort({ time: -1 });
-        const clients = await this.ctx.db.client.find({ type: 'balloon' }).sort({ createAt: 1 });
+        const clients = (await this.ctx.db.client.find({}).sort({ createAt: 1 }))
+            .filter((client) => Array.isArray(client.type) && client.type.includes('balloon'));
         this.response.body = { balloons, clients };
     }
 

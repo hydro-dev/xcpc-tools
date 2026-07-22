@@ -63,7 +63,8 @@ export interface ClientDoc {
     _id: string;
     id: string;
     name: string;
-    type: string;
+    type: Array<'printer' | 'balloon'> | 'webhook';
+    configured?: boolean;
     subType?: string;
     group?: string[];
 

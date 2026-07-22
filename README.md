@@ -41,6 +41,11 @@ const serverSchema = Schema.intersect([
         port: Schema.number().default(5283), // 服务端口
         viewPass: Schema.string().default(String.random(8)), // UI登录密码，可通过 admin / {viewPass} 登录
         secretRoute: Schema.string().default(String.random(12)), // 打印路径，用于远程调用
+        clients: Schema.array(Schema.object({
+            token: Schema.string().required(), // 16-128 位 URL 安全随机密钥，同时写入 config.client.yaml
+            name: Schema.string().required(), // 管理页面展示名称
+            type: Schema.array(Schema.union(['printer', 'balloon'])).min(1).default(['printer']),
+        })).default([]), // 打印与气球客户端，统一由服务端配置管理
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
@@ -147,14 +152,33 @@ const clientSchema = Schema.object({
     server: Schema.string().role('url').required(), // XCPC-TOOLS 服务地址
     balloon: Schema.string(), // 气球小票机路径或名称，请自行根据启动后的提示填写
     balloonLang: Schema.union(['zh', 'en']).default('zh').required(), // 气球小票语言
-    balloonType: Schema.union([58, 80]).default(80), // 气球小票机纸张宽度
+    balloonType: Schema.union([58, 80, 'plain']).default(80), // 气球小票机纸张宽度，plain 使用纯文本命令
+    balloonCommand: Schema.string().default(''), // 自定义气球打印命令
+    balloonTemplate: Schema.string().default(balloonTemplateDefault), // 气球小票模板
     printColor: Schema.boolean().default(false), // 是否打印彩色代码
+    printPageMax: Schema.number().default(5), // 单次代码打印页数上限
+    printMergeQueue: Schema.number().default(1), // 合并处理的打印任务数量
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'), // 打印机列表，如果为空则不启用打印功能
     token: Schema.string().required().description('Token generated on server'), // 服务端 Token
     fonts: Schema.array(Schema.string()).default([]), // 额外字体路径
 });
 ```
 
-在启动 Client 前，请前往服务端新建 Client ，获取到 Client 所需的 token ， token 为 Client 与 Server 通信的密钥，如您的 token 泄漏，请及时删除 Client 并重新生成，以保证系统安全，一个 token 只能对应一个 Client ，但同时支持两个功能，无需重复生成。
+首次生成的 `config.server.yaml` 已包含一个打印客户端和一个气球客户端，并分别生成随机 `token`。启动 Client 前，将对应的 `token` 写入该客户端的 `config.client.yaml`；需要更多客户端时，再在服务端配置中追加。管理页面只展示连接状态，不再新增、删除或修改客户端。
+
+```yaml
+clients:
+  - token: REPLACE_WITH_RANDOM_PRINT_TOKEN
+    name: Print Room 01
+    type: [printer]
+  - token: REPLACE_WITH_RANDOM_BALLOON_TOKEN
+    name: Balloon Desk
+    type: [balloon]
+  - token: REPLACE_WITH_RANDOM_COMBINED_TOKEN
+    name: Venue Service
+    type: [printer, balloon]
+```
+
+`token` 是客户端接口的唯一凭据，必须使用随机生成的密钥，切勿使用机房名、用途或连续编号。允许字符为字母、数字、下划线和连字符，长度为 16-128 位。每个 token 必须唯一且保持稳定；泄漏后应立即替换服务端和客户端配置。修改 `config.server.yaml` 后重启服务端即可同步打印与气球客户端清单。
 
 首次启动时，系统会检测打印机并提示您填写配置文件，填写好配置文件后即可启动客户端，客户端会自动连接服务端并获取打印信息。

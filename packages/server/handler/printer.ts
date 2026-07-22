@@ -11,7 +11,8 @@ const logger = new Logger('handler/print');
 class PrintAdminHandler extends AuthHandler {
     async get() {
         const codes = await this.ctx.db.code.find({ deleted: { $ne: 1 } }).sort({ createAt: -1 });
-        const clients = await this.ctx.db.client.find({ type: 'printer' }).sort({ createAt: 1 });
+        const clients = (await this.ctx.db.client.find({}).sort({ createAt: 1 }))
+            .filter((client) => Array.isArray(client.type) && client.type.includes('printer'));
         this.response.body = { codes, clients };
     }
 
