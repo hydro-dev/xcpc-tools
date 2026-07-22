@@ -104,6 +104,8 @@ export interface BalloonDoc {
     notifierSent?: Record<string, number>;
     notifierPending?: boolean;
     notifierSource?: string;
+    printClient?: string;
+    printLeaseExpiresAt?: number | null;
 }
 
 export interface TeamDoc {

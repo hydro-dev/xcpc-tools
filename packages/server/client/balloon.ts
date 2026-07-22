@@ -5,6 +5,7 @@ import { config } from '../config';
 import {
     getBalloonName, Logger, receiptPrint, sleep,
 } from '../utils';
+import { setClientConnection, updateClientTask } from './status';
 
 const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
 const encoder = new EscPosEncoder();
@@ -89,6 +90,19 @@ Powered by hydro-dev/xcpc-tools
 let timer = null;
 let printer: string = null;
 
+function startBalloonLeaseHeartbeat(c, doc) {
+    const heartbeatTimer = setInterval(async () => {
+        try {
+            await post(`${c.server}client/${c.token}/leaseballoon/${doc.balloonid}`);
+            setClientConnection('balloon', true);
+        } catch (error) {
+            setClientConnection('balloon', false, error);
+            logger.warn(`Failed to renew balloon task lease ${doc.teamid}#${doc.balloonid}`);
+        }
+    }, 10_000);
+    return () => clearInterval(heartbeatTimer);
+}
+
 async function printBalloon(doc, lang) {
     let status = '';
     for (const i in doc.total) {
@@ -112,12 +126,47 @@ async function fetchTask(c) {
     if (timer) clearTimeout(timer);
     logger.info('Fetching balloon task from tools server...');
     try {
-        const { body } = await post(`${c.server}client/${c.token}/balloon`).send();
-        if (body.balloons) {
+        const { body } = await post(`${c.server}client/${c.token}/balloon`);
+        setClientConnection('balloon', true);
+        if (body.balloons?.length) {
             for (const doc of body.balloons) {
                 logger.info(`Print balloon task ${doc.teamid}#${doc.balloonid}...`);
-                await printBalloon(doc, config.balloonLang);
-                await post(`${c.server}client/${c.token}/doneballoon/${doc.balloonid}`);
+                const label = `${doc.location || 'Unknown seat'} · ${doc.problem || doc.balloonid}`;
+                const stopLeaseHeartbeat = startBalloonLeaseHeartbeat(c, doc);
+                updateClientTask('balloon', doc.balloonid, label, 'received', { printer });
+                try {
+                    updateClientTask('balloon', doc.balloonid, label, 'printing', { printer });
+                    await printBalloon(doc, config.balloonLang);
+                } catch (error) {
+                    stopLeaseHeartbeat();
+                    updateClientTask('balloon', doc.balloonid, label, 'failed', { printer, error });
+                    throw error;
+                }
+                updateClientTask('balloon', doc.balloonid, label, 'confirming', { printer });
+                let confirmed = false;
+                let rejected = false;
+                while (!confirmed) {
+                    try {
+                        await post(`${c.server}client/${c.token}/doneballoon/${doc.balloonid}`);
+                        setClientConnection('balloon', true);
+                        confirmed = true;
+                    } catch (error) {
+                        const status = Number((error as any)?.status);
+                        if (status === 400 || status === 404) {
+                            setClientConnection('balloon', true);
+                            updateClientTask('balloon', doc.balloonid, label, 'failed', { printer, error });
+                            logger.error(`Server rejected balloon completion for ${doc.teamid}#${doc.balloonid}; the task has expired or changed.`, error);
+                            rejected = true;
+                            break;
+                        }
+                        setClientConnection('balloon', false, error);
+                        logger.error(`Failed to confirm balloon task ${doc.teamid}#${doc.balloonid}, retrying...`, error);
+                        await sleep(3000);
+                    }
+                }
+                stopLeaseHeartbeat();
+                if (rejected) continue;
+                updateClientTask('balloon', doc.balloonid, label, 'done', { printer });
                 logger.info(`Print task ${doc.teamid}#${doc.balloonid} completed.`);
             }
         } else {
@@ -125,6 +174,7 @@ async function fetchTask(c) {
             await sleep(5000);
         }
     } catch (e) {
+        setClientConnection('balloon', false, e);
         logger.error(e);
         await sleep(5000);
     }

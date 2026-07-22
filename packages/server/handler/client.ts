@@ -14,6 +14,15 @@ import {
 
 const logger = new Logger('handler/client');
 const CLIENT_PROTOCOL_VERSION = 2;
+const TASK_LEASE_DURATION = 45_000;
+
+async function refreshClientHeartbeat(ctx: Context, clientId: string, requestIp: string, now = Date.now()) {
+    const ip = String(requestIp || '').replace('::ffff:', '');
+    await ctx.db.client.updateOne(
+        { id: clientId },
+        { $set: { updateAt: now, ...(ip ? { ip } : {}) } },
+    );
+}
 
 const stringArray = (value: unknown): string[] => {
     if (Array.isArray(value)) return value.map(String);
@@ -95,6 +104,20 @@ async function syncConfiguredClients(ctx: Context) {
         }
     }
     logger.info(`Loaded ${clients.length} print/balloon client(s) from config.server.yaml`);
+}
+
+async function reapExpiredBalloonClaims(ctx: Context) {
+    const now = Date.now();
+    await ctx.db.balloon.update(
+        { printDone: 0, printLeaseExpiresAt: { $gt: 0, $lte: now } },
+        {
+            $set: {
+                printClient: '',
+                printLeaseExpiresAt: null,
+            },
+        } as any,
+        { multi: true },
+    );
 }
 
 async function claimPrintTask(ctx: Context, client: any, preferredTargetPrinter: string) {
@@ -250,12 +273,43 @@ class ClientBallloonConnectHandler extends Handler {
         const client = await getClient(this.ctx, params.cid, 'balloon');
         const ip = this.request.ip.replace('::ffff:', '');
         logger.info(`Client ${client.name}(${ip}) connected.`);
-        const balloons = await this.ctx.db.balloon.find({ printDone: 0, shouldPrint: true }).sort({ time: 1 });
+        await reapExpiredBalloonClaims(this.ctx);
+        const [candidate] = await this.ctx.db.balloon.find({
+            printDone: 0,
+            shouldPrint: true,
+            $or: [{ printClient: '' }, { printClient: { $exists: false } }],
+        }).sort({ time: 1 }).limit(1);
+        let balloon = null;
+        if (candidate) {
+            const receivedAt = Date.now();
+            const printLeaseExpiresAt = receivedAt + TASK_LEASE_DURATION;
+            const claimed = await this.ctx.db.balloon.updateOne(
+                {
+                    balloonid: candidate.balloonid,
+                    printDone: 0,
+                    $or: [{ printClient: '' }, { printClient: { $exists: false } }],
+                },
+                {
+                    $set: {
+                        printClient: client.id,
+                        receivedAt,
+                        printLeaseExpiresAt,
+                    },
+                } as any,
+            );
+            if (claimed) {
+                balloon = {
+                    ...candidate,
+                    printClient: client.id,
+                    receivedAt,
+                    printLeaseExpiresAt,
+                };
+            }
+        }
+        const balloons = balloon ? [balloon] : [];
         this.response.body = { balloons };
         logger.info(`Client ${client.name} connected, balloon ${balloons.length} tasks sent.`);
         await this.ctx.db.client.updateOne({ id: params.cid }, { $set: { updateAt: new Date().getTime(), ip } });
-        await this.ctx.db.balloon.update({ balloonid: { $in: balloons.map((b) => b.balloonid) } },
-            { $set: { receivedAt: new Date().getTime() } }, { multi: true });
         await this.ctx.parallel('balloon/sendTask', client._id, balloons.length);
     }
 }
@@ -265,11 +319,48 @@ class ClientBalloonDoneHandler extends Handler {
         const client = await getClient(this.ctx, params.cid, 'balloon');
         const balloon = await this.ctx.db.balloon.findOne({ balloonid: params.bid });
         if (!balloon) throw new ValidationError('Balloon', params.bid, 'Balloon not found');
-        await this.ctx.db.balloon.updateOne({ balloonid: params.bid }, { $set: { printDone: 1, printDoneAt: new Date().getTime() } });
+        if (balloon.printClient !== params.cid) throw new BadRequestError('Client', null, 'Client not match');
+        if (balloon.printDone) {
+            if (!balloon.done) await this.ctx.fetcher.setBalloonDone(balloon.balloonid);
+            this.response.body = { code: 1 };
+            return;
+        }
+        const completed = await this.ctx.db.balloon.updateOne(
+            {
+                balloonid: params.bid,
+                printDone: 0,
+                printClient: params.cid,
+            },
+            {
+                $set: {
+                    printDone: 1,
+                    printLeaseExpiresAt: null,
+                },
+            } as any,
+        );
+        if (!completed) throw new BadRequestError('Balloon', null, 'Balloon task changed');
         if (!balloon.done) await this.ctx.fetcher.setBalloonDone(balloon.balloonid);
         await this.ctx.parallel('balloon/doneTask', client._id, 1);
         this.response.body = { code: 1 };
         logger.info(`Client ${client.name} connected, balloon task ${balloon.teamid}#${balloon.balloonid} completed.`);
+    }
+}
+
+class ClientBalloonLeaseHandler extends Handler {
+    async post(params) {
+        await getClient(this.ctx, params.cid, 'balloon');
+        const now = Date.now();
+        const updated = await this.ctx.db.balloon.updateOne(
+            {
+                balloonid: params.bid,
+                printDone: 0,
+                printClient: params.cid,
+            },
+            { $set: { printLeaseExpiresAt: now + TASK_LEASE_DURATION } } as any,
+        );
+        if (!updated) throw new BadRequestError('Lease', null, 'Balloon task lease expired or changed');
+        await refreshClientHeartbeat(this.ctx, params.cid, this.request.ip, now);
+        this.response.body = { leaseExpiresAt: now + TASK_LEASE_DURATION };
     }
 }
 
@@ -281,4 +372,5 @@ export async function apply(ctx: Context) {
     ctx.Route('client_print_release', '/client/:cid/releaseprint/:tid', ClientPrintReleaseHandler);
     ctx.Route('client_balloon_fetch', '/client/:cid/balloon', ClientBallloonConnectHandler);
     ctx.Route('client_balloon_done', '/client/:cid/doneballoon/:bid', ClientBalloonDoneHandler);
+    ctx.Route('client_balloon_lease', '/client/:cid/leaseballoon/:bid', ClientBalloonLeaseHandler);
 }

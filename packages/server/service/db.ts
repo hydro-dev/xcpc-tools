@@ -45,7 +45,9 @@ export default class DBService extends Service {
         ]);
         await this.initDatabase('monitor', ['_id', 'mac', 'name', 'group']);
         await this.initDatabase('client', ['id', 'name', 'type', 'group']);
-        await this.initDatabase('balloon', ['id', 'time', 'problem', 'teamid', 'awards', 'done', 'printDone']);
+        await this.initDatabase('balloon', [
+            'id', 'time', 'problem', 'teamid', 'awards', 'done', 'printDone', 'printClient', 'printLeaseExpiresAt',
+        ]);
         await this.initDatabase('command', ['_id', 'command', 'target', 'pending', 'time', 'executionResult']);
         await this.initDatabase('teams', ['id']);
     }
