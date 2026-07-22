@@ -85,6 +85,7 @@ export interface ClientDoc {
 export interface BalloonNotificationSource {
     name: string;
     force?: boolean;
+    retryFailed?: boolean;
 }
 
 export interface BalloonDoc {
@@ -103,6 +104,7 @@ export interface BalloonDoc {
     printAt?: number;
     notifierSent?: Record<string, number>;
     notifierPending?: boolean;
+    notifierFailed?: boolean;
     notifierSource?: string;
     printClient?: string;
     printLeaseExpiresAt?: number | null;

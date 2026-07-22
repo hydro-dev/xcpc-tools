@@ -1,0 +1,33 @@
+.balloons-table-actions-cell {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  width: 96px;
+  min-width: 96px;
+  max-width: 96px;
+  padding-inline: 4px !important;
+  background-color: var(--mantine-color-body);
+  box-shadow: -1px 0 0 var(--table-border-color);
+}
+
+.balloons-table-actions-header {
+  z-index: 4;
+  text-align: center;
+}
+
+tbody > tr[data-striped='odd']:nth-of-type(odd) > .balloons-table-actions-cell,
+tbody > tr[data-striped='even']:nth-of-type(even) > .balloons-table-actions-cell {
+  background-color: var(--table-striped-color);
+}
+
+@media (hover: hover) {
+  tbody > tr[data-hover]:hover > .balloons-table-actions-cell {
+    background-color: var(--tr-hover-bg);
+  }
+}
+
+@media (hover: none) {
+  tbody > tr[data-hover]:active > .balloons-table-actions-cell {
+    background-color: var(--tr-hover-bg);
+  }
+}

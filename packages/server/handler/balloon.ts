@@ -8,9 +8,7 @@ const logger = new Logger('handler/print');
 class BalloonAdminHandler extends AuthHandler {
     async get() {
         const balloons = await this.ctx.db.balloon.find({ shouldPrint: true }).sort({ time: -1 });
-        const clients = (await this.ctx.db.client.find({}).sort({ createAt: 1 }))
-            .filter((client) => Array.isArray(client.type) && client.type.includes('balloon'));
-        this.response.body = { balloons, clients };
+        this.response.body = { balloons };
     }
 
     async postReprint(params) {
@@ -19,7 +17,31 @@ class BalloonAdminHandler extends AuthHandler {
             logger.info(balloon, params.balloonid);
             throw new ValidationError('Balloon', params.balloonid, 'Balloon not found');
         }
-        await this.ctx.db.balloon.updateOne({ balloonid: params.balloonid }, { $set: { printDone: 0 } });
+        await this.ctx.db.balloon.updateOne({ balloonid: params.balloonid }, {
+            $set: {
+                printDone: 0,
+                printClient: '',
+                receivedAt: null,
+                printLeaseExpiresAt: null,
+            },
+        } as any);
+        const updated = await this.ctx.db.balloon.findOne({ balloonid: params.balloonid });
+        await this.ctx.parallel('notifier/balloonTask', [updated], { name: 'Balloon admin reprint', force: true });
+        this.response.body = { success: true };
+    }
+
+    async postRetryNotifier(params) {
+        const balloon = await this.ctx.db.balloon.findOne({ balloonid: params.balloonid });
+        if (!balloon) throw new ValidationError('Balloon', params.balloonid, 'Balloon not found');
+        await this.ctx.parallel(
+            'notifier/balloonTask',
+            [balloon],
+            { name: 'Balloon admin retry', retryFailed: true },
+        );
+        const updated = await this.ctx.db.balloon.findOne({ balloonid: params.balloonid });
+        if (updated?.notifierFailed) {
+            throw new ValidationError('Notifier', params.balloonid, 'Webhook delivery failed');
+        }
         this.response.body = { success: true };
     }
 }

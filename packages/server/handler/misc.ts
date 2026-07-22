@@ -4,6 +4,7 @@ import { Context } from 'cordis';
 import { Registry } from 'prom-client';
 import { BadRequestError, Handler, NotFoundError } from '@hydrooj/framework';
 import { arenaLayouts, config, version } from '../config';
+import { getNotifierStatuses } from '../service/notifier';
 // @ts-ignore
 import StaticFrontend from '../data/static.frontend';
 import { normalizePresentationLogo } from '../service/presentation';
@@ -151,6 +152,7 @@ const contestOverview = async (ctx: Context) => {
         },
         clients: {
             services: clientOverview,
+            webhooks: getNotifierStatuses(),
         },
         serverTime: now,
     };
