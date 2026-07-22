@@ -3,6 +3,7 @@ import { BadRequestError } from '@hydrooj/framework';
 import { config } from '../config';
 import { executeOnHost } from '../utils';
 import { AuthHandler } from './misc';
+import { dispatchPendingProbeCommands } from './monitor';
 
 class CommandsHandler extends AuthHandler {
     async get() {
@@ -32,7 +33,7 @@ class CommandsHandler extends AuthHandler {
         if (!command || typeof command !== 'string') throw new BadRequestError('Command', null, 'Command is required');
         if (mode === 'heartbeat') {
             target ||= (await this.ctx.db.monitor.find({})).map((m) => m.mac);
-            target = target.map((i) => i.replace(/:/g, ''));
+            target = Array.from(new Set(target.map((mac) => String(mac).replace(/:/g, '').toUpperCase())));
             const res = await this.ctx.db.command.insert({
                 command,
                 time: Date.now(),
@@ -40,6 +41,7 @@ class CommandsHandler extends AuthHandler {
                 pending: target,
                 executionResult: {},
             });
+            await dispatchPendingProbeCommands(target);
             this.response.body = { id: res._id };
         } else {
             this.response.body = this.executeForAll(command);

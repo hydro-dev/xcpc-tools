@@ -1,6 +1,5 @@
 import path from 'node:path';
 import Schema from 'schemastery';
-import { Config } from './handler/monitor';
 import { version as packageVersion } from './package.json';
 import {
     checkReceiptPrinter,
@@ -64,6 +63,7 @@ username:
 password: 
 monitor:
   timeSync: false
+  reportToken: '' # optional token for both /report and /probe
 `;
         let printers = [];
         if (isClient) {
@@ -107,6 +107,12 @@ const webhookClientSchema = Schema.object({
     enabled: Schema.boolean().default(true),
 });
 
+const monitorSchema = Schema.object({
+    timeSync: Schema.boolean().default(false),
+    autoGroup: Schema.boolean().default(false),
+    reportToken: Schema.string().default('').description('Optional query token shared by HTTP and WebSocket machine reports'),
+}).default({ timeSync: false, autoGroup: false, reportToken: '' });
+
 const serverSchema = Schema.intersect([
     Schema.object({
         type: Schema.union([
@@ -124,7 +130,7 @@ const serverSchema = Schema.intersect([
             serviceClientSchema,
             webhookClientSchema,
         ])).default([]).description('Print, balloon and bot clients managed by config.server.yaml'),
-        monitor: Config,
+        monitor: monitorSchema,
     }).description('Basic Config'),
     Schema.union([
         Schema.object({

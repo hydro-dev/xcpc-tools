@@ -88,10 +88,6 @@ else
   WM_CMDLINE="$(tr '\0' ' ' < "/proc/${_NET_WM_PID}/cmdline")"
 fi
 
-if [ ! -f /root/exec-result ]; then
-  touch /root/exec-result
-fi
-
 if [ -z "$HEARTBEATURL" ]; then
   echo "Dry run mode, not sending heartbeat."
   echo "mac=$MACADDR"
@@ -109,31 +105,29 @@ if [ -z "$HEARTBEATURL" ]; then
   echo "window_exe=$WM_EXE"
   echo "window_cmdline=$WM_CMDLINE"
 else
-curl -s $HEARTBEATURL \
-  -F "file=@/root/exec-result" \
-  -F "mac=$MACADDR" \
-  -F "version=$VERSION" \
-  -F "uptime=$UPTIME" \
-  -F "seats=$SEATS" \
-  -F "os=$OS" \
-  -F "kernel=$KERNEL" \
-  -F "cpu=$CPU" \
-  -F "cpuused=$CPUUSED" \
-  -F "mem=$MEM" \
-  -F "memused=$MEMUSED" \
-  -F "load=$LOAD" \
-  -F "wifi_signal=$WIFI_SIGNAL" \
-  -F "wifi_bssid=$WIFI_BSSID" \
-  -F "window_name=$(echo "$WM_NAME" | sed 's/@/%40/g')" \
-  -F "window_exe=$(echo $WM_EXE | sed 's/@/%40/g')" \
-  -F "window_cmdline=$(echo $WM_CMDLINE | sed 's/@/%40/g')" \
-  -o /root/heartbeat-exec.sh
+REPORT_URL="$HEARTBEATURL"
+if [ -n "$REPORTTOKEN" ]; then
+  case "$REPORT_URL" in
+    *\?*) REPORT_URL="${REPORT_URL}&token=${REPORTTOKEN}" ;;
+    *) REPORT_URL="${REPORT_URL}?token=${REPORTTOKEN}" ;;
+  esac
 fi
-
-if [ -f /root/heartbeat-exec.sh ]; then
-  if head -n 1 /root/heartbeat-exec.sh | grep -q '#!/bin/bash'; then
-    timeout 30 bash /root/heartbeat-exec.sh >/root/exec-result 2>&1 || {
-      echo "Execution timed out after 30 seconds" >>/root/exec-result
-    }
-  fi
+curl -s "$REPORT_URL" \
+  --form-string "mac=$MACADDR" \
+  --form-string "version=$VERSION" \
+  --form-string "uptime=$UPTIME" \
+  --form-string "seats=$SEATS" \
+  --form-string "os=$OS" \
+  --form-string "kernel=$KERNEL" \
+  --form-string "cpu=$CPU" \
+  --form-string "cpuused=$CPUUSED" \
+  --form-string "mem=$MEM" \
+  --form-string "memused=$MEMUSED" \
+  --form-string "load=$LOAD" \
+  --form-string "wifi_signal=$WIFI_SIGNAL" \
+  --form-string "wifi_bssid=$WIFI_BSSID" \
+  --form-string "window_name=$WM_NAME" \
+  --form-string "window_exe=$WM_EXE" \
+  --form-string "window_cmdline=$WM_CMDLINE" \
+  -o /dev/null
 fi

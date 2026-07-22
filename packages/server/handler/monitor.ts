@@ -1,12 +1,24 @@
 import path from 'path';
-import { Context, Schema } from 'cordis';
+import { Context } from 'cordis';
 import fs from 'fs-extra';
-import { BadRequestError, Handler } from '@hydrooj/framework';
+import {
+    BadRequestError, ConnectionHandler, ForbiddenError, Handler,
+} from '@hydrooj/framework';
+import { config } from '../config';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
 
 const logger = new Logger('monitor');
 const actions = fs.createWriteStream(path.join(process.cwd(), 'data/actions.log'), { flags: 'a' });
+const activeProbes = new Map<string, MachineProbeConnectionHandler>();
+
+export async function dispatchPendingProbeCommands(targets: string[] = []) {
+    const requested = new Set(targets);
+    const handlers = Array.from(activeProbes.entries())
+        .filter(([mac]) => !requested.size || requested.has(mac))
+        .map(([, handler]) => handler);
+    await Promise.allSettled(handlers.map((handler) => handler.dispatchCommands()));
+}
 
 class MonitorAdminHandler extends AuthHandler {
     async get(params) {
@@ -96,9 +108,9 @@ class MonitorAdminHandler extends AuthHandler {
     }
 }
 
-const escape = (str: string) => str.trim().replace(/"/g, '\\"').replace(/\r/g, '').replace(/\n/g, '\\n');
+const escape = (str = '') => str.trim().replace(/"/g, '\\"').replace(/\r/g, '').replace(/\n/g, '\\n');
 
-async function saveMonitorInfo(ctx: Context, monitor: any, config) {
+async function saveMonitorInfo(ctx: Context, monitor: any) {
     const {
         mac, version, uptime, seats, ip,
         os, kernel, cpu, cpuused, mem, memused, load,
@@ -114,7 +126,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any, config) {
     const wifiSignalValue = hasWifiSignal ? Number.parseFloat(String(wifi_signal)) : Number.NaN;
     const normalizedBssid = typeof wifi_bssid === 'string' ? wifi_bssid.trim() : '';
     const shouldSetBssid = normalizedBssid && !/^not-?associated$/i.test(normalizedBssid);
-    const autoGroupPayload = (config.autoGroup && /^[A-Z][0-9]+$/.test(seats)) ? {
+    const autoGroupPayload = (config.monitor.autoGroup && /^[A-Z][0-9]+$/.test(seats)) ? {
         group: seats[0],
         name: seats,
     } : {};
@@ -129,12 +141,15 @@ async function saveMonitorInfo(ctx: Context, monitor: any, config) {
         ...os && { os },
         ...kernel && { kernel },
         ...cpu && { cpu: cpu.replaceAll('_', ' ') },
-        ...cpuused && { cpuUsed: cpuused },
+        ...(cpuused !== undefined && cpuused !== '' && { cpuUsed: cpuused }),
         ...mem && { mem },
         ...mem && { memUsed: memused },
         ...load && { load },
         ...(hasWifiSignal && !Number.isNaN(wifiSignalValue) && { wifiSignal: wifiSignalValue }),
         ...(shouldSetBssid && { wifiBssid: normalizedBssid.toUpperCase() }),
+        ...(window_name !== undefined && { windowName: window_name }),
+        ...(window_exe !== undefined && { windowExe: window_exe }),
+        ...(window_cmdline !== undefined && { windowCommand: window_cmdline }),
         ...autoGroupPayload,
     };
     const unsetPayload: Record<string, 1> = {};
@@ -145,66 +160,147 @@ async function saveMonitorInfo(ctx: Context, monitor: any, config) {
     await ctx.db.monitor.updateOne({ mac }, updateDoc, { upsert: true });
 }
 
-export const Config = Schema.object({
-    timeSync: Schema.boolean().default(false),
-    autoGroup: Schema.boolean().default(false),
-}).default({ timeSync: false, autoGroup: false });
+class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
+    mac = '';
+    inFlightCommandId = '';
+    dispatchQueue = Promise.resolve();
 
-export async function apply(ctx: Context, config: ReturnType<typeof Config>) {
-    class MonitorReportHandler extends Handler {
-        async get() {
-            this.response.body = 'Monitor server is running';
-        }
-
-        async post(params) {
-            if (!params.mac) throw new BadRequestError();
-            params.ip = this.request.ip.replace('::ffff:', '');
-            if (params.mac === '00:00:00:00:00:00') throw new BadRequestError('Invalid MAC address');
-            await saveMonitorInfo(this.ctx, params, config);
-            if (this.request.files?.file) {
-                const resultContent = fs.readFileSync(this.request.files.file.filepath, 'utf-8');
-                const commandResults: Map<string, string> = new Map();
-                let currentCommandId: string | null = null;
-                let currentOutput: string[] = [];
-                const lines = resultContent.split('\n');
-                for (const line of lines) {
-                    const startMatch = line.match(/^---COMMAND_START:(.+?)---$/);
-                    const endMatch = line.match(/^---COMMAND_END:(.+?)---$/);
-                    if (startMatch) {
-                        currentCommandId = startMatch[1];
-                        currentOutput = [];
-                    } else if (endMatch && currentCommandId === endMatch[1]) {
-                        commandResults.set(currentCommandId, currentOutput.join('\n') || '(No output)');
-                        currentCommandId = null;
-                        currentOutput = [];
-                    } else if (currentCommandId) {
-                        currentOutput.push(line);
-                    }
-                }
-                if (currentCommandId) commandResults.set(currentCommandId, currentOutput.join('\n') || '(No output)');
-                await Promise.all(Array.from(commandResults.entries()).map(async ([commandId, output]) => {
-                    const cmd = await ctx.db.command.findOne({ _id: commandId });
-                    if (cmd) {
-                        const executionResult = cmd.executionResult || {};
-                        executionResult[params.mac] = output;
-                        const newPending = cmd.pending.filter((t: string) => t !== params.mac);
-                        await ctx.db.command.updateOne({ _id: commandId }, { $set: { executionResult, pending: newPending } });
-                    }
-                }));
-            }
-            const scriptParts: string[] = [
-                '#!/bin/bash',
-                config.timeSync ? `date --set="${new Date().toISOString()}"` : 'echo Time sync disabled',
-            ];
-            for (const cmd of await ctx.db.command.find({ pending: params.mac })) {
-                scriptParts.push(`echo ---COMMAND_START:${cmd._id}---`);
-                scriptParts.push(cmd.command);
-                scriptParts.push(`echo ---COMMAND_END:${cmd._id}---`);
-            }
-            this.response.body = `${scriptParts.join('\n')}\n`;
-            this.response.type = 'text/x-shellscript';
+    async prepare() {
+        const expected = String(config.monitor.reportToken || '');
+        if (expected && String(this.request.query?.token || '') !== expected) {
+            throw new ForbiddenError('Invalid report token');
         }
     }
+
+    async dispatchNextCommand() {
+        if (!this.mac) return;
+        if (this.inFlightCommandId) {
+            const inFlight = await this.ctx.db.command.findOne({ _id: this.inFlightCommandId });
+            if (inFlight && (inFlight.pending || []).includes(this.mac)) return;
+            this.inFlightCommandId = '';
+        }
+        const command = await this.ctx.db.command.findOne({ pending: this.mac });
+        if (!command) return;
+        this.inFlightCommandId = command._id;
+        this.send({ type: 'command', id: command._id, command: command.command });
+    }
+
+    dispatchCommands() {
+        const current = this.dispatchQueue.catch(() => undefined).then(() => this.dispatchNextCommand());
+        this.dispatchQueue = current.then(() => undefined, () => undefined);
+        return current;
+    }
+
+    async saveProbe(probe) {
+        if (!probe || typeof probe !== 'object' || !probe.mac) throw new BadRequestError('Invalid probe payload');
+        const requestedMac = String(probe.mac).replace(/:/g, '').toUpperCase();
+        if (!/^[0-9A-F]{12}$/.test(requestedMac) || requestedMac === '000000000000') throw new BadRequestError('Invalid MAC address');
+        if (this.mac && requestedMac !== this.mac) throw new ForbiddenError('Probe MAC changed during the connection');
+        if (!this.mac) {
+            const active = activeProbes.get(requestedMac);
+            if (active && active !== this) active.close(4001, 'Replaced by a new connection');
+            this.mac = requestedMac;
+            activeProbes.set(requestedMac, this);
+        }
+        await saveMonitorInfo(this.ctx, {
+            mac: this.mac,
+            version: probe.version || 'machine-tools',
+            uptime: probe.uptime || 0,
+            seats: probe.hostname || this.mac,
+            ip: this.request.ip.replace('::ffff:', ''),
+            os: probe.os,
+            kernel: probe.kernel,
+            cpu: probe.cpu,
+            cpuused: probe.cpuUsed,
+            mem: probe.memory,
+            memused: probe.memoryUsed,
+            load: probe.load,
+            wifi_signal: probe.wifiSignal,
+            wifi_bssid: probe.wifiBssid,
+            window_name: probe.windowName,
+            window_exe: probe.windowExe,
+            window_cmdline: probe.windowCommand,
+        });
+        await this.dispatchCommands();
+    }
+
+    async saveResult(payload) {
+        if (!this.mac || !payload.id) throw new BadRequestError('Probe has not reported its machine identity');
+        const command = await this.ctx.db.command.findOne({ _id: payload.id });
+        if (!command) {
+            if (this.inFlightCommandId === payload.id) this.inFlightCommandId = '';
+            this.send({ type: 'result-ack', id: payload.id });
+            await this.dispatchCommands();
+            return;
+        }
+        if (!(command.target || []).includes(this.mac)) {
+            throw new ForbiddenError('Command target mismatch');
+        }
+        if (!(command.pending || []).includes(this.mac)) {
+            if (this.inFlightCommandId === command._id) this.inFlightCommandId = '';
+            this.send({ type: 'result-ack', id: command._id });
+            await this.dispatchCommands();
+            return;
+        }
+        const stdout = String(payload.stdout || '').slice(0, 64 * 1024);
+        const stderr = String(payload.stderr || '').slice(0, 64 * 1024);
+        const output = [
+            `exitCode: ${Number(payload.exitCode)}`,
+            stdout && `stdout:\n${stdout}`,
+            stderr && `stderr:\n${stderr}`,
+        ].filter(Boolean).join('\n');
+        await this.ctx.db.command.updateOne(
+            { _id: command._id, target: this.mac, pending: this.mac },
+            {
+                $set: { [`executionResult.${this.mac}`]: output || '(No output)' },
+                $pull: { pending: this.mac },
+            },
+        );
+        if (this.inFlightCommandId === command._id) this.inFlightCommandId = '';
+        this.send({ type: 'result-ack', id: command._id });
+        await this.dispatchCommands();
+    }
+
+    async message(payload) {
+        if (!payload || typeof payload !== 'object') throw new BadRequestError('Invalid probe message');
+        if (payload.type === 'hello' || payload.type === 'report') {
+            await this.saveProbe(payload.probe);
+            if (payload.type === 'hello') this.send({ type: 'welcome' });
+            return;
+        }
+        if (payload.type === 'result') {
+            await this.saveResult(payload);
+            return;
+        }
+        throw new BadRequestError('Unknown probe message');
+    }
+
+    async cleanup() {
+        if (activeProbes.get(this.mac) === this) activeProbes.delete(this.mac);
+    }
+}
+
+class MonitorReportHandler extends Handler {
+    async get() {
+        this.response.body = 'Monitor server is running';
+    }
+
+    async post(params) {
+        const expected = String(config.monitor.reportToken || '');
+        if (expected && String(this.request.query?.token || '') !== expected) {
+            throw new ForbiddenError('Invalid report token');
+        }
+        if (!params.mac) throw new BadRequestError();
+        params.ip = this.request.ip.replace('::ffff:', '');
+        params.mac = String(params.mac).replace(/:/g, '').toUpperCase();
+        if (!/^[0-9A-F]{12}$/.test(params.mac) || params.mac === '000000000000') throw new BadRequestError('Invalid MAC address');
+        await saveMonitorInfo(this.ctx, params);
+        this.response.body = 'Report accepted';
+    }
+}
+
+export async function apply(ctx: Context) {
     ctx.Route('monitor_report', '/report', MonitorReportHandler);
     ctx.Route('monitor_admin', '/monitor', MonitorAdminHandler);
+    ctx.Connection('machine_probe', '/probe', MachineProbeConnectionHandler);
 }

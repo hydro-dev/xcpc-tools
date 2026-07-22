@@ -15,6 +15,7 @@ export type VoidReturn = Promise<any> | any;
 
 export interface PrintCodeDoc {
     _id: string;
+    id?: string;
     tid: string;
     team: string;
     location: string;
@@ -49,6 +50,9 @@ export interface MonitorDoc {
     desktop?: string;
     wifiSignal?: number;
     wifiBssid?: string;
+    windowName?: string;
+    windowExe?: string;
+    windowCommand?: string;
 }
 
 export interface CommandTask {

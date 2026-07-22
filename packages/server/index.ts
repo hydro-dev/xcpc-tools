@@ -32,7 +32,7 @@ async function applyServer(ctx: Context) {
         await Promise.all([
             c.plugin(require('./handler/misc')),
             c.plugin(require('./handler/printer')),
-            c.plugin(require('./handler/monitor'), config.monitor),
+            c.plugin(require('./handler/monitor')),
             c.plugin(require('./handler/client')),
             c.plugin(require('./handler/balloon')),
             c.plugin(require('./handler/commands')),

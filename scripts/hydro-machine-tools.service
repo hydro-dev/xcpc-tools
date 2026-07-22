@@ -1,0 +1,15 @@
+[Unit]
+Description=Hydro XCPC Machine Tools Probe
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/hydro-machine-tools
+ExecStart=/usr/bin/env python3 /usr/local/lib/hydro-machine-tools/machine_tools_probe.py
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
