@@ -100,9 +100,16 @@ printers:
 monitor:
   autoGroup: false
   reportToken: ''
+  auto:
+    name: ''
+    group: ''
+    camera: ''
+    desktop: ''
 ```
 
 `reportToken` 为空时不验证；设置后，HTTP 和 WebSocket 请求都需要携带 `?token=对应值`。
+
+`monitor.auto` 会在机器上报时自动设置对应字段，支持与批量修改相同的模板，例如 `[hostname]`、`[ip]`、`[mac]` 和截取前缀的 `[hostname:1]`。未配置的字段不会修改。
 
 Machine Tools 提供选手机本地配置页和赛前展示页。配置页根据服务器地址生成 `/report`、`/probe` 和 `/presentation` 地址，保存座位号、上报 Token 与 Probe 配置。
 

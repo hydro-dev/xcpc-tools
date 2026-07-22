@@ -1,0 +1,33 @@
+.monitor-table-actions-cell {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
+  padding-inline: 4px !important;
+  background-color: var(--mantine-color-body);
+  box-shadow: -1px 0 0 var(--table-border-color);
+}
+
+.monitor-table-actions-header {
+  z-index: 4;
+  text-align: center;
+}
+
+tbody > tr[data-striped='odd']:nth-of-type(odd) > .monitor-table-actions-cell,
+tbody > tr[data-striped='even']:nth-of-type(even) > .monitor-table-actions-cell {
+  background-color: var(--table-striped-color);
+}
+
+@media (hover: hover) {
+  tbody > tr[data-hover]:hover > .monitor-table-actions-cell {
+    background-color: var(--tr-hover-bg);
+  }
+}
+
+@media (hover: none) {
+  tbody > tr[data-hover]:active > .monitor-table-actions-cell {
+    background-color: var(--tr-hover-bg);
+  }
+}

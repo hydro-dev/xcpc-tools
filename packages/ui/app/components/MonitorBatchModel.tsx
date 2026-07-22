@@ -4,6 +4,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
+import { IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import React, { useState } from 'react';
 
 export function MonitorBatchModal({ refresh }) {
@@ -54,7 +55,14 @@ export function MonitorBatchModal({ refresh }) {
         <Textarea label="ips" placeholder="IPs" value={ips} onChange={(e) => setIps(e.currentTarget.value)} />
         <Button color="blue" fullWidth mt="md" radius="md" onClick={action}>Submit</Button>
       </Modal>
-      <Button variant="outline" onClick={open}>Batch Operation</Button>
+      <Button
+        size="xs"
+        variant="default"
+        leftSection={<IconAdjustmentsHorizontal size={15} />}
+        onClick={open}
+      >
+        Batch edit
+      </Button>
     </>
   );
 }

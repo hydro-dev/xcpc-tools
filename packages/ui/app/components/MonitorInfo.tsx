@@ -1,12 +1,14 @@
 import {
-  ActionIcon, Button, Card, Fieldset, FocusTrap,
+  ActionIcon, Button, Card, Fieldset,
   Grid, Group, LoadingOverlay, Tabs, Text, TextInput, Title, Tooltip,
 } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
   IconCircleChevronLeft,
   IconDeviceComputerCamera, IconDeviceDesktop, IconInfoCircle, IconX,
 } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import mpegts from 'mpegts.js';
 import React, { useState } from 'react';
 import { formatWifiSignal } from '../utils';
@@ -32,6 +34,8 @@ function VideoPlayer({ client, type = 'camera' }) {
   }, [src]);
 
   return (
+    // Live camera and desktop streams do not provide a captions track.
+    // eslint-disable-next-line jsx-a11y/media-has-caption
     <video src={src} ref={videoRef} autoPlay controls style={{ width: '100%' }} />
   );
 }
@@ -46,37 +50,46 @@ export function MonitorInfo({
   const [camera, setCamera] = useState(monitor.camera || '');
   const [desktop, setDesktop] = useState(monitor.desktop || '');
   const wifiSignalText = formatWifiSignal(monitor.wifiSignal);
+  React.useEffect(() => {
+    setName(monitor.name || '');
+    setGroup(monitor.group || '');
+    setCamera(monitor.camera || '');
+    setDesktop(monitor.desktop || '');
+  }, [monitor._id, monitor.camera, monitor.desktop, monitor.group, monitor.name]);
 
   const updateInfo = React.useCallback(async () => {
     setUpdating(true);
     try {
-      const res = await (await fetch('/monitor', {
+      const response = await fetch('/monitor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           _id: monitor._id, name, group, camera, desktop, operation: 'update',
         }),
-      })).json();
+      });
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+      const res = await response.json();
       if (res.error) {
         notifications.show({ title: 'Error', message: `${res.error.message}(${res.error.params})`, color: 'red' });
-        setUpdating(false);
         return;
       }
       notifications.show({ title: 'Success', message: 'Client updated', color: 'green' });
-      setName('');
-      setGroup('');
-      setCamera('');
-      setDesktop('');
-      monitor = {
-        ...monitor, name, group, camera, desktop,
-      };
+      const refreshed = await refresh();
+      const refreshedMonitor = (Object.values(refreshed?.data?.monitors || {}) as any[])
+        .find((item) => item._id === monitor._id);
+      if (refreshedMonitor) {
+        setName(refreshedMonitor.name || '');
+        setGroup(refreshedMonitor.group || '');
+        setCamera(refreshedMonitor.camera || '');
+        setDesktop(refreshedMonitor.desktop || '');
+      }
     } catch (e) {
       console.error(e);
-      notifications.show({ title: 'Error', message: 'Failed to add client', color: 'red' });
+      notifications.show({ title: 'Error', message: 'Failed to update client', color: 'red' });
+    } finally {
+      setUpdating(false);
     }
-    setUpdating(false);
-    refresh();
-  }, [monitor._id, name, group, camera, desktop]);
+  }, [monitor._id, name, group, camera, desktop, refresh]);
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
       <Group justify="space-between" mb="xs">
@@ -96,11 +109,11 @@ export function MonitorInfo({
 
         <Tabs.Panel value="info">
           <Grid>
-            <Grid.Col span={6}>
+            <Grid.Col span={{ base: 12, md: 6 }}>
               <Text>Name: {monitor.name || 'No Name'}</Text>
               <Text>Group: {monitor.group}</Text>
               <Text>IP: {monitor.ip}</Text>
-              <Text>Mac: {(monitor.mac.includes(':') ? monitor.mac : monitor.mac.match(/.{1,2}/g).join(':'))}</Text>
+              <Text>Mac: {monitor.mac ? (monitor.mac.includes(':') ? monitor.mac : monitor.mac.match(/.{1,2}/g)?.join(':')) : 'Unknown'}</Text>
               <Text>Hostname: {monitor.hostname}</Text>
               <Text>Uptime: {new Date((monitor.uptime || 0) * 1000).toISOString().substring(11, 19)}</Text>
               <Text>Version: {monitor.version}</Text>
@@ -108,22 +121,20 @@ export function MonitorInfo({
               <Text>RAM: {(monitor.mem / 1024 / 1024).toFixed(2)}GB</Text>
               <Text>OS: {monitor.os}</Text>
               <Text>Kernel: {monitor.kernel}</Text>
-              <Text>Memory Used: {monitor.memUsed ? (monitor.memUsed / monitor.mem).toFixed(2) : 0}%</Text>
+              <Text>Memory Used: {monitor.memUsed ? ((monitor.memUsed / monitor.mem) * 100).toFixed(2) : 0}%</Text>
               <Text>Load: {monitor.load}</Text>
               <Text>Wi-Fi Signal: {wifiSignalText || 'No Data'}</Text>
               <Text>Wi-Fi BSSID: {monitor.wifiBssid || 'No Data'}</Text>
               <Text>Camera Stream URL: {monitor.camera ?? 'No Camera'}</Text>
               <Text>Desktop Stream URL: {monitor.desktop ?? 'No Desktop'}</Text>
             </Grid.Col>
-            <Grid.Col span={6}>
+            <Grid.Col span={{ base: 12, md: 6 }}>
               <LoadingOverlay visible={updating} zIndex={1000} overlayProps={{ radius: 'sm', blur: 2 }} />
               <Fieldset legend="Edit Info" mb="lg">
-                <FocusTrap active>
-                  <TextInput label="Client Name" placeholder="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
-                  <TextInput label="Client Group" placeholder="Group" value={group} onChange={(e) => setGroup(e.currentTarget.value)} />
-                  <TextInput label="Camera Stream" placeholder='Stream URL' value={camera} onChange={(e) => setCamera(e.currentTarget.value)} />
-                  <TextInput label="Desktop Stream" placeholder='Stream URL' value={desktop} onChange={(e) => setDesktop(e.currentTarget.value)} />
-                </FocusTrap>
+                <TextInput label="Client Name" placeholder="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} />
+                <TextInput label="Client Group" placeholder="Group" value={group} onChange={(e) => setGroup(e.currentTarget.value)} />
+                <TextInput label="Camera Stream" placeholder='Stream URL' value={camera} onChange={(e) => setCamera(e.currentTarget.value)} />
+                <TextInput label="Desktop Stream" placeholder='Stream URL' value={desktop} onChange={(e) => setDesktop(e.currentTarget.value)} />
               </Fieldset>
               <Button color="blue" fullWidth mt="md" radius="md" onClick={updateInfo}>Submit</Button>
             </Grid.Col>
@@ -145,23 +156,36 @@ export function MonitorInfo({
 }
 
 export function MonitorInfoButton({ monitor, action }) {
+  const queryClient = useQueryClient();
   const del = React.useCallback(async (m) => {
     try {
-      const res = await (await fetch('/monitor', {
+      const response = await fetch('/monitor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _id: m._id, operation: 'delete' }),
-      })).json();
+      });
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+      const res = await response.json();
       if (res.error) {
         notifications.show({ title: 'Error', message: `${res.error.message}(${res.error.params})`, color: 'red' });
         return;
       }
       notifications.show({ title: 'Success', message: 'Client deleted', color: 'green' });
+      await queryClient.invalidateQueries({ queryKey: ['monitor'] });
     } catch (e) {
       console.error(e);
       notifications.show({ title: 'Error', message: 'Failed to delete client', color: 'red' });
     }
-  }, []);
+  }, [queryClient]);
+  const confirmDelete = React.useCallback(() => {
+    modals.openConfirmModal({
+      title: 'Delete computer',
+      children: <Text size="sm">Remove {monitor.name || monitor.hostname || 'this computer'} from the monitor list?</Text>,
+      labels: { confirm: 'Delete', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => del(monitor),
+    });
+  }, [del, monitor]);
 
   return (
     <Group>
@@ -183,7 +207,7 @@ export function MonitorInfoButton({ monitor, action }) {
         </Tooltip>
       )}
       <Tooltip label="Delete">
-        <ActionIcon variant="transparent" color="red" aria-label='Delete' onClick={() => del(monitor)}><IconX /></ActionIcon>
+        <ActionIcon variant="transparent" color="red" aria-label='Delete' onClick={confirmDelete}><IconX /></ActionIcon>
       </Tooltip>
     </Group>
   );

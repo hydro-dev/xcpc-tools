@@ -64,6 +64,11 @@ password:
 monitor:
   timeSync: false
   reportToken: '' # optional token for both /report and /probe
+  auto:
+    name: ''
+    group: ''
+    camera: ''
+    desktop: ''
 `;
         let printers = [];
         if (isClient) {
@@ -116,7 +121,18 @@ const monitorSchema = Schema.object({
     timeSync: Schema.boolean().default(false),
     autoGroup: Schema.boolean().default(false),
     reportToken: Schema.string().default('').description('Optional query token shared by HTTP and WebSocket machine reports'),
-}).default({ timeSync: false, autoGroup: false, reportToken: '' });
+    auto: Schema.object({
+        name: Schema.string().default(''),
+        group: Schema.string().default(''),
+        camera: Schema.string().default(''),
+        desktop: Schema.string().default(''),
+    }).default({ name: '', group: '', camera: '', desktop: '' }),
+}).default({
+    timeSync: false,
+    autoGroup: false,
+    reportToken: '',
+    auto: { name: '', group: '', camera: '', desktop: '' },
+});
 
 const serverSchema = Schema.intersect([
     Schema.object({

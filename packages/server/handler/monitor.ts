@@ -130,6 +130,18 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
         group: seats[0],
         name: seats,
     } : {};
+    const autoPayload: Record<string, string> = {};
+    const templateValues = { ...monitor, hostname: seats };
+    for (const field of ['name', 'group', 'camera', 'desktop'] as const) {
+        const template = config.monitor.auto?.[field];
+        if (template) {
+            autoPayload[field] = template.replace(/\[(.+?)]/g, (_, key) => {
+                const [source, length] = key.split(':');
+                const value = String(templateValues[source] ?? '');
+                return length ? value.substring(0, Number(length)) : value;
+            });
+        }
+    }
     const setPayload: Record<string, any> = {
         mac,
         ip,
@@ -151,6 +163,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
         ...(window_exe !== undefined && { windowExe: window_exe }),
         ...(window_cmdline !== undefined && { windowCommand: window_cmdline }),
         ...autoGroupPayload,
+        ...autoPayload,
     };
     const unsetPayload: Record<string, 1> = {};
     if (!hasWifiSignal || Number.isNaN(wifiSignalValue)) unsetPayload.wifiSignal = 1;
