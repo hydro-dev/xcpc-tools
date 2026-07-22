@@ -56,6 +56,7 @@ clients:
   - token: ${randomstring()}
     name: Balloon
     type: [balloon]
+arenaLayouts: data/arena-layouts.json # path to arena layout JSON
 # if type is server, the following is not needed
 server: 
 token: 
@@ -98,6 +99,8 @@ const serverSchema = Schema.intersect([
         viewPass: Schema.string().default(randomstring(8)),
         secretRoute: Schema.string().default(randomstring(12)),
         customKeyfile: Schema.string().default(''),
+        arenaLayouts: Schema.string().pattern(/\.json$/i).default('data/arena-layouts.json')
+            .description('Path to arena layouts JSON file (.json)'),
         clients: Schema.array(Schema.object({
             token: Schema.string().required().description('16-128 character URL-safe secret used by config.client.yaml'),
             name: Schema.string().required(),
@@ -143,6 +146,33 @@ export const saveConfig = () => {
     fs.writeFileSync(configPath, yaml.dump(config));
 };
 export const version = packageVersion;
+
+const loadArenaLayouts = (): unknown[] => {
+    if (isClient || !config.arenaLayouts) return [];
+    const layoutsPath = path.resolve(process.cwd(), config.arenaLayouts);
+    if (!fs.existsSync(layoutsPath)) {
+        logger.warn(`Arena layouts file not found: ${layoutsPath}`);
+        return [];
+    }
+    try {
+        const content = fs.readFileSync(layoutsPath, 'utf8');
+        const extension = path.extname(layoutsPath).toLowerCase();
+        if (extension !== '.json') throw new Error('Arena layouts file must use the .json extension');
+        const parsed = JSON.parse(content);
+        const fallbackId = path.basename(layoutsPath, extension);
+        const layouts = (Array.isArray(parsed) ? parsed : [parsed]).map((layout, index) => ({
+            ...layout,
+            id: layout?.id || (index === 0 ? fallbackId : `${fallbackId}-${index + 1}`),
+        }));
+        logger.info(`Loaded ${layouts.length} arena layout(s) from ${layoutsPath}`);
+        return layouts;
+    } catch (error) {
+        logger.error(`Failed to load arena layouts from ${layoutsPath}`, error);
+        return [];
+    }
+};
+
+export const arenaLayouts = loadArenaLayouts();
 
 logger.info(`Config loaded from ${configPath}`);
 logger.info(`xcpc-tools version: ${packageVersion}`);

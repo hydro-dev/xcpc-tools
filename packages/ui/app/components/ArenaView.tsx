@@ -110,7 +110,6 @@ const normalizers: Record<string, (value: string) => string> = {
   'trim-lower': (value: string) => value.trim().toLowerCase(),
 };
 
-const STORAGE_KEY = 'xcpc-tools/arena-layouts';
 const DEFAULT_LAYOUT_KEY = 'xcpc-tools/arena-layout-selected';
 
 const isBrowser = typeof window !== 'undefined';
@@ -216,18 +215,8 @@ const parseLayouts = (input: unknown): ArenaLayoutDocument[] => {
   return Array.from(map.values());
 };
 
-const loadLayoutsFromStorage = (): ArenaLayoutDocument[] => {
-  if (!isBrowser) return [];
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parseLayouts(parsed);
-  } catch (error) {
-    console.warn('Failed to parse stored arena layouts:', error);
-    return [];
-  }
-};
+const loadLayoutsFromContext = (): ArenaLayoutDocument[] =>
+  parseLayouts(window.Context.arenaLayouts);
 
 const pickPrimaryMonitor = (monitors: MonitorRecord[]): MonitorRecord | null => {
   if (!monitors?.length) return null;
@@ -271,20 +260,11 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
     if (!isBrowser) return null;
     const stored = window.localStorage.getItem(DEFAULT_LAYOUT_KEY);
     if (stored) return stored;
-    const existing = loadLayoutsFromStorage();
+    const existing = loadLayoutsFromContext();
     return existing[0]?.id ?? null;
   });
   const [zoom, setZoom] = React.useState(0.40);
-  const [layouts, setLayouts] = React.useState<ArenaLayoutDocument[]>(() => loadLayoutsFromStorage());
-
-  React.useEffect(() => {
-    if (!isBrowser) return;
-    if (!layouts.length) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return;
-    }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts));
-  }, [layouts]);
+  const [layouts, setLayouts] = React.useState<ArenaLayoutDocument[]>(() => loadLayoutsFromContext());
 
   React.useEffect(() => {
     if (!isBrowser) return;
@@ -414,11 +394,8 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
   const handleClearLayouts = React.useCallback(() => {
     setLayouts([]);
     setSelectedLayoutId(null);
-    if (isBrowser) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      window.localStorage.removeItem(DEFAULT_LAYOUT_KEY);
-    }
-    notifications.show({ title: 'Layouts cleared', message: 'Arena layouts were removed from this browser.', color: 'orange' });
+    if (isBrowser) window.localStorage.removeItem(DEFAULT_LAYOUT_KEY);
+    notifications.show({ title: 'Layouts cleared', message: 'Arena layouts were cleared for this session.', color: 'orange' });
   }, []);
 
   const unmatchedMonitors = overflow;
