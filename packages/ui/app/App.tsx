@@ -9,20 +9,21 @@ import Commands from './pages/Commands';
 import Dashboard from './pages/Dashboard';
 import Logs from './pages/Logs';
 import Monitor from './pages/Monitor';
+import PresentationTeams from './pages/PresentationTeams';
 import Print from './pages/Print';
 import Resolver from './Resolver';
 
 function DefaultLayout() {
   return (
     <AppShell
-      header={{ height: '60px' }}
-      padding="md"
+      header={{ height: 44 }}
+      padding={{ base: 'xs', sm: 'md' }}
     >
       <AppShell.Header>
         <Header />
       </AppShell.Header>
       <AppShell.Main>
-        <Container size="xl">
+        <Container size="xl" px={{ base: 0, sm: 'md' }}>
           <Outlet />
         </Container>
         <Logs />
@@ -37,6 +38,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<DefaultLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="/presentation-teams" element={<PresentationTeams />} />
           <Route path="/print" element={<Print />} />
           <Route path="/balloon" element={<Balloon />} />
           <Route path="/monitor" element={<Monitor />} />

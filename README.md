@@ -129,6 +129,14 @@ hydro-machine-tools --presentation  # 赛前展示
 #### Commands
 服务支持通过 `ssh` 执行命令，如您需要执行命令，内置的命令分别为 重启、根据 `config.seatFile` 选手座位绑定文件更新选手机机器名称、显示选手机座位信息。如您需要执行其他命令，请直接在 UI 界面中输入指令，系统会自动向所有选手机发送指令，并返回结果。
 
+#### Presentation Teams
+
+`Teams / Presentation` 页面维护选手设备展示页使用的独立 roster。Server Mode 可上传 JSON、CSV 或 TSV；选择文件后需将原始表头映射到队伍 ID、队名、学校、座位、队员 1/2/3、教练和组别。队伍 ID 未选择时使用座位号。Hydro 或 DOMjudge 已连接时也可点击 `Load from OJ` 现场刷新并复制当前比赛队伍。OJ 数据不会持续覆盖已经确认的展示 roster。
+
+- `Fetch logos` 按完整学校名从 `hydro-dev/avatar-registry` 获取 WebP 校徽，下载后由本服务本地缓存和提供。
+- `Export with IP` 会先显示实时 IP 的匹配、缺失和歧义统计，确认后下载 JSON 或带 UTF-8 BOM 的 CSV。
+- `/presentation?seat=A01` 始终从该 roster 精确匹配座位，为 machine-tools 展示队名、学校、座位和校徽。
+
 #### Arena Layouts
 监视大屏的座位图布局可在 Arena View 中通过 **Import JSON** 导入，数据会保存在浏览器 `localStorage` 中，无需重启或重新构建即可生效。
 - 顶层字段：`id`（唯一标识，缺省使用文件名）、`name`、`description`(可选)、`seatKey`(默认匹配 `hostname`)、`normalize`(`none`/`upper`/`lower`/`trim`/`trim-upper`/`trim-lower`)、`default`(可选，用于默认选中)、`sections`。

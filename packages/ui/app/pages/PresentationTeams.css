@@ -1,0 +1,36 @@
+.presentation-teams-table th,
+.presentation-teams-table td {
+  white-space: nowrap;
+}
+
+.presentation-teams-seat-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 96px;
+  min-width: 96px;
+  max-width: 96px;
+  background-color: var(--mantine-color-body);
+  box-shadow: 1px 0 0 var(--table-border-color);
+}
+
+.presentation-teams-seat-header {
+  z-index: 4;
+}
+
+tbody > tr[data-striped='odd']:nth-of-type(odd) > .presentation-teams-seat-cell,
+tbody > tr[data-striped='even']:nth-of-type(even) > .presentation-teams-seat-cell {
+  background-color: var(--table-striped-color);
+}
+
+@media (hover: hover) {
+  tbody > tr[data-hover]:hover > .presentation-teams-seat-cell {
+    background-color: var(--tr-hover-bg);
+  }
+}
+
+@media (hover: none) {
+  tbody > tr[data-hover]:active > .presentation-teams-seat-cell {
+    background-color: var(--tr-hover-bg);
+  }
+}

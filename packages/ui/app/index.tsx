@@ -26,9 +26,3 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
-
-declare global {
-  interface Window {
-    Context: any;
-  }
-}

@@ -18,8 +18,14 @@ export * as fs from 'fs-extra';
 export * as yaml from 'js-yaml';
 
 export function StaticHTML(context, randomHash) {
+    const safeContext = JSON.stringify(context)
+        .replace(/&/g, '\\u0026')
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
     // eslint-disable-next-line max-len
-    return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=JSON.parse('${JSON.stringify(context).replace(/\\/g, '\\\\').replace(/'/g, '\\\'')}')</script><script src="/main.js?${randomHash}"></script></body></html>`;
+    return `<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>@Hydro/XCPC-TOOLS</title></head><body><div id="root"></div><script>window.Context=${safeContext}</script><script src="/main.js?${randomHash}"></script></body></html>`;
 }
 
 export function decodeBinary(file: string | Buffer, name: string) {

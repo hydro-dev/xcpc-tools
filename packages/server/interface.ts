@@ -112,4 +112,6 @@ export interface TeamDoc {
     display_name: string;
     public_description: string;
     romm: string;
+    school?: string;
+    logo?: string;
 }

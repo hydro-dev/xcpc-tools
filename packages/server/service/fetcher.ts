@@ -7,6 +7,7 @@ import type { BalloonDoc } from '../interface';
 import {
     fs, Logger, mongoId, sleep,
 } from '../utils';
+import { extractHydroTeams, resolvePublicAssetUrl } from './presentation';
 
 const logger = new Logger('fetcher');
 const fetch = (url: string, type: 'get' | 'post' = 'get') => {
@@ -30,17 +31,28 @@ const fetch = (url: string, type: 'get' | 'post' = 'get') => {
         },
     });
 };
+
 export interface IBasicFetcher {
     contest: Record<string, any>
+    sourceSuccessAt: number
+    sourceErrorAt: number
+    sourceError: string
     cron(): Promise<void>
     contestInfo(): Promise<boolean>
     getToken(username: string, password: string): Promise<void>
     teamInfo(): Promise<void>
     balloonInfo(all: boolean): Promise<void>
     setBalloonDone(bid: string): Promise<void>
+    setPrintDone(pid: string): Promise<void>
 }
 class BasicFetcher extends Service implements IBasicFetcher {
     contest: any;
+    lastSuccessAt = 0;
+    lastErrorAt = 0;
+    lastError = '';
+    sourceSuccessAt = 0;
+    sourceErrorAt = 0;
+    sourceError = '';
     logger = this.ctx.logger('fetcher');
 
     constructor(ctx: Context) {
@@ -48,7 +60,19 @@ class BasicFetcher extends Service implements IBasicFetcher {
     }
 
     [Service.init]() {
-        this.ctx.interval(() => this.cron().catch(this.logger.error), 15000);
+        this.ctx.interval(async () => {
+            try {
+                await this.cron();
+                if (config.type !== 'server') {
+                    this.lastSuccessAt = Date.now();
+                    this.lastError = '';
+                }
+            } catch (error) {
+                this.lastErrorAt = Date.now();
+                this.lastError = error instanceof Error ? error.message : String(error);
+                this.logger.error(error);
+            }
+        }, 15000);
     }
 
     async cron() {
@@ -58,8 +82,17 @@ class BasicFetcher extends Service implements IBasicFetcher {
             if (config.username && config.password) await this.getToken(config.username, config.password);
             else throw new Error('No token or username/password provided');
         }
-        const first = await this.contestInfo();
-        if (first) await this.teamInfo();
+        let first = false;
+        try {
+            first = await this.contestInfo();
+            if (first) await this.teamInfo();
+            this.sourceSuccessAt = Date.now();
+            this.sourceError = '';
+        } catch (error) {
+            this.sourceErrorAt = Date.now();
+            this.sourceError = error instanceof Error ? error.message : String(error);
+            throw error;
+        }
         await this.balloonInfo(first);
         await this.printInfo(first);
     }
@@ -87,7 +120,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
         this.logger.debug(`Balloon ${bid} set done`);
     }
 
-    async printInfo(all) {
+    async printInfo(_all) {
         this.logger.debug('Found 0 prints in Server Mode');
     }
 
@@ -102,15 +135,13 @@ class DOMjudgeFetcher extends BasicFetcher {
         if (!config.contestId) {
             const { body } = await fetch('./api/v4/contests?onlyActive=true');
             if (!body || !body.length) {
-                this.logger.error('Contest not found');
-                return false;
+                throw new Error('Contest not found');
             }
             contest = body[0];
         } else {
             const { body } = await fetch(`./api/v4/contests/${config.contestId}`);
             if (!body || !body.id) {
-                this.logger.error(`Contest ${config.contestId} not found`);
-                return false;
+                throw new Error(`Contest ${config.contestId} not found`);
             }
             contest = body;
         }
@@ -125,11 +156,35 @@ class DOMjudgeFetcher extends BasicFetcher {
 
     async teamInfo() {
         if (!this.ctx.db.teams) await sleep(1000);
-        const { body } = await fetch(`./api/v4/contests/${this.contest.id}/teams`);
-        if (!body || !body.length) return;
+        const [{ body }, organizationResponse] = await Promise.all([
+            fetch(`./api/v4/contests/${this.contest.id}/teams`),
+            fetch(`./api/v4/contests/${this.contest.id}/organizations`).catch((error) => {
+                this.logger.warn('Unable to load DOMjudge organizations: %s', error.message);
+                return { body: [] };
+            }),
+        ]);
+        if (!Array.isArray(body)) throw new Error('DOMjudge returned an invalid team list');
+        if (!body.length) {
+            await this.ctx.db.teams.remove({}, { multi: true });
+            return;
+        }
         const teams = body;
+        await this.ctx.db.teams.remove({ id: { $nin: teams.map((team) => team.id) } }, { multi: true });
+        const organizations = new Map((organizationResponse.body || []).map((organization) => [String(organization.id), organization]));
         for (const team of teams) {
-            await this.ctx.db.teams.update({ id: team.id }, { $set: team }, { upsert: true });
+            const organization: any = organizations.get(String(team.organization_id));
+            const school = organization?.formal_name || organization?.name || team.affiliation || team.organization_id || '';
+            const logo = resolvePublicAssetUrl(
+                organization?.logo || organization?.logo_url || organization?.avatar,
+                config.server,
+            );
+            await this.ctx.db.teams.update({ id: team.id }, {
+                $set: {
+                    ...team,
+                    ...school && { school, affiliation: school },
+                    ...logo && { logo },
+                },
+            }, { upsert: true });
         }
         this.logger.debug(`Found ${teams.length} teams`);
     }
@@ -192,8 +247,7 @@ class HydroFetcher extends BasicFetcher {
         const [domainId, contestId] = ids.length === 2 ? ids : ['system', config.contestId];
         const { body } = await fetch(`/d/${domainId}/contest/${contestId}`);
         if (!body || !body.tdoc) {
-            this.logger.error('Contest not found');
-            return false;
+            throw new Error('Contest not found');
         }
         const contest = body.tdoc;
         contest.freeze_time = contest.lockAt;
@@ -214,10 +268,20 @@ class HydroFetcher extends BasicFetcher {
 
     async teamInfo() {
         const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/user`);
-        if (!body || !body.length) return;
-        const teams = body.tsdocs.filter((t) => body.udict[t.uid]).map((t) => (body.udict[t.uid]));
+        const teams = extractHydroTeams(body);
+        if (!teams.length) {
+            await this.ctx.db.teams.remove({}, { multi: true });
+            return;
+        }
+        await this.ctx.db.teams.remove({ id: { $nin: teams.map((team) => team._id) } }, { multi: true });
         for (const team of teams) {
-            await this.ctx.db.teams.update({ id: team._id }, { $set: team }, { upsert: true });
+            const logo = resolvePublicAssetUrl(team.schoolLogo || team.logo || team.avatar, config.server);
+            await this.ctx.db.teams.update({ id: team._id }, {
+                $set: {
+                    ...team,
+                    ...logo && { logo },
+                },
+            }, { upsert: true });
         }
         this.logger.debug(`Found ${teams.length} teams`);
     }
@@ -278,7 +342,7 @@ class HydroFetcher extends BasicFetcher {
         this.logger.debug(`Balloon ${bid} set done`);
     }
 
-    async printInfo(all) {
+    async printInfo(_all) {
         const doFetch = async () => {
             const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post')
                 .send({ operation: 'allocate_print_task' });
