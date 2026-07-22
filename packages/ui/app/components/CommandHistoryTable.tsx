@@ -7,6 +7,7 @@ import { notifications } from '@mantine/notifications';
 import {
   IconCheck, IconEye, IconHourglassEmpty, IconTrash,
 } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 
 function ResultGroup({
@@ -48,16 +49,37 @@ function ResultGroup({
   );
 }
 
-function CommandRow({ command }) {
+const CommandRow = React.memo(({ command }: { command: any }) => {
   const clipboard = useClipboard();
-  const remove = React.useCallback(async () => await fetch('/commands', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      operation: 'remove',
-      command: command._id,
-    }),
-  }), [command._id]);
+  const queryClient = useQueryClient();
+  const remove = React.useCallback(() => {
+    modals.openConfirmModal({
+      title: 'Remove command history',
+      children: <Text size="sm">This removes the command and its execution results from history.</Text>,
+      labels: { confirm: 'Remove', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          const response = await fetch('/commands', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              operation: 'remove',
+              command: command._id,
+            }),
+          });
+          if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+          const result = await response.json();
+          if (result.error) throw new Error(result.error.message || 'Server rejected the request');
+          await queryClient.invalidateQueries({ queryKey: ['commands'] });
+          notifications.show({ title: 'Success', message: 'Command removed', color: 'green' });
+        } catch (error) {
+          console.error(error);
+          notifications.show({ title: 'Error', message: 'Failed to remove command', color: 'red' });
+        }
+      },
+    });
+  }, [command._id, queryClient]);
   const getStatusBadge = () => {
     const { status } = command;
     if (status.total === 0) {
@@ -81,12 +103,15 @@ function CommandRow({ command }) {
         </Table.Td>
         <Table.Td style={{ maxWidth: 400 }}>
           <Group gap="xs" align="flex-start" wrap="nowrap">
-            <pre
+            <button
+              type="button"
               style={{
                 margin: 0,
                 padding: '4px 8px',
+                border: 0,
                 fontSize: '0.75rem',
                 fontFamily: 'monospace',
+                textAlign: 'left',
                 maxWidth: '100%',
                 maxHeight: '200px',
                 overflow: 'hidden',
@@ -101,10 +126,10 @@ function CommandRow({ command }) {
                 clipboard.copy(command.command);
                 notifications.show({ title: 'Success', message: 'Command copied to clipboard!', color: 'green' });
               }}
-              title="Click to copy"
+              aria-label="Copy command"
             >
               {command.command}
-            </pre>
+            </button>
           </Group>
         </Table.Td>
         <Table.Td>
@@ -116,6 +141,7 @@ function CommandRow({ command }) {
               <ActionIcon
                 variant="subtle"
                 color="blue"
+                aria-label="View execution results"
                 onClick={() => {
                   const resultGroups = new Map<string, typeof command.targetInfo>();
                   const pendingTargets: typeof command.targetInfo = [];
@@ -167,7 +193,7 @@ function CommandRow({ command }) {
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Remove">
-              <ActionIcon variant="subtle" color="red" onClick={remove}>
+              <ActionIcon variant="subtle" color="red" aria-label="Remove command" onClick={remove}>
                 <IconTrash size={16} />
               </ActionIcon>
             </Tooltip>
@@ -176,22 +202,24 @@ function CommandRow({ command }) {
       </Table.Tr>
     </>
   );
-}
+});
 
 export function CommandHistoryTable({ commands }) {
   return (
-    <Table striped highlightOnHover>
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th style={{ width: 100 }}>ID</Table.Th>
-          <Table.Th>Command</Table.Th>
-          <Table.Th style={{ width: 120 }}>Status</Table.Th>
-          <Table.Th style={{ width: 100 }}>Actions</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>{commands.map((command) => (
-        <CommandRow key={command._id} command={command} />
-      ))}</Table.Tbody>
-    </Table>
+    <Table.ScrollContainer minWidth={760}>
+      <Table striped highlightOnHover>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th style={{ width: 100 }}>ID</Table.Th>
+            <Table.Th>Command</Table.Th>
+            <Table.Th style={{ width: 120 }}>Status</Table.Th>
+            <Table.Th style={{ width: 100 }}>Actions</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>{commands.map((command) => (
+          <CommandRow key={command._id} command={command} />
+        ))}</Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
   );
 }

@@ -12,6 +12,10 @@ const logger = new Logger('monitor');
 const actions = fs.createWriteStream(path.join(process.cwd(), 'data/actions.log'), { flags: 'a' });
 const activeProbes = new Map<string, MachineProbeConnectionHandler>();
 
+export function getActiveProbeMacs() {
+    return Array.from(activeProbes.keys());
+}
+
 export async function dispatchPendingProbeCommands(targets: string[] = []) {
     const requested = new Set(targets);
     const handlers = Array.from(activeProbes.entries())
@@ -113,6 +117,7 @@ const escape = (str = '') => str.trim().replace(/"/g, '\\"').replace(/\r/g, '').
 async function saveMonitorInfo(ctx: Context, monitor: any) {
     const {
         mac, version, uptime, seats, ip,
+        protocol,
         os, kernel, cpu, cpuused, mem, memused, load,
         wifi_signal, wifi_bssid,
         window_cmdline, window_exe, window_name,
@@ -152,6 +157,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
         hostname: seats,
         oldMonitor: true,
         updateAt: new Date().getTime(),
+        ...protocol && { protocol },
         ...os && { os },
         ...kernel && { kernel },
         ...cpu && { cpu: cpu.replaceAll('_', ' ') },
@@ -218,6 +224,7 @@ class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
         }
         await saveMonitorInfo(this.ctx, {
             mac: this.mac,
+            protocol: 'v2',
             version: probe.version || 'machine-tools',
             uptime: probe.uptime || 0,
             seats: probe.hostname || this.mac,
@@ -308,6 +315,7 @@ class MonitorReportHandler extends Handler {
         params.ip = this.request.ip.replace('::ffff:', '');
         params.mac = String(params.mac).replace(/:/g, '').toUpperCase();
         if (!/^[0-9A-F]{12}$/.test(params.mac) || params.mac === '000000000000') throw new BadRequestError('Invalid MAC address');
+        params.protocol = 'v1';
         await saveMonitorInfo(this.ctx, params);
         this.response.body = 'Report accepted';
     }
