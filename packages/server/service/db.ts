@@ -40,7 +40,9 @@ export default class DBService extends Service {
     }
 
     async [Service.init]() {
-        await this.initDatabase('code', ['_id', 'createAt', 'done', 'printer', 'deleted']);
+        await this.initDatabase('code', [
+            '_id', 'createAt', 'done', 'printer', 'deleted', 'group',
+        ]);
         await this.initDatabase('monitor', ['_id', 'mac', 'name', 'group']);
         await this.initDatabase('client', ['id', 'name', 'type', 'group']);
         await this.initDatabase('balloon', ['id', 'time', 'problem', 'teamid', 'awards', 'done', 'printDone']);

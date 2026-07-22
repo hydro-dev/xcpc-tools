@@ -1,0 +1,32 @@
+diff --git a/build/index.js b/build/index.js
+index b573dfcfdc3dd6caa413d500accfd0e28a6d36a2..3691e1e0a8e9c51a47ca9499dba47c8cb7ff7d66 100644
+--- a/build/index.js
++++ b/build/index.js
+@@ -63,7 +63,8 @@ function execAsync(cmd) {
+   return new Promise((resolve, reject) => {
+     (0, import_child_process.exec)(cmd, {
+       env: {
+-        SOFTWARE: "",
++        ...process.env,
++        LC_ALL: "C",
+         LANG: "C"
+       }
+     }, (err, stdout, stderr) => {
+@@ -125,7 +126,7 @@ function getPrinterData(printer) {
+     const { stdout } = yield execAsync(`lpstat -lp ${printer}`);
+     return {
+       printer,
+-      status: stdout.split(/.*is\s(\w+)\..*/gm)[1],
++      status: stdout.split(/.*is\s(\w+)\..*/gm)[1] || (/\bnow printing\b/.test(stdout) ? "printing" : void 0),
+       description: parsePrinterAttribute(stdout, "Description"),
+       alerts: parsePrinterAttribute(stdout, "Alerts"),
+       connection: parsePrinterAttribute(stdout, "Connection")
+@@ -143,7 +144,7 @@ function getPrinters() {
+         return [];
+       return stdout.split(/^printer(.)/gm).filter((line) => line.trim().length).map((line) => ({
+         printer: line.substr(0, line.indexOf(" ")),
+-        status: line.split(/.*is\s(\w+)\..*/gm)[1],
++        status: line.split(/.*is\s(\w+)\..*/gm)[1] || (/\bnow printing\b/.test(line) ? "printing" : void 0),
+         description: parsePrinterAttribute(line, "Description"),
+         alerts: parsePrinterAttribute(line, "Alerts"),
+         connection: parsePrinterAttribute(line, "Connection")

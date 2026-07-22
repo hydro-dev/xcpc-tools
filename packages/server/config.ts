@@ -165,7 +165,13 @@ const clientSchema = Schema.object({
     printColor: Schema.boolean().default(false),
     printPageMax: Schema.number().default(5),
     printMergeQueue: Schema.number().default(1),
-    printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'),
+    printers: Schema.array(Schema.union([
+        Schema.string(),
+        Schema.object({
+            printer: Schema.string().required(),
+            group: Schema.string(),
+        }),
+    ])).default([]).description('enabled printers; an optional group limits a printer to matching tasks'),
     token: Schema.string().required().description('Token generated on server'),
     fonts: Schema.array(Schema.string()).default([]),
     localWeb: Schema.object({

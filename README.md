@@ -73,7 +73,20 @@ const serverSchema = Schema.intersect([
 
 支持各类比赛系统推送打印信息，系统将自动调用 `typst` 为选手代码进行高亮并转换为 PDF 文件，由打印/气球客户端进行打印。 建议使用命令进行打印，避免服务交互数据泄漏，如需使用请从`https://github.com/hydro-dev/xcpc-tools/blob/main/scripts/print`下载脚本并提前将脚本放置在 `PATH` 中。
 
-`print [file] [original] [language] [username] [teamname] [teamid] [location]` 为打印命令，其中 `file` 为代码文件路径，`original` 为原文件名，`language` 为语言，`username` 为用户名，`teamname` 为队伍名，`teamid` 为队伍ID，`location` 为选手位置。
+`print [file] [original] [language] [username] [teamname] [teamid] [location] [group]` 为打印命令，其中 `file` 为代码文件路径，`original` 为原文件名，`language` 为语言，`username` 为用户名，`teamname` 为队伍名，`teamid` 为队伍ID，`location` 为选手位置，`group` 为可选的打印路由组。
+
+`group` 直接配置在 Client 原有的 `printers` 列表中，不需要再为每台打印机单独配置 route。字符串形式或对象中未填写 `group` 的打印机全局接收任务；只有明确填写 `group` 的打印机才限制为对应分组。提交任务时显式提供 `group` 会先精确匹配；未提供时按照 `location` 的最长前缀匹配；没有空闲的分组打印机时回退到全局打印机。
+
+```yaml
+printers:
+  - printer: HP-East
+    group: A
+  - printer: HP-West
+    group: B
+  - HP-Backup # 未配置 group，全局使用
+```
+
+打印任务领取后不会自动回收，避免无法确认物理打印结果时重复打印；需要重新派发时由管理员在打印页面手动 Reprint。重置已派发任务可能造成重复打印，页面会明确提示这一风险。
 
 #### Balloon
 服务支持 `Fetch Mode` 下的气球推送，支持 `DOMjudge` 与 `Hydro` 系统，支持 `DOMjudge` 与 `Hydro` 系统的 `Balloon` 推送，同时若赛事在封榜后仍然推送气球，则支持自定义鼓励气球数，高于设定值则不推送，为所有队伍打造优质赛场体验。
@@ -187,7 +200,13 @@ const clientSchema = Schema.object({
     printColor: Schema.boolean().default(false), // 是否打印彩色代码
     printPageMax: Schema.number().default(5), // 单次代码打印页数上限
     printMergeQueue: Schema.number().default(1), // 合并处理的打印任务数量
-    printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'), // 打印机列表，如果为空则不启用打印功能
+    printers: Schema.array(Schema.union([
+        Schema.string(), // 全局打印机
+        Schema.object({
+            printer: Schema.string().required(),
+            group: Schema.string(), // 可选；填写后只接收对应分组
+        }),
+    ])).default([]), // 启用的打印机列表，为空则不启用打印功能
     token: Schema.string().required().description('Token generated on server'), // 服务端 Token
     fonts: Schema.array(Schema.string()).default([]), // 额外字体路径
     localWeb: Schema.object({

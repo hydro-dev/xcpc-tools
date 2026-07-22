@@ -23,6 +23,7 @@ import {
 import {
     createMetricsRegistry, decodeBinary, fs, randomstring, StaticHTML,
 } from '../utils';
+import { CLIENT_ONLINE_WINDOW } from './printRouting';
 
 const randomHash = randomstring(8).toLowerCase();
 const buf = decodeBinary(StaticFrontend, 'static.frontend');
@@ -111,13 +112,14 @@ const contestOverview = async (ctx: Context) => {
             services: Array.isArray(client.type) ? client.type : [],
             ip: String(client.ip || ''),
             lastConnectedAt: Number(client.updateAt || 0),
-            online: Number(client.updateAt || 0) >= now - 20_000,
+            online: Number(client.updateAt || 0) >= now - CLIENT_ONLINE_WINDOW,
             printers: printers.map((printer) => {
                 const info = printersInfo.find((item) => item.printer === printer);
                 return {
                     name: String(printer),
                     description: String(info?.description || ''),
                     status: String(info?.status || 'unknown'),
+                    group: String(info?.group || '').trim().toUpperCase(),
                 };
             }),
         };

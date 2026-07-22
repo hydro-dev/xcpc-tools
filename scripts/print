@@ -4,8 +4,8 @@
 if [ $# -lt 7 ]; then
     echo "Something went wrong. Please contact the contest staff."
     echo "Error: not enough arguments" >&2
-    echo "Usage: $0 <filename> <origname> <language> <username> <teamname> <teamid> <location>" >&2
-    echo "Set print command to: $0 [file] [original] [language] [username] [teamname] [teamid] [location]" >&2
+    echo "Usage: $0 <filename> <origname> <language> <username> <teamname> <teamid> <location> [group]" >&2
+    echo "Set print command to: $0 [file] [original] [language] [username] [teamname] [teamid] [location] [group]" >&2
     exit 1
 fi
 
@@ -18,6 +18,7 @@ username=$1; shift
 teamname=$1; shift
 teamid=$1; shift
 location=$1; shift
+group=${1:-}
 
 
 echo "Filename: $origname"
@@ -26,12 +27,16 @@ echo "Username: $username"
 [ -n "$teamname" ] && echo "Team Name: $teamname" || teamname="$username"
 [ -n "$teamid" ] && echo "Team ID: $teamid"
 [ -n "$location" ] && echo "Location: $location"
+[ -n "$group" ] && echo "Group: $group"
 
-exec curl -fsS \
-    -F file=@"$filename" \
-    -F filename="$origname" \
-    -F lang="$language" \
-    -F tname="$teamname" \
-    -F team="$teamid"  \
-    -F location="$location" \
-    $PRINT_SERVER 2>&1
+curl_args=(
+    --form "file=@$filename"
+    --form-string "filename=$origname"
+    --form-string "lang=$language"
+    --form-string "tname=$teamname"
+    --form-string "team=$teamid"
+    --form-string "location=$location"
+)
+[ -n "$group" ] && curl_args+=(--form-string "group=$group")
+
+exec curl -fsS "${curl_args[@]}" "$PRINT_SERVER" 2>&1

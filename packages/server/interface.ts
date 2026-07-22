@@ -26,7 +26,10 @@ export interface PrintCodeDoc {
     done?: number;
     receivedAt?: number;
     doneAt?: number;
+    remoteDoneAt?: number;
     code?: string;
+    group?: string;
+    targetPrinter?: string;
 }
 
 export interface MonitorDoc {
@@ -73,8 +76,10 @@ export interface ClientDoc {
     group?: string[];
 
     // for print client
-    printer?: string[];
+    printers?: string[];
     printersInfo?: any[];
+    updateAt?: number;
+    ip?: string;
 }
 
 export interface BalloonNotificationSource {

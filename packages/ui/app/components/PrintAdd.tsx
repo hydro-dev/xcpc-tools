@@ -3,74 +3,33 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
+import { IconPrinter } from '@tabler/icons-react';
 import React, { useState } from 'react';
 import { ext2Lang, Languages } from '../utils';
 
-export function PrintClientAdd({ refresh }) {
-  const [adding, setAdding] = useState(false);
-  const [opened, { open, close }] = useDisclosure(false);
-  const [name, setName] = useState('');
-
-  const addClient = async () => {
-    setAdding(true);
-    try {
-      const res = await (await fetch('/client', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, operation: 'add', type: 'printer' }),
-      })).json();
-      if (res.error) {
-        notifications.show({ title: 'Error', message: `${res.error.message}(${res.error.params})`, color: 'red' });
-        setAdding(false);
-        return;
-      }
-      notifications.show({ title: 'Success', message: 'Client added', color: 'green' });
-      setName('');
-    } catch (e) {
-      console.error(e);
-      notifications.show({ title: 'Error', message: 'Failed to add client', color: 'red' });
-    }
-    setAdding(false);
-    close();
-    refresh();
-  };
-  return (
-    <>
-      <Modal
-        opened={opened}
-        onClose={() => { close(); setName(''); }}
-        title="Add Client"
-        size="md"
-        padding="md"
-      >
-        <LoadingOverlay visible={adding} zIndex={1000} overlayProps={{ radius: 'sm', blur: 2 }} />
-        <Fieldset legend="Add Client" mb="lg">
-          <FocusTrap active>
-            <TextInput label="Client Name" placeholder="Client Name" value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
-          </FocusTrap>
-        </Fieldset>
-        <Button color="blue" fullWidth mt="md" radius="md" onClick={addClient}>Submit</Button>
-      </Modal>
-      <Button color="blue" radius="md" onClick={open}>Add Client</Button>
-    </>
-  );
-}
-
-export function PrintTaskAdd({ refresh }) {
+export function PrintTaskAdd({ refresh, groups = [] }) {
   const [opened, { open, close }] = useDisclosure(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [language, setLanguage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [tname, setTname] = useState('');
+  const [location, setLocation] = useState('');
+  const [group, setGroup] = useState<string | null>(null);
 
   const selectFile = (event) => {
+    if (!event) {
+      setFile(null);
+      setLanguage('');
+      return;
+    }
     const fileExt = event.name.split('.').pop();
     setFile(event);
     setLanguage(ext2Lang[fileExt] || 'txt');
   };
 
   const uploadPrint = async () => {
+    if (!file) return;
     setUploading(true);
     try {
       const formData = new FormData();
@@ -78,19 +37,27 @@ export function PrintTaskAdd({ refresh }) {
       formData.append('lang', language);
       formData.append('team', 'Admin');
       formData.append('tname', tname);
-      formData.append('location', 'UFO');
-      const res = await (await fetch(`/print/${window.Context.secretRoute}`, {
+      formData.append('location', location);
+      if (group) formData.append('group', group);
+      const response = await fetch(`/print/${window.Context.secretRoute}`, {
         method: 'POST',
         body: formData,
-      })).text();
-      notifications.show({ title: 'Success', message: res, color: 'green' });
+      });
+      const message = await response.text();
+      if (!response.ok) throw new Error(message || `Upload failed (${response.status})`);
+      notifications.show({ title: 'Success', message, color: 'green' });
+      close();
+      refresh();
     } catch (e) {
       console.error(e);
-      notifications.show({ title: 'Error', message: 'Failed to upload file', color: 'red' });
+      notifications.show({
+        title: 'Error',
+        message: e instanceof Error ? e.message : 'Failed to upload file',
+        color: 'red',
+      });
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
-    close();
-    refresh();
   };
 
   return (
@@ -106,6 +73,15 @@ export function PrintTaskAdd({ refresh }) {
         <Fieldset legend="Print Code" mb="lg">
           <FocusTrap active>
             <TextInput label="tname" placeholder="Team Name" value={tname} onChange={(e) => setTname(e.currentTarget.value)} data-autofocus />
+            <TextInput label="Location" placeholder="Seat or location prefix" value={location} onChange={(e) => setLocation(e.currentTarget.value)} />
+            <Select
+              clearable
+              label="Printer group"
+              placeholder="Use location prefix"
+              value={group}
+              onChange={setGroup}
+              data={groups}
+            />
             { /* @ts-ignore */ }
             <FileInput label="Upload Code Files" placeholder='Click To Upload Code Files' value={file} onChange={selectFile} />
             <Select
@@ -117,9 +93,16 @@ export function PrintTaskAdd({ refresh }) {
             />
           </FocusTrap>
         </Fieldset>
-        <Button color="blue" fullWidth mt="md" radius="md" onClick={uploadPrint}>Submit</Button>
+        <Button color="blue" fullWidth mt="md" radius="md" disabled={!file} onClick={uploadPrint}>Submit</Button>
       </Modal>
-      <Button color="blue" radius="md" onClick={open}>Print File</Button>
+      <Button
+        size="xs"
+        variant="default"
+        leftSection={<IconPrinter size={15} />}
+        onClick={open}
+      >
+        Print file
+      </Button>
     </>
   );
 }

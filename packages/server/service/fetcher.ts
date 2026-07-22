@@ -77,11 +77,27 @@ class BasicFetcher extends Service implements IBasicFetcher {
 
     async cron() {
         if (config.type === 'server') return;
-        this.logger.info('Fetching contest info...');
         if (!config.token) {
             if (config.username && config.password) await this.getToken(config.username, config.password);
             else throw new Error('No token or username/password provided');
         }
+        const pendingPrintAcks = await this.ctx.db.code.find({
+            done: 1,
+            id: { $exists: true, $nin: ['', null] },
+            $or: [
+                { remoteDoneAt: { $exists: false } },
+                { remoteDoneAt: null },
+            ],
+        });
+        for (const code of pendingPrintAcks) {
+            try {
+                await this.setPrintDone(code.id!);
+                await this.ctx.db.code.updateOne({ _id: code._id }, { $set: { remoteDoneAt: Date.now() } });
+            } catch (error) {
+                this.logger.error(`Failed to confirm print task ${code.id}`, error);
+            }
+        }
+        this.logger.info('Fetching contest info...');
         let first = false;
         try {
             first = await this.contestInfo();
@@ -351,8 +367,9 @@ class HydroFetcher extends BasicFetcher {
         let { task, udoc } = await doFetch();
         let cnt = 0;
         while (task) {
-            await this.ctx.db.code.insert({
-                _id: task._id,
+            await fs.ensureDir(path.resolve(process.cwd(), 'data/codes'));
+            const res = await this.ctx.db.code.insert({
+                id: task._id,
                 tid: task.owner,
                 team: `${udoc.school ? `${udoc.school}: ` : ''}${udoc.displayName || udoc.uname}`,
                 location: udoc.seat || udoc.studentId,
@@ -362,9 +379,13 @@ class HydroFetcher extends BasicFetcher {
                 printer: '',
                 done: task.status === 'printed' ? 1 : 0,
             });
-            await fs.ensureDir(path.resolve(process.cwd(), 'data/codes'));
-            await fs.writeFile(path.resolve(process.cwd(), 'data/codes', `${task.owner}#${task._id}`), task.content);
-            logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${task._id}`);
+            try {
+                await fs.writeFile(path.resolve(process.cwd(), 'data/codes', `${task.owner}#${res._id}`), task.content);
+            } catch (error) {
+                await this.ctx.db.code.removeOne({ _id: res._id }, {});
+                throw error;
+            }
+            logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${res._id}`);
             cnt++;
             ({ task, udoc } = await doFetch());
         }
