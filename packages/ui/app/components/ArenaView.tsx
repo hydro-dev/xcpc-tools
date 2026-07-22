@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Card,
-  FileButton,
   Group,
   LoadingOverlay,
   ScrollArea,
@@ -18,20 +17,25 @@ import {
   Tooltip,
   useMantineTheme,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
 import {
   IconAlertTriangle,
+  IconEdit,
   IconInfoCircle,
   IconRouter,
-  IconTrash,
-  IconUpload,
   IconWifi,
   IconZoomIn,
   IconZoomOut,
   IconZoomReset,
 } from '@tabler/icons-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
-import type { ArenaLayoutDocument, ArenaLayoutSectionDocument } from '../arena/types';
+import { useSearchParams } from 'react-router-dom';
+import { parseArenaLayouts } from '../arena/layouts';
+import type {
+  ArenaLayoutDocument, ArenaLayoutSectionDocument, ArenaLayoutsResponse,
+} from '../arena/types';
+import { arenaLayoutsQuery } from '../queries';
+import { ArenaLayoutEditor } from './ArenaLayoutEditor';
 
 interface MonitorRecord {
   _id: string;
@@ -54,22 +58,24 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.5;
 const ZOOM_STEP = 0.1;
 
-const getMonitorSeatId = (
+const getMonitorSeatCandidates = (
   monitor: MonitorRecord,
   layout: ArenaLayoutDocument | null,
-): string | null => {
-  if (!monitor) return null;
-  if (!layout?.seatKey) {
-    return monitor.name ?? monitor.hostname ?? null;
+): string[] => {
+  const candidates: unknown[] = [];
+  if (layout?.seatKey) {
+    const path = layout.seatKey.split('.');
+    let value: any = monitor;
+    for (const key of path) {
+      if (value == null) break;
+      value = value[key as keyof typeof value];
+    }
+    candidates.push(value);
   }
-  const path = layout.seatKey.split('.');
-  let value: any = monitor;
-  for (const key of path) {
-    if (value == null) break;
-    value = value[key as keyof typeof value];
-  }
-  if (value == null || value === '') return monitor.name ?? monitor.hostname ?? null;
-  return String(value);
+  candidates.push(monitor.name, monitor.hostname);
+  return Array.from(new Set(candidates
+    .filter((value) => value !== undefined && value !== null && String(value).trim())
+    .map(String)));
 };
 
 const getSignalColor = (signal: number, fallback: string): string => {
@@ -80,15 +86,18 @@ const getSignalColor = (signal: number, fallback: string): string => {
   return `hsl(${Math.round(hue)}, 80%, 45%)`;
 };
 
-const hashToColor = (value: string): string => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+const generateDistinctColors = (count: number): string[] => {
+  if (count === 0) return [];
+  if (count === 1) return ['hsl(200, 80%, 45%)'];
+  const colors: string[] = [];
+  const hueStep = 360 / count;
+  for (let i = 0; i < count; i += 1) {
+    const hue = (i * hueStep) % 360;
+    const saturation = 70 + (i % 3) * 5;
+    const lightness = 40 + (i % 4) * 3;
+    colors.push(`hsl(${Math.round(hue)}, ${saturation}%, ${lightness}%)`);
   }
-  const hue = hash % 360;
-  const saturation = 55 + (hash % 30);
-  const lightness = 45 + (hash % 20) / 2;
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  return colors;
 };
 
 type ArenaViewMode = 'signal' | 'bssid' | 'status';
@@ -99,6 +108,12 @@ const viewModeOptions: { value: ArenaViewMode; label: string }[] = [
   { value: 'status', label: 'Online Status' },
 ];
 
+const getViewModeFromQuery = (params: URLSearchParams): ArenaViewMode => {
+  const mode = params.get('mode');
+  if (mode === 'bssid' || mode === 'status' || mode === 'signal') return mode;
+  return 'signal';
+};
+
 const defaultNormalize = (value: string): string => value.trim().toUpperCase();
 
 const normalizers: Record<string, (value: string) => string> = {
@@ -107,116 +122,12 @@ const normalizers: Record<string, (value: string) => string> = {
   lower: (value: string) => value.toLowerCase(),
   trim: (value: string) => value.trim(),
   'trim-upper': defaultNormalize,
+  // Layout files use kebab-case normalization identifiers.
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   'trim-lower': (value: string) => value.trim().toLowerCase(),
 };
 
 const DEFAULT_LAYOUT_KEY = 'xcpc-tools/arena-layout-selected';
-
-const isBrowser = typeof window !== 'undefined';
-
-const randomLayoutId = () => `layout-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-
-const normalizeGrid = (grid: unknown): (string | null)[][] => {
-  if (!Array.isArray(grid)) return [];
-  return grid.map((row) => {
-    if (!Array.isArray(row)) return [];
-    return row.map((cell) => {
-      if (cell === null || cell === undefined) return null;
-      const value = String(cell).trim();
-      return value === '' ? null : value;
-    });
-  });
-};
-
-const normalizeRowLabels = (labels: unknown, length: number): (string | null)[] | undefined => {
-  if (!Array.isArray(labels)) return undefined;
-  const result: (string | null)[] = [];
-  for (let index = 0; index < length; index += 1) {
-    if (index >= labels.length) {
-      result.push(null);
-      continue;
-    }
-    const label = labels[index];
-    if (label === null || label === undefined) {
-      result.push(null);
-      continue;
-    }
-    const value = String(label).trim();
-    result.push(value === '' ? null : value);
-  }
-  if (!result.some((label) => label)) return undefined;
-  return result;
-};
-
-const coerceSection = (section: any, layoutId: string, index: number): ArenaLayoutSectionDocument => {
-  const fallbackId = `${layoutId}-section-${index + 1}`;
-  const id = typeof section?.id === 'string' && section.id.trim() ? section.id.trim() : fallbackId;
-  const grid = normalizeGrid(section?.grid ?? section?.rows);
-  const rowLabels = normalizeRowLabels(section?.rowLabels ?? section?.labels, grid.length);
-  return {
-    id,
-    title: typeof section?.title === 'string' ? section.title : undefined,
-    seatSize: typeof section?.seatSize === 'number' ? section.seatSize : undefined,
-    gapSize: typeof section?.gapSize === 'number' ? section.gapSize : undefined,
-    grid,
-    rowLabels,
-    meta: typeof section?.meta === 'object' && section?.meta !== null ? section.meta : undefined,
-  };
-};
-
-const coerceLayout = (source: any, fallbackId?: string): ArenaLayoutDocument | null => {
-  if (!source || typeof source !== 'object') return null;
-  const rawId = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : undefined;
-  const id = rawId ?? fallbackId ?? randomLayoutId();
-  const name = typeof source.name === 'string' && source.name.trim() ? source.name : id;
-  let sections: ArenaLayoutSectionDocument[] = [];
-  if (Array.isArray(source.sections) && source.sections.length) {
-    sections = source.sections.map((section: any, index: number) => coerceSection(section, id, index));
-  } else if (Array.isArray(source.grid)) {
-    const grid = normalizeGrid(source.grid);
-    if (grid.length) {
-      sections = [coerceSection({
-        id: `${id}-section-1`,
-        title: typeof source.sectionTitle === 'string' ? source.sectionTitle : undefined,
-        grid,
-        rowLabels: source.rowLabels,
-        seatSize: source.seatSize,
-        gapSize: source.gapSize,
-      }, id, 0)];
-    }
-  }
-  sections = sections.filter((section) => section.grid.length && section.grid.some((row) => row.length));
-  if (!sections.length) return null;
-  return {
-    id,
-    name,
-    description: typeof source.description === 'string' ? source.description : undefined,
-    seatKey: typeof source.seatKey === 'string' ? source.seatKey : undefined,
-    normalize: typeof source.normalize === 'string' ? source.normalize : undefined,
-    default: source.default === true,
-    sections,
-    meta: typeof source.meta === 'object' && source.meta !== null ? source.meta : undefined,
-  };
-};
-
-const parseLayouts = (input: unknown): ArenaLayoutDocument[] => {
-  const map = new Map<string, ArenaLayoutDocument>();
-  const pushLayout = (candidate: ArenaLayoutDocument | null) => {
-    if (!candidate) return;
-    map.set(candidate.id, candidate);
-  };
-  if (Array.isArray(input)) {
-    input.forEach((item, index) => {
-      pushLayout(coerceLayout(item, `layout-${index + 1}`));
-    });
-  } else {
-    pushLayout(coerceLayout(input, undefined));
-  }
-  return Array.from(map.values());
-};
-
-const loadLayoutsFromContext = (): ArenaLayoutDocument[] =>
-  parseLayouts(window.Context.arenaLayouts);
 
 const pickPrimaryMonitor = (monitors: MonitorRecord[]): MonitorRecord | null => {
   if (!monitors?.length) return null;
@@ -252,22 +163,35 @@ interface ArenaViewProps {
   openMonitorInfo: (monitor: MonitorRecord, tab?: string) => void;
 }
 
-export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewProps) {
+export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: ArenaViewProps) => {
   const theme = useMantineTheme();
+  const queryClient = useQueryClient();
   const monospaceFont = theme.fontFamilyMonospace ?? 'monospace';
-  const [viewMode, setViewMode] = React.useState<ArenaViewMode>('signal');
-  const [selectedLayoutId, setSelectedLayoutId] = React.useState<string | null>(() => {
-    if (!isBrowser) return null;
-    const stored = window.localStorage.getItem(DEFAULT_LAYOUT_KEY);
-    if (stored) return stored;
-    const existing = loadLayoutsFromContext();
-    return existing[0]?.id ?? null;
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const legacyMode = new URLSearchParams(window.location.search).get('mode');
+  const effectiveSearchParams = React.useMemo(() => {
+    if (searchParams.has('mode') || !legacyMode) return searchParams;
+    const next = new URLSearchParams(searchParams);
+    next.set('mode', legacyMode);
+    return next;
+  }, [legacyMode, searchParams]);
+  const viewMode = getViewModeFromQuery(effectiveSearchParams);
+  const [editorOpened, setEditorOpened] = React.useState(false);
+  const layoutsQuery = useQuery({ ...arenaLayoutsQuery(), enabled: editorOpened });
+  const [layouts, setLayouts] = React.useState<ArenaLayoutDocument[]>(() => (
+    parseArenaLayouts(window.Context.arenaLayouts)
+  ));
+  const editorLayouts = React.useMemo(
+    () => parseArenaLayouts(layoutsQuery.data?.layouts ?? []),
+    [layoutsQuery.data?.layouts],
+  );
+  const [selectedLayoutId, setSelectedLayoutId] = React.useState<string | null>(() => (
+    window.localStorage.getItem(DEFAULT_LAYOUT_KEY)
+  ));
   const [zoom, setZoom] = React.useState(0.40);
-  const [layouts, setLayouts] = React.useState<ArenaLayoutDocument[]>(() => loadLayoutsFromContext());
+  const bssidColorRegistry = React.useRef(new Map<string, string>());
 
   React.useEffect(() => {
-    if (!isBrowser) return;
     if (selectedLayoutId) {
       window.localStorage.setItem(DEFAULT_LAYOUT_KEY, selectedLayoutId);
     } else {
@@ -281,7 +205,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
       return;
     }
     if (!selectedLayoutId || !layouts.some((item) => item.id === selectedLayoutId)) {
-      setSelectedLayoutId(layouts[0].id);
+      setSelectedLayoutId(layouts.find((item) => item.default)?.id ?? layouts[0].id);
     }
   }, [layouts, selectedLayoutId]);
 
@@ -300,6 +224,16 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
     () => layouts.find((item) => item.id === selectedLayoutId) ?? null,
     [layouts, selectedLayoutId],
   );
+
+  const handleLayoutsSaved = React.useCallback((response: ArenaLayoutsResponse) => {
+    queryClient.setQueryData(['arena-layouts'], response);
+    const nextLayouts = parseArenaLayouts(response.layouts);
+    window.Context.arenaLayouts = response.layouts;
+    setLayouts(nextLayouts);
+    if (!nextLayouts.some((item) => item.id === selectedLayoutId)) {
+      setSelectedLayoutId(nextLayouts.find((item) => item.default)?.id ?? nextLayouts[0]?.id ?? null);
+    }
+  }, [queryClient, selectedLayoutId]);
 
   const normalizeSeatId = React.useMemo(() => {
     if (!layout?.normalize) return defaultNormalize;
@@ -321,82 +255,58 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
   }, [layout, normalizeSeatId]);
 
   const { seatMap, overflow } = React.useMemo(() => {
-    const seatMap = new Map<string, MonitorRecord[]>();
-    const overflow: MonitorRecord[] = [];
+    const mappedSeats = new Map<string, MonitorRecord[]>();
+    const overflowMonitors: MonitorRecord[] = [];
     if (!monitors?.length) {
-      return { seatMap, overflow };
+      return { seatMap: mappedSeats, overflow: overflowMonitors };
     }
     if (!layout || !layout.sections?.length) {
-      return { seatMap, overflow: [...monitors] };
+      return { seatMap: mappedSeats, overflow: [...monitors] };
     }
     for (const monitor of monitors) {
-      const rawSeat = getMonitorSeatId(monitor, layout);
-      if (!rawSeat) {
-        overflow.push(monitor);
+      const matchedSeat = getMonitorSeatCandidates(monitor, layout)
+        .map((candidate) => normalizeSeatId(candidate))
+        .find((candidate) => definedSeatIds.has(candidate));
+      if (!matchedSeat) {
+        overflowMonitors.push(monitor);
         continue;
       }
-      const normalized = normalizeSeatId(String(rawSeat));
-      if (!normalized || !definedSeatIds.has(normalized)) {
-        overflow.push(monitor);
-        continue;
-      }
-      const list = seatMap.get(normalized);
+      const list = mappedSeats.get(matchedSeat);
       if (!list) {
-        seatMap.set(normalized, [monitor]);
+        mappedSeats.set(matchedSeat, [monitor]);
       } else {
         list.push(monitor);
       }
     }
-    return { seatMap, overflow };
+    return { seatMap: mappedSeats, overflow: overflowMonitors };
   }, [definedSeatIds, layout, monitors, normalizeSeatId]);
 
-  const handleImportLayouts = React.useCallback(async (file: File | null) => {
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsedRaw = JSON.parse(text) as unknown;
-      const imported = parseLayouts(parsedRaw);
-      if (!imported.length) {
-        notifications.show({ title: 'Import skipped', message: 'No valid layouts were found in the JSON file.', color: 'yellow' });
-        return;
+  const bssidColorMap = React.useMemo(() => {
+    if (viewMode !== 'bssid') return new Map<string, string>();
+    const uniqueBssids = new Set<string>();
+    for (const monitor of monitors) {
+      if (monitor.wifiBssid && monitor.updateAt && monitor.updateAt > Date.now() - ONLINE_THRESHOLD_MS) {
+        uniqueBssids.add(monitor.wifiBssid);
       }
-      setLayouts((prev) => {
-        const merged = [...prev];
-        imported.forEach((layoutDoc) => {
-          const index = merged.findIndex((item) => item.id === layoutDoc.id);
-          if (index === -1) {
-            merged.push(layoutDoc);
-          } else {
-            merged[index] = layoutDoc;
-          }
-        });
-        return merged;
-      });
-      const preferred = imported.find((item) => item.default) ?? imported[0];
-      if (preferred) {
-        setSelectedLayoutId((current) => {
-          if (current && imported.some((item) => item.id === current)) return current;
-          return preferred.id;
-        });
-      }
-      notifications.show({
-        title: 'Layouts imported',
-        message: `Loaded ${imported.length} layout${imported.length > 1 ? 's' : ''} from ${file.name}.`,
-        color: 'green',
-      });
-    } catch (error) {
-      console.error('Failed to import arena layouts', error);
-      const message = error instanceof Error ? error.message : 'Invalid JSON file.';
-      notifications.show({ title: 'Import failed', message, color: 'red' });
     }
-  }, []);
-
-  const handleClearLayouts = React.useCallback(() => {
-    setLayouts([]);
-    setSelectedLayoutId(null);
-    if (isBrowser) window.localStorage.removeItem(DEFAULT_LAYOUT_KEY);
-    notifications.show({ title: 'Layouts cleared', message: 'Arena layouts were cleared for this session.', color: 'orange' });
-  }, []);
+    const bssidArray = Array.from(uniqueBssids).sort();
+    for (const knownBssid of bssidColorRegistry.current.keys()) {
+      if (!uniqueBssids.has(knownBssid)) bssidColorRegistry.current.delete(knownBssid);
+    }
+    const colors = generateDistinctColors(Math.max(12, bssidArray.length));
+    const usedColors = new Set(bssidColorRegistry.current.values());
+    const map = new Map<string, string>();
+    bssidArray.forEach((bssid) => {
+      let color = bssidColorRegistry.current.get(bssid);
+      if (!color) {
+        color = colors.find((candidate) => !usedColors.has(candidate)) || colors[bssidColorRegistry.current.size % colors.length];
+        bssidColorRegistry.current.set(bssid, color);
+        usedColors.add(color);
+      }
+      map.set(bssid, color);
+    });
+    return map;
+  }, [monitors, viewMode]);
 
   const unmatchedMonitors = overflow;
 
@@ -407,7 +317,11 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
       return { color: theme.colors.gray[3], monitor: null, monitors: monitorsForSeat };
     }
     const online = !!monitor.updateAt && monitor.updateAt > Date.now() - ONLINE_THRESHOLD_MS;
-    if (!online) {
+    const isErrmachine = !online;
+    if (isErrmachine) {
+      if (viewMode === 'status') {
+        return { color: theme.colors.red[6], monitor, monitors: monitorsForSeat };
+      }
       return { color: theme.colors.gray[5], monitor, monitors: monitorsForSeat };
     }
     if (viewMode === 'status') {
@@ -417,7 +331,11 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
       if (!monitor.wifiBssid) {
         return { color: theme.colors.blue[3], monitor, monitors: monitorsForSeat };
       }
-      return { color: hashToColor(monitor.wifiBssid), monitor, monitors: monitorsForSeat };
+      const color = bssidColorMap.get(monitor.wifiBssid);
+      if (color) {
+        return { color, monitor, monitors: monitorsForSeat };
+      }
+      return { color: theme.colors.blue[3], monitor, monitors: monitorsForSeat };
     }
     const signal = monitor.wifiSignal ?? Number.NaN;
     return { color: getSignalColor(signal, theme.colors.yellow[4]), monitor, monitors: monitorsForSeat };
@@ -474,11 +392,21 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
 
     const cellKey = `${section.id}-${rowIndex}-${cellIndex}-${normalizeSeatId(seatId)}`;
     const badgeOffset = Math.max(4, 4 * zoom);
+    const seatPadding = Math.max(2, 4 * zoom);
+    const seatTextWidth = Array.from(seatId).reduce(
+      (width, character) => width + ((character.codePointAt(0) || 0) > 0xff ? 1 : 0.62),
+      0,
+    );
+    const seatFontSize = Math.max(1, Math.min(
+      14,
+      seatHeight - seatPadding * 2,
+      (seatWidth - seatPadding * 2) / Math.max(seatTextWidth, 1),
+    ));
 
     return (
       <Tooltip key={cellKey} label={tooltipContent} position="top" withArrow>
         <Card
-          padding={Math.max(2, 4 * zoom)}
+          padding={seatPadding}
           shadow="sm"
           radius="sm"
           onClick={handleSeatClick}
@@ -497,11 +425,13 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
         >
           <Text
             fw={600}
-            size="sm"
             c="white"
             style={{
               textShadow: '0 0 4px rgba(0,0,0,0.5)',
               fontFamily: monospaceFont,
+              fontSize: seatFontSize,
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
             }}
           >
             {seatId}
@@ -533,7 +463,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
           </Group>
           <Group gap={6}>
             <Box style={{
-              width: 16, height: 16, backgroundColor: theme.colors.gray[5], borderRadius: 3,
+              width: 16, height: 16, backgroundColor: theme.colors.red[6], borderRadius: 3,
             }} />
             <Text size="sm">Offline</Text>
           </Group>
@@ -552,6 +482,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
     return (
       <Group gap="xs" align="center">
         <Text size="sm">Signal Strength</Text>
+        <Text size="xs" c="dimmed">Poor</Text>
         <Box
           style={{
             width: 120,
@@ -560,7 +491,6 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
             background: 'linear-gradient(90deg, hsl(0,80%,45%) 0%, hsl(120,80%,45%) 100%)',
           }}
         />
-        <Text size="xs" c="dimmed">Poor</Text>
         <Text size="xs" c="dimmed">Excellent</Text>
       </Group>
     );
@@ -569,15 +499,15 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
   const renderSection = () => {
     if (!layouts.length) {
       return (
-        <Alert icon={<IconAlertTriangle size={16} />} color="orange" variant="light" title="No Layouts Loaded">
-          <Text size="sm">Use the Import JSON button to load a seat map. Imported layouts are saved in this browser&apos;s local storage.</Text>
+        <Alert icon={<IconAlertTriangle size={16} />} color="orange" variant="light" title="No Layouts Configured">
+          <Text size="sm">Create the first layout with the arena layout editor.</Text>
         </Alert>
       );
     }
     if (!layout) {
       return (
         <Alert icon={<IconAlertTriangle size={16} />} color="blue" variant="light" title="Choose A Layout">
-          <Text size="sm">Select a layout from the dropdown. You can import additional layouts at any time.</Text>
+          <Text size="sm">Select a layout from the dropdown.</Text>
         </Alert>
       );
     }
@@ -645,33 +575,39 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
   };
 
   return (
-    <Card padding="md" withBorder radius="md" pos="relative">
+    <Box pos="relative">
       <LoadingOverlay
         visible={Boolean(isLoading)}
         zIndex={100}
         overlayProps={{ radius: 'sm', blur: 2 }}
       />
       <Stack gap="md">
-        <Group justify="space-between" align="center">
-          <Group gap="sm">
+        <Group justify="space-between" align="center" wrap="wrap">
+          <Group gap="sm" align="center" wrap="wrap">
             <Select
-              label="Layout"
-              placeholder="Import an arena layout JSON"
+              size="sm"
+              aria-label="Layout"
+              placeholder="Select layout"
               value={selectedLayoutId}
               onChange={(value) => setSelectedLayoutId(value)}
               data={layouts.map((item) => ({ value: item.id, label: item.name }))}
               disabled={!layouts.length}
-              style={{ width: 220 }}
+              style={{ width: 180, maxWidth: '100%' }}
             />
             <SegmentedControl
               value={viewMode}
-              onChange={(value: string) => setViewMode(value as ArenaViewMode)}
+              onChange={(value: string) => {
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.set('mode', value as ArenaViewMode);
+                setSearchParams(nextParams, { replace: true });
+              }}
               data={viewModeOptions}
             />
             <Group gap={6} align="center">
               <Text size="sm">Zoom</Text>
               <Group gap={4} align="center">
                 <ActionIcon
+                  size="sm"
                   variant="light"
                   aria-label="Zoom out"
                   onClick={() => updateZoom(-ZOOM_STEP)}
@@ -680,6 +616,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
                   <IconZoomOut size={16} />
                 </ActionIcon>
                 <ActionIcon
+                  size="sm"
                   variant="light"
                   aria-label="Reset zoom"
                   onClick={resetZoom}
@@ -688,6 +625,7 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
                   <IconZoomReset size={16} />
                 </ActionIcon>
                 <ActionIcon
+                  size="sm"
                   variant="light"
                   aria-label="Zoom in"
                   onClick={() => updateZoom(ZOOM_STEP)}
@@ -698,30 +636,19 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
               </Group>
               <Text size="sm" c="dimmed">{Math.round(zoom * 100)}%</Text>
             </Group>
-            <Group gap="xs">
-              <FileButton onChange={handleImportLayouts} accept="application/json">
-                {(fileProps) => (
-                  <Button
-                    {...fileProps}
-                    variant="light"
-                    leftSection={<IconUpload size={16} />}
-                  >
-                    Import JSON
-                  </Button>
-                )}
-              </FileButton>
-              <Button
-                variant="light"
-                color="red"
-                leftSection={<IconTrash size={16} />}
-                onClick={handleClearLayouts}
-                disabled={!layouts.length}
-              >
-                Clear Layouts
-              </Button>
-            </Group>
           </Group>
-          {renderLegend()}
+          <Group gap="sm" align="center" wrap="wrap">
+            {renderLegend()}
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconEdit size={16} />}
+              onClick={() => setEditorOpened(true)}
+              loading={editorOpened && layoutsQuery.isFetching}
+            >
+              Edit layouts
+            </Button>
+          </Group>
         </Group>
         {layout?.description && (
           <Alert color="blue" variant="light" title={layout.name} icon={<IconInfoCircle size={16} />}>
@@ -741,6 +668,15 @@ export function ArenaView({ monitors, isLoading, openMonitorInfo }: ArenaViewPro
           </Alert>
         )}
       </Stack>
-    </Card>
+      <ArenaLayoutEditor
+        opened={editorOpened && Boolean(layoutsQuery.data)}
+        onClose={() => setEditorOpened(false)}
+        layouts={editorLayouts}
+        selectedLayoutId={selectedLayoutId}
+        revision={layoutsQuery.data?.revision || ''}
+        onSaved={handleLayoutsSaved}
+        onConflict={() => layoutsQuery.refetch()}
+      />
+    </Box>
   );
-}
+});

@@ -1,4 +1,5 @@
 // @ts-ignore
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { Context } from 'cordis';
 import { Registry } from 'prom-client';
@@ -37,6 +38,99 @@ const connectedPresentationDevices = (now: number) => {
         if (lastConnectedAt <= now - PRESENTATION_ONLINE_WINDOW) presentationConnections.delete(device);
     }
     return presentationConnections.size;
+};
+
+const arenaLayoutsPath = () => path.resolve(process.cwd(), String(config.arenaLayouts || 'data/arena-layouts.json'));
+const arenaRevision = (layouts: unknown = arenaLayouts) => createHash('sha256')
+    .update(JSON.stringify(layouts))
+    .digest('hex')
+    .slice(0, 16);
+
+const validateArenaLayouts = (input: unknown): any[] => {
+    if (!Array.isArray(input)) throw new Error('layouts must be an array');
+    if (input.length > 32) throw new Error('A maximum of 32 layouts is supported');
+    const layoutIds = new Set<string>();
+    let defaultCount = 0;
+    return input.map((source: any, layoutIndex) => {
+        if (!source || typeof source !== 'object') throw new Error(`Layout ${layoutIndex + 1} is invalid`);
+        const id = String(source.id || '').trim();
+        const name = String(source.name || '').trim();
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error(`Layout ${layoutIndex + 1} has an invalid id`);
+        if (!name || name.length > 128) throw new Error(`Layout ${id} has an invalid name`);
+        if (layoutIds.has(id)) throw new Error(`Layout id ${id} is duplicated`);
+        layoutIds.add(id);
+        if (source.default === true) defaultCount += 1;
+        if (!Array.isArray(source.sections) || !source.sections.length) throw new Error(`Layout ${id} has no sections`);
+        const seats = new Set<string>();
+        const sectionIds = new Set<string>();
+        let seatCount = 0;
+        let cellCount = 0;
+        const sections = source.sections.map((section: any, sectionIndex: number) => {
+            if (!section || typeof section !== 'object' || !Array.isArray(section.grid) || !section.grid.length) {
+                throw new Error(`Layout ${id}, section ${sectionIndex + 1} has no grid`);
+            }
+            const width = section.grid.reduce((maxWidth: number, row: unknown) => (
+                Math.max(maxWidth, Array.isArray(row) ? row.length : 0)
+            ), 0);
+            if (!width) throw new Error(`Layout ${id}, section ${sectionIndex + 1} is empty`);
+            const sectionCells = width * section.grid.length;
+            if (cellCount + sectionCells > 100_000) throw new Error(`Layout ${id} contains more than 100,000 cells`);
+            cellCount += sectionCells;
+            const grid = section.grid.map((row: unknown, rowIndex: number) => {
+                if (!Array.isArray(row)) throw new Error(`Layout ${id}, row ${rowIndex + 1} is invalid`);
+                return Array.from({ length: width }, (_, cellIndex) => {
+                    const value = row[cellIndex];
+                    if (value === undefined || value === null || value === '') return null;
+                    if (typeof value !== 'string') throw new Error(`Layout ${id} contains a non-string seat`);
+                    if (value.length > 64) throw new Error(`Layout ${id} contains a seat longer than 64 characters`);
+                    const seat = value.trim();
+                    if (!seat) return null;
+                    const normalized = seat.toUpperCase();
+                    if (seats.has(normalized)) throw new Error(`Layout ${id} contains duplicate seat ${seat}`);
+                    seats.add(normalized);
+                    seatCount += 1;
+                    if (seatCount > 100_000) throw new Error(`Layout ${id} contains too many seats`);
+                    return seat;
+                });
+            });
+            const sectionId = String(section.id || `${id}-section-${sectionIndex + 1}`).trim();
+            if (!/^[A-Za-z0-9_-]{1,96}$/.test(sectionId)) throw new Error(`Layout ${id} has an invalid section id`);
+            if (sectionIds.has(sectionId)) throw new Error(`Layout ${id} contains duplicate section id ${sectionId}`);
+            sectionIds.add(sectionId);
+            return {
+                ...section,
+                id: sectionId,
+                grid,
+                ...section.seatSize !== undefined && { seatSize: Math.max(12, Math.min(160, Number(section.seatSize) || 36)) },
+                ...section.gapSize !== undefined && { gapSize: Math.max(0, Math.min(64, Number(section.gapSize) || 0)) },
+            };
+        });
+        if (!seatCount) throw new Error(`Layout ${id} contains no seats`);
+        return {
+            ...source,
+            id,
+            name,
+            description: source.description ? String(source.description).slice(0, 512) : undefined,
+            sections,
+        };
+    }).map((layout) => {
+        if (defaultCount <= 1) return layout;
+        throw new Error('Only one layout can be the default');
+    });
+};
+
+const saveArenaLayouts = (layouts: any[]) => {
+    const target = arenaLayoutsPath();
+    fs.ensureDirSync(path.dirname(target));
+    const content = `${JSON.stringify(layouts, null, 2)}\n`;
+    const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+    try {
+        fs.writeFileSync(temporary, content, { mode: 0o600 });
+        fs.renameSync(temporary, target);
+    } finally {
+        if (fs.existsSync(temporary)) fs.removeSync(temporary);
+    }
+    arenaLayouts.splice(0, arenaLayouts.length, ...layouts);
 };
 
 class StaticHandler extends Handler {
@@ -346,6 +440,46 @@ class MetricsHandler extends AuthHandler {
     }
 }
 
+class ArenaLayoutsHandler extends AuthHandler {
+    async get() {
+        const revision = arenaRevision();
+        this.response.addHeader('Cache-Control', 'no-store');
+        this.response.addHeader('ETag', `"${revision}"`);
+        this.response.body = {
+            revision,
+            layouts: arenaLayouts,
+        };
+    }
+
+    async post(params) {
+        const expectedRevision = String(params?.revision || '');
+        const currentRevision = arenaRevision();
+        if (!expectedRevision || expectedRevision !== currentRevision) {
+            this.response.status = 409;
+            this.response.body = {
+                error: 'Arena layouts changed on the server. Reload them before saving.',
+                revision: currentRevision,
+            };
+            return;
+        }
+        try {
+            const layouts = validateArenaLayouts(params?.layouts);
+            saveArenaLayouts(layouts);
+            const revision = arenaRevision();
+            this.response.addHeader('Cache-Control', 'no-store');
+            this.response.addHeader('ETag', `"${revision}"`);
+            this.response.body = {
+                success: true,
+                revision,
+                layouts: arenaLayouts,
+            };
+        } catch (error) {
+            this.response.status = 400;
+            this.response.body = { error: error instanceof Error ? error.message : 'Invalid arena layouts' };
+        }
+    }
+}
+
 class VersionHandler extends Handler {
     noCheckPermView = true;
     notUsage = true;
@@ -371,5 +505,6 @@ export async function apply(ctx: Context) {
     ctx.Route('presentation_assets', '/presentation-assets/:filename', PresentationAssetHandler);
     ctx.Route('static', '/main.js', StaticHandler);
     ctx.Route('metrics', '/metrics', MetricsHandler);
+    ctx.Route('arena_layouts', '/arena-layouts', ArenaLayoutsHandler);
     ctx.Route('version', '/version', VersionHandler);
 }

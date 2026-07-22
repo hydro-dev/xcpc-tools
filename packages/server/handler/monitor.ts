@@ -126,15 +126,17 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
     const wifiSignalValue = hasWifiSignal ? Number.parseFloat(String(wifi_signal)) : Number.NaN;
     const normalizedBssid = typeof wifi_bssid === 'string' ? wifi_bssid.trim() : '';
     const shouldSetBssid = normalizedBssid && !/^not-?associated$/i.test(normalizedBssid);
-    const autoGroupPayload = (config.monitor.autoGroup && /^[A-Z][0-9]+$/.test(seats)) ? {
-        group: seats[0],
-        name: seats,
-    } : {};
     const autoPayload: Record<string, string> = {};
     const templateValues = { ...monitor, hostname: seats };
     for (const field of ['name', 'group', 'camera', 'desktop'] as const) {
         const template = config.monitor.auto?.[field];
-        if (template) {
+        if (field === 'group' && (template === true || typeof template === 'number')) {
+            const hostname = String(seats || '').trim().toUpperCase();
+            const group = template === true
+                ? hostname.match(/^[A-Z]+/)?.[0] || ''
+                : hostname.slice(0, template);
+            if (group) autoPayload.group = group;
+        } else if (typeof template === 'string' && template) {
             autoPayload[field] = template.replace(/\[(.+?)]/g, (_, key) => {
                 const [source, length] = key.split(':');
                 const value = String(templateValues[source] ?? '');
@@ -162,7 +164,6 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
         ...(window_name !== undefined && { windowName: window_name }),
         ...(window_exe !== undefined && { windowExe: window_exe }),
         ...(window_cmdline !== undefined && { windowCommand: window_cmdline }),
-        ...autoGroupPayload,
         ...autoPayload,
     };
     const unsetPayload: Record<string, 1> = {};

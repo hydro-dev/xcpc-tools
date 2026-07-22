@@ -1,4 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
+import type { ArenaLayoutsResponse } from './arena/types';
 
 export async function fetchJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, {
@@ -55,6 +56,12 @@ export const clientStatusQuery = () => queryOptions({
   queryKey: ['client-status'],
   queryFn: ({ signal }) => fetchJson<any>('/api/status', signal),
   staleTime: 1_000,
+});
+
+export const arenaLayoutsQuery = () => queryOptions({
+  queryKey: ['arena-layouts'],
+  queryFn: ({ signal }) => fetchJson<ArenaLayoutsResponse>('/arena-layouts', signal),
+  staleTime: 30_000,
 });
 
 export const queriesForPath = (path: string) => {

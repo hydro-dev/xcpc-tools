@@ -46,6 +46,7 @@ const serverSchema = Schema.intersect([
             name: Schema.string().required(), // 管理页面展示名称
             type: Schema.array(Schema.union(['printer', 'balloon'])).min(1).default(['printer']),
         })).default([]), // 打印与气球客户端，统一由服务端配置管理
+        arenaLayouts: Schema.string().default('data/arena-layouts.json'), // Arena View 布局 JSON 文件路径
     }).description('Basic Config'),
     Schema.union([
         Schema.object({
@@ -98,7 +99,6 @@ printers:
 
 ```yaml
 monitor:
-  autoGroup: false
   reportToken: ''
   auto:
     name: ''
@@ -109,7 +109,7 @@ monitor:
 
 `reportToken` 为空时不验证；设置后，HTTP 和 WebSocket 请求都需要携带 `?token=对应值`。
 
-`monitor.auto` 会在机器上报时自动设置对应字段，支持与批量修改相同的模板，例如 `[hostname]`、`[ip]`、`[mac]` 和截取前缀的 `[hostname:1]`。未配置的字段不会修改。
+`monitor.auto.group` 为 `true` 时使用 hostname 开头的连续字母作为 Group；设置为数字 N 时使用 hostname 的前 N 位；设置为字符串时与其他 `monitor.auto` 字段一样使用模板，例如 `[hostname:1]`。未配置的字段不会修改。
 
 Machine Tools 提供选手机本地配置页和赛前展示页。配置页根据服务器地址生成 `/report`、`/probe` 和 `/presentation` 地址，保存座位号、上报 Token 与 Probe 配置。
 
@@ -158,10 +158,13 @@ hydro-machine-tools --presentation  # 赛前展示
 - `/presentation?seat=A01` 始终从该 roster 精确匹配座位，为 machine-tools 展示队名、学校、座位和校徽。
 
 #### Arena Layouts
-监视大屏的座位图布局可在 Arena View 中通过 **Import JSON** 导入，数据会保存在浏览器 `localStorage` 中，无需重启或重新构建即可生效。
-- 顶层字段：`id`（唯一标识，缺省使用文件名）、`name`、`description`(可选)、`seatKey`(默认匹配 `hostname`)、`normalize`(`none`/`upper`/`lower`/`trim`/`trim-upper`/`trim-lower`)、`default`(可选，用于默认选中)、`sections`。
+监视页面的座位图布局由服务端 `config.server.yaml` 的 `arenaLayouts` 指定，仅支持 JSON，默认保存到 `data/arena-layouts.json`。管理员可在 Computers 页的 Arena 视图打开编辑器，按区域数量、各区域排数/列数、通道、编号方向、指定行的左右留空和指定列的上下留空生成座位图。保存采用 revision 冲突保护并立即热更新，不需要重启服务端。
+- 编辑器的 Seat ID Template 可自由修改，并内置 `[group:1][row:2][col:2]` 和 `[group]-[id]` 两个示例；选择保存在 `meta.generator` 中。
+- 编辑器生成的参数保存在 `meta.generator`。没有该字段的手工布局保持只读，只有明确确认转换后才会由生成器覆盖。
+- 单个布局最多允许 100,000 个座位和 100,000 个包含通道空位的网格单元；超出限制时编辑器不会构建预览或保存。
+- 顶层字段：`id`（唯一标识，缺省使用文件名）、`name`、`description`(可选)、`seatKey`、`normalize`(`none`/`upper`/`lower`/`trim`/`trim-upper`/`trim-lower`)、`default`(可选，用于默认选中)、`sections`。机器匹配会依次尝试 `seatKey` 指定字段、`name` 和 `hostname`，并使用第一个确实存在于布局中的座位号。
 - `sections` 数组中的每个对象需包含 `grid` 二维数组（元素只能是座位号字符串或 `null` 表示空位），可选字段包括 `title`、`rowLabels`、`seatSize`、`gapSize`、`meta` 等。
-- 同一个 JSON 可携带一个布局对象或布局数组，`default: true` 的布局会在导入后默认选中，可随时使用 **Clear Layouts** 清除本地缓存。
+- 同一个布局文件可携带一个布局对象或布局数组，`default: true` 的布局会优先选中；用户最后选择的布局 ID 仅保存在浏览器中。
 
 ```json
 {

@@ -12,7 +12,7 @@ interface WindowContext {
   clientMode?: boolean;
   secretRoute?: string;
   contest?: { id?: string; name: string };
-  arenaLayouts?: unknown[];
+  arenaLayouts: unknown[];
 }
 
 interface Window {

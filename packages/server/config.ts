@@ -119,17 +119,19 @@ const webhookClientSchema = Schema.object({
 
 const monitorSchema = Schema.object({
     timeSync: Schema.boolean().default(false),
-    autoGroup: Schema.boolean().default(false),
     reportToken: Schema.string().default('').description('Optional query token shared by HTTP and WebSocket machine reports'),
     auto: Schema.object({
         name: Schema.string().default(''),
-        group: Schema.string().default(''),
+        group: Schema.union([
+            Schema.string(),
+            Schema.boolean(),
+            Schema.number().min(1).max(64).step(1),
+        ]).default(''),
         camera: Schema.string().default(''),
         desktop: Schema.string().default(''),
     }).default({ name: '', group: '', camera: '', desktop: '' }),
 }).default({
     timeSync: false,
-    autoGroup: false,
     reportToken: '',
     auto: { name: '', group: '', camera: '', desktop: '' },
 });
