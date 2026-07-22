@@ -79,6 +79,11 @@ monitor:
             balloonType: 80,
             printColor: false,
             printers,
+            localWeb: {
+                enabled: true,
+                host: '127.0.0.1',
+                port: 5284,
+            },
             balloonTemplate: balloonTemplateDefault,
         });
         fs.writeFileSync(configPath, isClient ? clientConfigDefault : serverConfigDefault);
@@ -163,6 +168,11 @@ const clientSchema = Schema.object({
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'),
     token: Schema.string().required().description('Token generated on server'),
     fonts: Schema.array(Schema.string()).default([]),
+    localWeb: Schema.object({
+        enabled: Schema.boolean().default(true),
+        host: Schema.string().default('127.0.0.1'),
+        port: Schema.number().default(5284),
+    }).default({ enabled: true, host: '127.0.0.1', port: 5284 }),
 });
 
 export const config = (isClient ? clientSchema : serverSchema)(yaml.load(fs.readFileSync(configPath, 'utf8')) as any);

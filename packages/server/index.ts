@@ -41,14 +41,21 @@ async function applyServer(ctx: Context) {
     });
 }
 
-function applyClient(ctx: Context) {
-    if (config.printers?.length) ctx.plugin(require('./client/printer'));
-    if (config.balloon) ctx.plugin(require('./client/balloon'));
+async function applyClient(ctx: Context) {
+    const localWeb = config.localWeb || {};
+    if (localWeb.enabled !== false) {
+        await ctx.plugin(require('./client/localWeb'), {
+            host: localWeb.host || '127.0.0.1',
+            port: localWeb.port || 5284,
+        });
+    }
+    if (config.printers?.length) await ctx.plugin(require('./client/printer'));
+    if (config.balloon) await ctx.plugin(require('./client/balloon'));
 }
 
 async function apply(ctx) {
     if (process.argv.includes('--client')) {
-        applyClient(ctx);
+        await applyClient(ctx);
     } else {
         ctx.plugin(DBService);
         ctx.inject(['dbservice'], (c) => {

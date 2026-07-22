@@ -62,7 +62,13 @@ const compiler = webpack({
     rules: [
       {
         test: /\.(ttf|eot|woff|woff2|png|jpg|jpeg|gif)$/,
+        resourceQuery: { not: [/inline/] },
         type: 'asset/resource',
+      },
+      {
+        test: /\.(png|jpg|jpeg|gif)$/,
+        resourceQuery: /inline/,
+        type: 'asset/inline',
       },
       {
         test: /\.sh$/,

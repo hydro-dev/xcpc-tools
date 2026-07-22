@@ -1,7 +1,5 @@
-import './Header.css';
-
 import {
-  ActionIcon, Box, Container, Group, Menu, rem, Text, Tooltip, UnstyledButton,
+  ActionIcon, Container, Group, Menu, rem, Tabs, Text, Title,
 } from '@mantine/core';
 import {
   IconBalloonFilled, IconDeviceHeartMonitor, IconHome, IconMenu2,
@@ -10,9 +8,10 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import hydroLogo from '../../../machine-tools/frontend/public/hydro.png?inline';
 import { queriesForPath } from '../queries';
 
-const iconStyle = { width: rem(16), height: rem(16) };
+const iconStyle = { width: rem(18), height: rem(18) };
 const mainLinks = [{
   id: 'dashboard', path: '/', label: 'Dashboard', Icon: IconHome,
 }, {
@@ -26,80 +25,91 @@ const mainLinks = [{
 }, {
   id: 'presentation-teams', path: '/presentation-teams', label: 'Teams', Icon: IconUsersGroup,
 }];
+const clientLinks = [{
+  id: 'client-overview', path: '/', label: 'Overview', Icon: IconHome,
+}, {
+  id: 'client-print', path: '/print', label: 'Print', Icon: IconPrinter,
+}, {
+  id: 'client-balloon', path: '/balloon', label: 'Balloon', Icon: IconBalloonFilled,
+}];
 
 export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const clientMode = Boolean(window.Context.clientMode);
+  const links = clientMode ? clientLinks : mainLinks;
   const prefetch = React.useCallback((route: string) => {
+    if (clientMode) return;
     for (const options of queriesForPath(route)) queryClient.prefetchQuery(options).catch(() => undefined);
-  }, [queryClient]);
+  }, [clientMode, queryClient]);
   const open = React.useCallback((route: string) => {
     if (route !== location.pathname) navigate(route);
   }, [location.pathname, navigate]);
-  const events = (route: string) => ({
+  const prefetchEvents = (route: string) => ({
     onMouseEnter: () => prefetch(route),
     onFocus: () => prefetch(route),
-    onClick: () => open(route),
   });
 
   return (
-    <header className="admin-nav">
-      <Container size="xl" h="100%">
-        <div className="admin-nav__layout">
-          <Group className="admin-nav__brand" gap={8} wrap="nowrap">
-            <Text fw={700} size="sm" lh={1} textWrap="nowrap">Hydro/XCPC-TOOLS</Text>
-            <Text size="xs" c="dimmed" truncate visibleFrom="sm">
-              {window.Context.contest?.name}
-            </Text>
-          </Group>
+    <Container size="xl" h="100%">
+      <Group h="100%" justify="space-between" gap="md" wrap="nowrap">
+        <Group gap="sm" wrap="nowrap" miw={0}>
+          <img src={hydroLogo} width={28} height={28} alt="Hydro" />
+          <Title order={4} lh={1} textWrap="nowrap">XCPC Tools</Title>
+          <Text size="sm" c="dimmed" truncate visibleFrom="sm">
+            {clientMode ? 'Local client' : window.Context.contest?.name}
+          </Text>
+        </Group>
 
-          <Group className="admin-nav__links" gap={2} visibleFrom="lg" wrap="nowrap">
-            {mainLinks.map((item) => {
+        <Tabs
+          value={location.pathname}
+          onChange={(route) => route && open(route)}
+          h="100%"
+          visibleFrom="lg"
+        >
+          <Tabs.List h="100%">
+            {links.map((item) => (
+              <Tabs.Tab
+                key={item.id}
+                value={item.path}
+                h="100%"
+                px="sm"
+                leftSection={<item.Icon style={iconStyle} stroke={1.8} />}
+                {...prefetchEvents(item.path)}
+              >
+                {item.label}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs>
+
+        <Menu position="bottom-end" width={200}>
+          <Menu.Target>
+            <ActionIcon variant="default" size="lg" aria-label="Open navigation" hiddenFrom="lg">
+              <IconMenu2 size={20} stroke={1.8} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            {links.map((item) => {
               const active = location.pathname === item.path;
               return (
-                <UnstyledButton
+                <Menu.Item
                   key={item.id}
-                  className="admin-nav__link"
-                  data-active={active || undefined}
+                  color={active ? 'blue' : undefined}
                   aria-current={active ? 'page' : undefined}
-                  {...events(item.path)}
+                  leftSection={<item.Icon style={iconStyle} stroke={1.8} />}
+                  fw={active ? 600 : undefined}
+                  onClick={() => open(item.path)}
+                  {...prefetchEvents(item.path)}
                 >
-                  <item.Icon style={iconStyle} stroke={1.8} />
-                  <span>{item.label}</span>
-                </UnstyledButton>
+                  {item.label}
+                </Menu.Item>
               );
             })}
-          </Group>
-
-          <Box className="admin-nav__mobile" hiddenFrom="lg">
-            <Menu position="bottom-end" shadow="md" width={230}>
-              <Tooltip label="Open navigation">
-                <Menu.Target>
-                  <ActionIcon variant="subtle" color="blue" aria-label="Open navigation">
-                    <IconMenu2 size={20} />
-                  </ActionIcon>
-                </Menu.Target>
-              </Tooltip>
-              <Menu.Dropdown>
-                {mainLinks.map((item) => (
-                  <Menu.Item
-                    key={item.id}
-                    className="admin-nav__mobile-item"
-                    data-active={location.pathname === item.path || undefined}
-                    aria-current={location.pathname === item.path ? 'page' : undefined}
-                    leftSection={<item.Icon style={iconStyle} />}
-                    fw={location.pathname === item.path ? 700 : undefined}
-                    {...events(item.path)}
-                  >
-                    {item.label}
-                  </Menu.Item>
-                ))}
-              </Menu.Dropdown>
-            </Menu>
-          </Box>
-        </div>
-      </Container>
-    </header>
+          </Menu.Dropdown>
+        </Menu>
+      </Group>
+    </Container>
   );
 }

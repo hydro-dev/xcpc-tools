@@ -190,8 +190,15 @@ const clientSchema = Schema.object({
     printers: Schema.array(Schema.string()).default([]).description('printer id list, will disable printing if unset'), // 打印机列表，如果为空则不启用打印功能
     token: Schema.string().required().description('Token generated on server'), // 服务端 Token
     fonts: Schema.array(Schema.string()).default([]), // 额外字体路径
+    localWeb: Schema.object({
+        enabled: Schema.boolean().default(true),
+        host: Schema.string().default('127.0.0.1'),
+        port: Schema.number().default(5284),
+    }), // Client 本机只读状态页
 });
 ```
+
+Client 启动后可在本机访问 `http://127.0.0.1:5284/`，并通过 `/#/print` 和 `/#/balloon` 查看各自的连接状态、当前任务阶段、目标打印机以及最近 100 条结果。该页面复用管理端界面并只监听 loopback；监听端口被占用时 Client 会报错并退出。
 
 首次生成的 `config.server.yaml` 已包含一个打印客户端和一个气球客户端，并分别生成随机 `token`。启动 Client 前，将对应的 `token` 写入该客户端的 `config.client.yaml`；需要更多客户端时，再在服务端配置中追加。管理页面只展示连接状态，不再新增、删除或修改客户端。
 

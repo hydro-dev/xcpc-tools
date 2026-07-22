@@ -51,6 +51,12 @@ export const commandsQuery = () => queryOptions({
   staleTime: 5_000,
 });
 
+export const clientStatusQuery = () => queryOptions({
+  queryKey: ['client-status'],
+  queryFn: ({ signal }) => fetchJson<any>('/api/status', signal),
+  staleTime: 1_000,
+});
+
 export const queriesForPath = (path: string) => {
   switch (path) {
     case '/': return [overviewQuery(), metricsQuery()];
