@@ -79,9 +79,30 @@ const serverSchema = Schema.intersect([
 服务支持 `Fetch Mode` 下的气球推送，支持 `DOMjudge` 与 `Hydro` 系统，支持 `DOMjudge` 与 `Hydro` 系统的 `Balloon` 推送，同时若赛事在封榜后仍然推送气球，则支持自定义鼓励气球数，高于设定值则不推送，为所有队伍打造优质赛场体验。
 
 #### Monitor
-服务支持监控选手机情况和监控服务器桌面，如您需要选手机监控，可通过设置 Systemd 定时执行任务等多种方式定时执行 `monitor` 命令，如需监控服务器桌面，请在选手机上提前运行 `vlc-camera` 和 `vlc-desktop` 服务， CAICPC 镜像已经内置了这三两个服务，您只需在选手机上运行即可，如您为自己的镜像，可从 `https://github.com/hydro-dev/xcpc-tools/blob/main/scripts/monitor` 下载 `monitor` 服务。
+服务端提供两种选手机上报方式：HTTP `/report` 只更新机器状态，WebSocket `/probe` 在更新状态之外还会接收命令并回传执行结果。旧镜像可以继续定时运行 [`scripts/monitor`](scripts/monitor) 进行 HTTP 上报；新镜像使用 Machine Tools 配置 heartbeat 和 WebSocket Probe。
 
-当您的选手机启动了 `monitor` 服务后，服务会定时向服务器发送选手机状态，您可以在 `http://服务IP:5283/monitor` 查看选手机状态，如选手机掉线/未启动，系统会有明显提示协助找到对应机型。
+两种上报共用 `monitor.reportToken`：
+
+```yaml
+monitor:
+  autoGroup: false
+  reportToken: ''
+```
+
+`reportToken` 为空时不验证；设置后，HTTP 和 WebSocket 请求都需要携带 `?token=对应值`。
+
+Machine Tools 提供选手机本地配置页和赛前展示页。配置页根据服务器地址生成 `/report`、`/probe` 和 `/presentation` 地址，保存座位号、上报 Token 与 Probe 配置。
+
+Linux 镜像需要预装 Machine Tools、Python 3.8+、`python3-websockets`、Python Probe 和对应的 systemd unit。配置程序不会安装这些运行组件。
+
+```bash
+hydro-machine-tools                 # 本机配置
+hydro-machine-tools --presentation  # 赛前展示
+```
+
+座位号写入 `/var/lib/icpc/config.json`。如果镜像提供 `hydro-machine-tools.service`，配置程序把 Probe 地址和上报 Token 写入 `/etc/default/hydro-machine-tools`，启用 WebSocket Probe 并停用 `heartbeat.timer`；旧镜像则写入 `/etc/default/icpc-heartbeat`，继续使用 HTTP heartbeat。
+
+上报服务启动后，可在 `http://服务IP:5283/#/monitor` 查看选手机状态。
 
 由于 VLC 自带的服务不支持 CORS ， 因此产品内置了一个代理服务，代理服务会将请求转发到选手机上，您可以通过代理服务访问选手机上的 VLC 服务以实现监控。
 

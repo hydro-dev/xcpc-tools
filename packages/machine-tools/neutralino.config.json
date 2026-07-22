@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
-  "applicationId": "org.hydro.xcpctools.machinesetup",
+  "applicationId": "org.hydro.xcpctools.machinetools",
   "version": "1.0.0",
   "defaultMode": "window",
   "port": 0,
@@ -15,6 +15,8 @@
   },
   "nativeAllowList": [
     "app.*",
+    "window.setFullScreen",
+    "window.setAlwaysOnTop",
     "os.*",
     "computer.*",
     "filesystem.*",
@@ -22,7 +24,7 @@
   ],
   "modes": {
     "window": {
-      "title": "@hydro/xcpc-tools/machine-setup",
+      "title": "Hydro Machine Tools",
       "width": 1280,
       "height": 720,
       "minWidth": 800,
@@ -30,7 +32,7 @@
       "center": true,
       "fullScreen": false,
       "alwaysOnTop": false,
-      "icon": "/frontend/public/hydro.png",
+      "icon": "/frontend/dist/hydro.png",
       "enableInspector": false,
       "borderless": false,
       "maximize": false,
@@ -40,8 +42,8 @@
     }
   },
   "cli": {
-    "binaryName": "hydro-xcpctools-machine-setup",
-    "resourcesPath": "/frontend/",
+    "binaryName": "hydro-machine-tools",
+    "resourcesPath": "/frontend/dist/",
     "extensionsPath": "/extensions/",
     "binaryVersion": "6.5.0",
     "clientVersion": "6.5.0",
