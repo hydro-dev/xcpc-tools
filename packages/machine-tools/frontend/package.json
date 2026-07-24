@@ -1,7 +1,7 @@
 {
   "name": "@hydrooj/xcpc-tools-machine-tools-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,8 +12,8 @@
     "@mantine/core": "^8.3.9",
     "@mantine/hooks": "^8.3.9",
     "@mantine/notifications": "^8.3.9",
-    "@neutralinojs/lib": "^6.3.0",
-    "@tabler/icons-react": "^3.35.0",
+    "@neutralinojs/lib": "^6.9.0",
+    "@tabler/icons-react": "^3.45.0",
     "ogl": "^1.0.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

@@ -7,15 +7,6 @@ A tool for CN XCPC contests
 - 支持连接 DOMjudge 与 Hydro 系统，同时亦可独立运行
 - 选手机赛时数据监控与屏幕监控
 
-TODO Features：
-
-- [ ] 更好的选手机座位绑定
-- [ ] 优化 UI 顺畅度
-- [ ] 使用 WebSocket 返回指令执行情况
-- [ ] 支持全考场监视
-- [ ] 企业微信/钉钉/TG Webhook 气球机
-- [ ] 滚榜
-
 当前最新版本可直接在 [Releases](https://github.com/hydro-dev/xcpc-tools/releases/) 下载使用
 
 ### Server
