@@ -95,6 +95,9 @@ printers:
 ```yaml
 monitor:
   reportToken: ''
+  exporters:
+    - job: node
+      port: 9100
   auto:
     name: ''
     group: ''
@@ -131,6 +134,47 @@ hydro-machine-tools --presentation  # 赛前展示
 流地址可使用 `proxy://xxxx` 代理服务，`proxy://` 取代的是 `http://{ip}`， 如 `proxy://:9090/`, 此时代理服务会将请求转发到选手机 `http://{ip}:9090/` 上。
 
 如您有可直接访问的 TS 流地址，可直接填写，您可通过 CDS 等服务获得此类流地址，注意流地址需要支持跨域访问，否则无法在 UI 上正常显示，如您的流地址不支持跨域访问，您可以使用代理服务进行转发，同时 CDS 服务提供的流在封榜后将无法观看，请自行取舍。如修改成功， Info 选项卡后便会多出桌面和摄像头的预览标签页，同时在选手机列表中也会支持直接查看选手机的摄像头和桌面。
+
+#### Prometheus 服务发现
+
+如需使用 Prometheus 采集选手机上的 exporter，可将 `/sd` 作为 [HTTP 服务发现](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_sd_config)端点。服务会根据选手机上报的 IP 自动生成采集目标；`monitor.exporters` 默认包含端口为 `9100` 的 `node` exporter，也可以配置多个 exporter：
+
+```yaml
+monitor:
+  exporters:
+    - job: node
+      port: 9100
+    - job: keyboard
+      port: 9160
+```
+
+`/sd` 为每台机器的每个 exporter 返回一组目标，并通过 `__meta_prometheus_nodename` 提供机器名称；优先使用管理员配置的 `monitor.name`，未配置时使用机器记录 ID：
+
+```json
+[
+  { "targets": ["192.168.0.2:9100"], "labels": { "__meta_prometheus_job": "node", "__meta_prometheus_nodename": "C415-01" } },
+  { "targets": ["192.168.0.3:9100"], "labels": { "__meta_prometheus_job": "node", "__meta_prometheus_nodename": "C415-02" } }
+]
+```
+
+该端点与管理界面共用 Basic Auth，用户名为 `admin`，密码为 `viewPass`。`__meta_*` 标签会在抓取前被 Prometheus 丢弃，如需保留机器名称，可在 `prometheus.yml` 中通过 `relabel_configs` 将它映射为普通标签：
+
+```yaml
+scrape_configs:
+  - job_name: xcpc-machines
+    http_sd_configs:
+      - url: http://服务IP:5283/sd
+        basic_auth:
+          username: admin
+          password: <viewPass>
+    relabel_configs:
+      - source_labels: [__meta_prometheus_job]
+        target_label: job
+      - source_labels: [__meta_prometheus_nodename]
+        target_label: hostname
+```
+
+可以直接使用上述 `hostname` 标签识别机器；也可以不保留该发现标签，改用 `node_exporter` 的 `node_uname_info` 指标中的 `nodename`。掉线机器仍会保留在目标列表中，由 Prometheus 将其标记为 `up=0`。
 
 #### Batch / Quick Operation
 为了方便修改选手机信息，服务支持批量操作和根据选手机字段快速操作，如您需要批量修改选手机信息，可通过 `Batch Operation` 选项卡进行批量操作。

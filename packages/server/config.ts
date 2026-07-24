@@ -67,6 +67,9 @@ password:
 monitor:
   timeSync: false
   reportToken: '' # optional token for both /report and /probe
+  exporters:
+    - job: node
+      port: 9100
   auto:
     name: ''
     group: ''
@@ -131,6 +134,10 @@ const webhookClientSchema = Schema.object({
 const monitorSchema = Schema.object({
     timeSync: Schema.boolean().default(false),
     reportToken: Schema.string().default('').description('Optional query token shared by HTTP and WebSocket machine reports'),
+    exporters: Schema.array(Schema.object({
+        job: Schema.string().required(),
+        port: Schema.number().required(),
+    })).default([{ job: 'node', port: 9100 }]),
     auto: Schema.object({
         name: Schema.string().default(''),
         group: Schema.union([
@@ -144,6 +151,7 @@ const monitorSchema = Schema.object({
 }).default({
     timeSync: false,
     reportToken: '',
+    exporters: [{ job: 'node', port: 9100 }],
     auto: { name: '', group: '', camera: '', desktop: '' },
 });
 
