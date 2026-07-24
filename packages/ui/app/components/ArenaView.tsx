@@ -160,7 +160,7 @@ const formatMac = (mac?: string): string => {
 interface ArenaViewProps {
   monitors: MonitorRecord[];
   isLoading?: boolean;
-  openMonitorInfo: (monitor: MonitorRecord, tab?: string) => void;
+  openMonitorInfo?: (monitor: MonitorRecord, tab?: string) => void;
 }
 
 export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: ArenaViewProps) => {
@@ -385,7 +385,7 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
     );
 
     const handleSeatClick = () => {
-      if (monitor) {
+      if (monitor && openMonitorInfo) {
         openMonitorInfo(monitor, 'info');
       }
     };
@@ -413,7 +413,7 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
           style={{
             width: seatWidth,
             height: seatHeight,
-            cursor: monitor ? 'pointer' : 'default',
+            cursor: monitor && openMonitorInfo ? 'pointer' : 'default',
             backgroundColor: color,
             display: 'flex',
             alignItems: 'center',
@@ -575,13 +575,16 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
   };
 
   return (
-    <Box pos="relative">
+    <Box
+      pos="relative"
+      style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column' }}
+    >
       <LoadingOverlay
         visible={Boolean(isLoading)}
         zIndex={100}
         overlayProps={{ radius: 'sm', blur: 2 }}
       />
-      <Stack gap="md">
+      <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
         <Group justify="space-between" align="center" wrap="wrap">
           <Group gap="sm" align="center" wrap="wrap">
             <Select
@@ -655,7 +658,7 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
             <Text size="sm">{layout.description}</Text>
           </Alert>
         )}
-        <ScrollArea h="65vh" type="scroll">
+        <ScrollArea type="scroll" style={{ flex: 1, minHeight: 0 }}>
           <Stack gap="lg" pr="md">
             {renderSection()}
           </Stack>

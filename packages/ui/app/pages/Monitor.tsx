@@ -161,7 +161,14 @@ export default function Monitor() {
           tab={infoTab}
         />
       )}
-      <div style={{ display: detailMonitor ? 'none' : undefined }}>
+      <div style={{
+        display: detailMonitor ? 'none' : activeView === 'arena' ? 'flex' : undefined,
+        flexDirection: activeView === 'arena' ? 'column' : undefined,
+        height: activeView === 'arena'
+          ? 'calc(100dvh - var(--app-shell-header-offset, 0rem) - var(--app-shell-padding) - var(--app-shell-padding))'
+          : undefined,
+        minHeight: activeView === 'arena' ? 0 : undefined,
+      }}>
           <PageHeader
             title="Computers"
             description="Monitor contestant workstations, inspect streams, and run batch actions."
@@ -201,7 +208,14 @@ export default function Monitor() {
               Showing the most recent workstation data.
             </Alert>
           )}
-          {(!query.isError || query.data) && <Card padding="md" radius="md" withBorder>
+          {(!query.isError || query.data) && <Card
+            padding="md"
+            radius="md"
+            withBorder
+            style={activeView === 'arena'
+              ? { display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column' }
+              : undefined}
+          >
             {query.isPending ? (
               <Stack gap="xs">
                 <Skeleton h={36} />

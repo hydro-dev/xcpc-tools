@@ -1,15 +1,18 @@
 import {
-  Alert, Badge, Box, Grid, Group, Paper, SimpleGrid, Skeleton, Stack, Text, ThemeIcon,
+  Alert, Badge, Box, Button, Grid, Group, Paper, Portal, ScrollArea, SimpleGrid,
+  Skeleton, Stack, Text, ThemeIcon,
 } from '@mantine/core';
 import {
-  IconAlertCircle, IconBalloon, IconDeviceHeartMonitor, IconPrinter, IconSchool,
-  IconServer, IconUsersGroup,
+  IconAlertCircle, IconArrowsMaximize, IconArrowsMinimize, IconBalloon,
+  IconDeviceHeartMonitor, IconPrinter, IconSchool, IconServer, IconUsersGroup,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
+import hydroLogo from '../../../machine-tools/frontend/public/hydro.png?inline';
+import { ArenaView } from '../components/ArenaView';
 import { DashboardClients } from '../components/DashboardClients';
 import { PageHeader } from '../components/PageHeader';
-import { metricsQuery, overviewQuery } from '../queries';
+import { metricsQuery, monitorQuery, overviewQuery } from '../queries';
 
 interface MetricValue {
   labels: Record<string, string>;
@@ -90,6 +93,30 @@ function ModuleSummary({
 export default function Dashboard() {
   const metrics = useQuery<Metric[]>({ ...metricsQuery(), refetchInterval: 30_000 });
   const overview = useQuery({ ...overviewQuery(), refetchInterval: 30_000 });
+  const [arenaMode, setArenaMode] = React.useState(false);
+  const monitor = useQuery({ ...monitorQuery(), enabled: arenaMode, refetchInterval: 30_000 });
+  const monitors = React.useMemo<any[]>(
+    () => Object.values(monitor.data?.monitors || {}) as any[],
+    [monitor.data?.monitors],
+  );
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) setArenaMode(false);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const enterArenaMode = React.useCallback(() => {
+    setArenaMode(true);
+    document.documentElement.requestFullscreen?.().catch(() => undefined);
+  }, []);
+
+  const exitArenaMode = React.useCallback(() => {
+    setArenaMode(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
+  }, []);
   const machines = totals(metrics.data, 'xcpc_machinecount');
   const print = totals(metrics.data, 'xcpc_printcount');
   const balloon = totals(metrics.data, 'xcpc_ballooncount');
@@ -132,15 +159,8 @@ export default function Dashboard() {
     { label: 'Online IP matches', value: overview.data?.roster.onlineIpMatches || 0 },
     { label: 'Connected teams', value: overview.data?.presentation?.connectedTeams || 0 },
   ];
-  return (
-    <div>
-      <PageHeader
-        title="Overview"
-        description="Contest services and workstation health at a glance."
-        isFetching={(metrics.isFetching && !metrics.isPending) || (overview.isFetching && !overview.isPending)}
-        updatedAt={Math.max(metrics.dataUpdatedAt, overview.dataUpdatedAt)}
-      />
-
+  const renderDashboardContent = (compact = false) => (
+    <>
       {(metrics.isError || overview.isError) && (
         <Alert color={metrics.data || overview.data ? 'yellow' : 'red'} mb="md" title="Refresh failed" icon={<IconAlertCircle />}>
           {metrics.data || overview.data ? 'Showing the most recent available data.' : 'Check the server connection and try again.'}
@@ -148,7 +168,7 @@ export default function Dashboard() {
       )}
 
       <Grid columns={10} gutter="md" align="flex-start">
-        <Grid.Col span={{ base: 10, lg: 6 }}>
+        <Grid.Col span={compact ? 10 : { base: 10, lg: 6 }}>
           <Stack gap="md">
             {overview.data?.contest && (
               <Paper withBorder p="md" radius="md">
@@ -202,10 +222,105 @@ export default function Dashboard() {
             )}
           </Stack>
         </Grid.Col>
-        <Grid.Col span={{ base: 10, lg: 4 }}>
+        <Grid.Col span={compact ? 10 : { base: 10, lg: 4 }}>
           <DashboardClients data={overview.data?.clients} pending={overview.isPending} />
         </Grid.Col>
       </Grid>
+    </>
+  );
+
+  if (arenaMode) {
+    return (
+      <Portal>
+        <Box
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 7fr) minmax(360px, 3fr)',
+            gridTemplateRows: 'auto minmax(0, 1fr)',
+            gap: 16,
+            padding: 16,
+            overflow: 'hidden',
+            background: 'var(--mantine-color-body)',
+          }}
+        >
+          <Paper
+            withBorder
+            radius="md"
+            px="md"
+            py="sm"
+            style={{ gridColumn: '1 / -1' }}
+          >
+            <Group justify="space-between" wrap="nowrap">
+              <Group gap="sm" wrap="nowrap" miw={0}>
+                <img src={hydroLogo} width={32} height={32} alt="Hydro" />
+                <Text fw={700} lh={1.2} textWrap="nowrap">XCPC Tools</Text>
+                {overview.data?.contest?.name && (
+                  <Text size="sm" c="dimmed" truncate>
+                    {overview.data.contest.name}
+                  </Text>
+                )}
+              </Group>
+              <Button
+                size="xs"
+                variant="default"
+                leftSection={<IconArrowsMinimize size={16} />}
+                onClick={exitArenaMode}
+              >
+                Exit Arena Mode
+              </Button>
+            </Group>
+          </Paper>
+          <Paper
+            withBorder
+            radius="md"
+            p="md"
+            style={{ display: 'flex', minHeight: 0, flexDirection: 'column', overflow: 'hidden' }}
+          >
+            {monitor.isError && !monitor.data ? (
+              <Alert color="red" title="Unable to load computers" icon={<IconAlertCircle />}>
+                Check the server connection and try again.
+              </Alert>
+            ) : monitor.isPending ? (
+              <Skeleton h="100%" radius="md" />
+            ) : (
+              <ArenaView
+                monitors={monitors}
+                isLoading={monitor.isFetching && !monitor.isPending}
+              />
+            )}
+          </Paper>
+          <Paper withBorder radius="md" style={{ minHeight: 0, overflow: 'hidden' }}>
+            <ScrollArea type="auto" h="100%">
+              <Box p="md">{renderDashboardContent(true)}</Box>
+            </ScrollArea>
+          </Paper>
+        </Box>
+      </Portal>
+    );
+  }
+
+  return (
+    <div>
+      <PageHeader
+        title="Overview"
+        description="Contest services and workstation health at a glance."
+        isFetching={(metrics.isFetching && !metrics.isPending) || (overview.isFetching && !overview.isPending)}
+        updatedAt={Math.max(metrics.dataUpdatedAt, overview.dataUpdatedAt)}
+        actions={(
+          <Button
+            size="xs"
+            variant="default"
+            leftSection={<IconArrowsMaximize size={16} />}
+            onClick={enterArenaMode}
+          >
+            Arena Mode
+          </Button>
+        )}
+      />
+      {renderDashboardContent()}
     </div>
   );
 }
