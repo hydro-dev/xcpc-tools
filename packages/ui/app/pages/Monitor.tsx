@@ -9,6 +9,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { AnsibleHostsModal } from '../components/AnsibleHostsModal';
 import { ArenaView } from '../components/ArenaView';
 import { MonitorBatchModal } from '../components/MonitorBatchModel';
 import { MonitorTable } from '../components/MonitorDisplay';
@@ -185,6 +186,7 @@ export default function Monitor() {
                     { value: 'arena', label: 'Arena view' },
                   ]}
                 />
+                <AnsibleHostsModal monitors={monitorsArray} />
                 <MonitorBatchModal refresh={query.refetch} />
                 <Button
                   size="xs"
