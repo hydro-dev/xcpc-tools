@@ -49,11 +49,3 @@ export async function writePrivilegedFile(targetPath: string, content: string): 
         await filesystem.remove(temporary).catch(() => undefined);
     }
 }
-
-export async function setPrivilegedHostname(hostname: string): Promise<void> {
-    const helperPath = await getHelperPath();
-    const result = await os.execCommand(
-        [helperPath, 'set-hostname', hostname].map(shellQuote).join(' '),
-    );
-    if (result.exitCode !== 0) throw new Error(result.stdErr || '无法设置主机名');
-}

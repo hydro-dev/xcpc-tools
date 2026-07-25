@@ -14,7 +14,7 @@ import {
 import type {
     MachineSnapshot, MachineToolsConfig, ProbeServiceState,
 } from '../types';
-import { runPrivileged, setPrivilegedHostname, writePrivilegedFile } from '../utils/privileged';
+import { runPrivileged, writePrivilegedFile } from '../utils/privileged';
 import { testProbeReport } from '../utils/probe';
 import {
     collectMachineSnapshot, deriveServerEndpoints, HEARTBEAT_CONFIG_PATH, heartbeatVersionUrl,
@@ -176,7 +176,7 @@ export function SetupPanel({
         try {
             const next = { ...config, seat: validateSeat() };
             await writePrivilegedFile(SEAT_CONFIG_PATH, `${JSON.stringify({ seat: next.seat })}\n`);
-            await setPrivilegedHostname(next.seat || '');
+            await runPrivileged('/usr/bin/hostnamectl', ['set-hostname', next.seat || '']);
             onConfigChange(next);
             const nextSnapshot = await collectMachineSnapshot().catch(() => undefined);
             if (nextSnapshot) onSnapshot(nextSnapshot);
