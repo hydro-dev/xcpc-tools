@@ -315,6 +315,7 @@ def machine_snapshot(config):
     return {
         "mac": identity["mac"],
         "hostname": configured_seat(config),
+        "ip": identity["ip"],
         "version": image_revision(),
         "uptime": uptime,
         "os": operating_system_name(),

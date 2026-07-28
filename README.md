@@ -107,6 +107,8 @@ monitor:
 
 `reportToken` 为空时不验证；设置后，HTTP 和 WebSocket 请求都需要携带 `?token=对应值`。
 
+选手机的 IP 以上报内容中的 `ip` 字段为准，只有该字段缺失或不是合法的可路由地址时才回退到连接来源地址。服务端置于 Nginx 等反向代理之后时，连接来源地址会退化成 `127.0.0.1`，此时仍能记录到选手机真实的内网地址，SSH 与 Prometheus `/sd` 也能正常使用。
+
 `monitor.auto.group` 为 `true` 时使用 hostname 开头的连续字母作为 Group；设置为数字 N 时使用 hostname 的前 N 位；设置为字符串时与其他 `monitor.auto` 字段一样使用模板，例如 `[hostname:1]`。未配置的字段不会修改。
 
 Machine Tools 提供选手机本地配置页和赛前展示页。配置页根据服务器地址生成 `/report`、`/probe` 和 `/presentation` 地址，保存座位号、上报 Token 与 Probe 配置。
