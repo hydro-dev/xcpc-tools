@@ -7,6 +7,9 @@ import type {
 export const SEAT_CONFIG_PATH = '/var/lib/icpc/config.json';
 export const HEARTBEAT_CONFIG_PATH = '/etc/default/icpc-heartbeat';
 export const MACHINE_TOOLS_ENV_PATH = '/etc/default/hydro-machine-tools';
+export const PROBE_SERVICE_UNIT = 'hydro-machine-tools.service';
+export const HEARTBEAT_TIMER_UNIT = 'heartbeat.timer';
+export const HEARTBEAT_SERVICE_UNIT = 'heartbeat.service';
 export const PRESENTATION_CACHE_PATH = `/tmp/xcpc-tools-presentation-${window.NL_PID || 'session'}.json`;
 const PRESENTATION_CACHE_TEMP_PATH = `${PRESENTATION_CACHE_PATH}.tmp`;
 let presentationCacheOperation = Promise.resolve<unknown>(undefined);
@@ -16,21 +19,6 @@ export interface MachineToolsEndpoints {
     heartbeatUrl: string;
     probeUrl: string;
     presentationUrl: string;
-}
-
-export async function getProbeServiceState(): Promise<ProbeServiceState> {
-    try {
-        const loadState = await os.execCommand(
-            'systemctl show hydro-machine-tools.service --property=LoadState --value',
-        );
-        if (loadState.stdOut.trim() !== 'loaded') return 'not-found';
-        const result = await os.execCommand('systemctl is-active hydro-machine-tools.service');
-        const state = result.stdOut.trim();
-        if (['active', 'activating', 'inactive', 'failed'].includes(state)) return state as ProbeServiceState;
-        return 'unknown';
-    } catch {
-        return 'unknown';
-    }
 }
 
 interface IpAddressEntry {
@@ -46,6 +34,47 @@ interface IpRouteEntry {
 
 export function shellQuote(value: string) {
     return `'${value.replace(/'/g, '\'"\'"\'')}'`;
+}
+
+const UNIT_STATE_ALIASES: Record<string, ProbeServiceState> = {
+    active: 'active',
+    reloading: 'active',
+    activating: 'activating',
+    deactivating: 'inactive',
+    inactive: 'inactive',
+    failed: 'failed',
+};
+
+/**
+ * `list-unit-files` is one of the few verbs that still answers without a running manager, so it is
+ * the only reliable way to tell a missing unit apart from an unreachable systemd. Online-only verbs
+ * such as `show` and `is-active` log "Running in chroot, ignoring command '<verb>'" to stderr and
+ * exit 0 with empty stdout when no manager is running, which reads exactly like "not found".
+ */
+export async function unitFileExists(unit: string) {
+    const result = await os.execCommand(
+        `systemctl list-unit-files ${shellQuote(unit)} --no-legend --no-pager`,
+    ).catch(() => undefined);
+    return result?.exitCode === 0 && Boolean(result.stdOut.trim());
+}
+
+/** Runtime state of a unit, or an empty string when systemd cannot answer (no running manager). */
+export async function getUnitActiveState(unit: string) {
+    const result = await os.execCommand(`systemctl is-active ${shellQuote(unit)}`).catch(() => undefined);
+    return result?.stdOut.trim() || '';
+}
+
+export async function getProbeServiceState(): Promise<ProbeServiceState> {
+    try {
+        if (!await unitFileExists(PROBE_SERVICE_UNIT)) return 'not-found';
+        const state = await getUnitActiveState(PROBE_SERVICE_UNIT);
+        // Empty output means there was no manager to ask, not that the unit is missing. Anything
+        // else came from a live systemd, so it must not be reported as "no running systemd".
+        if (!state) return 'installed';
+        return UNIT_STATE_ALIASES[state] || 'unknown';
+    } catch {
+        return 'unknown';
+    }
 }
 
 export function isPrivateIPv4(ip: string) {

@@ -32,7 +32,12 @@ export interface MachineSnapshot {
     networks: NetworkInterfaceInfo[];
 }
 
-export type ProbeServiceState = 'active' | 'activating' | 'inactive' | 'failed' | 'not-found' | 'unknown';
+/**
+ * `installed` means the unit file is present but systemd cannot report its runtime state, which is
+ * the case whenever there is no running manager to ask.
+ */
+export type ProbeServiceState =
+    | 'active' | 'activating' | 'inactive' | 'failed' | 'installed' | 'not-found' | 'unknown';
 
 export interface MachineToolsConfig {
     seat?: string;

@@ -17,8 +17,9 @@ import type {
 import { runPrivileged, writePrivilegedFile } from '../utils/privileged';
 import { testProbeReport } from '../utils/probe';
 import {
-    collectMachineSnapshot, deriveServerEndpoints, HEARTBEAT_CONFIG_PATH, heartbeatVersionUrl,
-    MACHINE_TOOLS_ENV_PATH, SEAT_CONFIG_PATH, shellQuote,
+    collectMachineSnapshot, deriveServerEndpoints, getProbeServiceState, getUnitActiveState,
+    HEARTBEAT_CONFIG_PATH, HEARTBEAT_SERVICE_UNIT, HEARTBEAT_TIMER_UNIT, heartbeatVersionUrl,
+    MACHINE_TOOLS_ENV_PATH, PROBE_SERVICE_UNIT, SEAT_CONFIG_PATH, shellQuote, unitFileExists,
 } from '../utils/system';
 import { MachineInfo } from './MachineInfo';
 import { VideoDebug, VideoQuickControls } from './VideoDebug';
@@ -91,11 +92,14 @@ function StatusTile({
     );
 }
 
+type ReporterMode = 'probe' | 'heartbeat';
+
 const probeServiceLabels: Record<ProbeServiceState, string> = {
     active: 'systemd 已启动',
     activating: 'systemd 启动中',
     inactive: 'systemd 未启动',
     failed: 'systemd 启动失败',
+    installed: '已安装，systemd 未运行',
     'not-found': '镜像缺少 systemd 服务',
     unknown: 'systemd 状态未知',
 };
@@ -112,6 +116,7 @@ export function SetupPanel({
     const [testingHeartbeat, setTestingHeartbeat] = useState(false);
     const [testingProbe, setTestingProbe] = useState(false);
     const [heartbeatTimerActive, setHeartbeatTimerActive] = useState(false);
+    const [heartbeatUnitInstalled, setHeartbeatUnitInstalled] = useState(false);
     const [heartbeatServiceResult, setHeartbeatServiceResult] = useState('');
     const [probeTest, setProbeTest] = useState<ProbeTestState>();
     const [operationError, setOperationError] = useState('');
@@ -121,7 +126,10 @@ export function SetupPanel({
     const [videoOpened, videoControls] = useDisclosure(false);
 
     const cleanSeat = seat.trim();
-    const useProbe = probeServiceState !== 'not-found' && probeServiceState !== 'unknown';
+    // `not-found` is the only state that positively rules the probe out; every other state means the
+    // unit file is installed, including `installed`, which is what a machine without a running
+    // systemd reports. This drives the display only — saving resolves the mode from disk instead.
+    const probeUnitInstalled = probeServiceState !== 'not-found' && probeServiceState !== 'unknown';
     const primaryNetwork = snapshot?.networks.find((network) => network.isDefault) || snapshot?.networks[0];
     const ip = snapshot?.ip || primaryNetwork?.ipv4[0] || '';
     const endpoints = useMemo(() => {
@@ -134,6 +142,8 @@ export function SetupPanel({
     const probeDetail = probeTest
         ? `最近测试：${new Date(probeTest.reportedAt).toLocaleTimeString()}`
         : '尚未测试';
+    let heartbeatTileValue = '镜像未安装';
+    if (heartbeatUnitInstalled) heartbeatTileValue = heartbeatTimerActive ? '定时器运行中' : '定时器未运行';
 
     const validateSeat = useCallback(() => {
         if (!cleanSeat || !/^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/.test(cleanSeat)) {
@@ -145,11 +155,13 @@ export function SetupPanel({
     const currentReportToken = useCallback(() => reportToken.trim(), [reportToken]);
 
     const refreshHeartbeatState = useCallback(async () => {
-        const [timer, service] = await Promise.all([
-            os.execCommand('systemctl is-active heartbeat.timer').catch(() => undefined),
-            os.execCommand('systemctl show heartbeat.service --property=Result').catch(() => undefined),
+        const [installed, timerState, service] = await Promise.all([
+            unitFileExists(HEARTBEAT_TIMER_UNIT),
+            getUnitActiveState(HEARTBEAT_TIMER_UNIT),
+            os.execCommand(`systemctl show ${shellQuote(HEARTBEAT_SERVICE_UNIT)} --property=Result`).catch(() => undefined),
         ]);
-        setHeartbeatTimerActive(timer?.stdOut.trim() === 'active');
+        setHeartbeatUnitInstalled(installed);
+        setHeartbeatTimerActive(timerState === 'active');
         setHeartbeatServiceResult(service?.stdOut.trim().split('=')[1] || '');
     }, []);
 
@@ -235,11 +247,12 @@ export function SetupPanel({
     };
 
     const showHeartbeatService = async () => {
-        const result = await os.execCommand('systemctl status heartbeat.service --no-pager');
+        const unit = probeUnitInstalled ? PROBE_SERVICE_UNIT : HEARTBEAT_SERVICE_UNIT;
+        const result = await os.execCommand(`systemctl status ${shellQuote(unit)} --no-pager`);
         await refreshHeartbeatState();
         notifications.show({
             color: result.exitCode === 0 ? 'blue' : 'yellow',
-            title: 'heartbeat.service 状态',
+            title: `${unit} 状态`,
             message: result.stdOut || result.stdErr || 'No output',
             autoClose: 10_000,
         });
@@ -271,24 +284,51 @@ export function SetupPanel({
         }
     };
 
-    const restartProbe = async () => {
-        await runPrivileged('/usr/bin/systemctl', ['enable', 'hydro-machine-tools.service', '--now']);
-        await runPrivileged('/usr/bin/systemctl', ['restart', 'hydro-machine-tools.service']);
-        const state = await os.execCommand('systemctl is-active hydro-machine-tools.service');
-        if (state.stdOut.trim() !== 'active') {
-            throw new Error(state.stdErr || '镜像内置的 hydro-machine-tools.service 未启动');
-        }
-        onProbeServiceState('active');
+    /** Best effort: the reporter we are switching away from must never fail the whole save. */
+    const stopReporterUnit = async (unit: string) => {
+        if (!await unitFileExists(unit)) return;
+        await runPrivileged('/usr/bin/systemctl', ['disable', unit]).catch(() => undefined);
+        await runPrivileged('/usr/bin/systemctl', ['stop', unit]).catch(() => undefined);
     };
 
-    const startReporter = async () => {
-        if (useProbe) {
-            await restartProbe();
-            await runPrivileged('/usr/bin/systemctl', ['disable', 'heartbeat.timer', '--now']);
-        } else {
-            await runPrivileged('/usr/bin/systemctl', ['enable', 'heartbeat.timer', '--now']);
+    /** Resolve the reporter from the unit files that are actually present, never from stale state. */
+    const resolveReporterMode = async (): Promise<ReporterMode> => {
+        const [probeInstalled, heartbeatInstalled] = await Promise.all([
+            unitFileExists(PROBE_SERVICE_UNIT),
+            unitFileExists(HEARTBEAT_TIMER_UNIT),
+        ]);
+        setHeartbeatUnitInstalled(heartbeatInstalled);
+        if (probeInstalled) return 'probe';
+        if (heartbeatInstalled) return 'heartbeat';
+        throw new Error(`镜像既没有 ${PROBE_SERVICE_UNIT} 也没有 ${HEARTBEAT_TIMER_UNIT}，无法启动上报服务`);
+    };
+
+    const startProbe = async () => {
+        // `enable` still works without a running manager, `restart` is the part systemd skips when
+        // there is none. Keeping them apart means `enable --now` cannot fail the save just for that.
+        await runPrivileged('/usr/bin/systemctl', ['enable', PROBE_SERVICE_UNIT]);
+        await runPrivileged('/usr/bin/systemctl', ['restart', PROBE_SERVICE_UNIT]);
+        const state = await getProbeServiceState();
+        onProbeServiceState(state);
+        if (state === 'active') return '已启用 WebSocket Probe';
+        // Without a running manager nothing can be started, so enabling it is all that can be done.
+        if (state === 'installed') {
+            return `已启用 WebSocket Probe，${PROBE_SERVICE_UNIT} 已设为开机自启（当前环境没有运行中的 systemd）`;
         }
+        throw new Error(`${PROBE_SERVICE_UNIT} 未能启动（当前状态：${state}），请用「服务状态」查看日志`);
+    };
+
+    const startReporter = async (mode: ReporterMode) => {
+        if (mode === 'probe') {
+            const summary = await startProbe();
+            await stopReporterUnit(HEARTBEAT_TIMER_UNIT);
+            await refreshHeartbeatState();
+            return summary;
+        }
+        await runPrivileged('/usr/bin/systemctl', ['enable', HEARTBEAT_TIMER_UNIT]);
+        await runPrivileged('/usr/bin/systemctl', ['restart', HEARTBEAT_TIMER_UNIT]);
         await refreshHeartbeatState();
+        return '已启用 HTTP heartbeat';
     };
 
     const saveReporting = async (force: boolean) => {
@@ -297,11 +337,12 @@ export function SetupPanel({
         try {
             const resolved = endpoints;
             if (!resolved) throw new Error('请输入有效的服务器或 HEARTBEATURL');
+            const mode = await resolveReporterMode();
             if (!force) {
-                if (useProbe) await testProbe(false);
+                if (mode === 'probe') await testProbe(false);
                 else await testHeartbeat(false);
             }
-            if (useProbe) {
+            if (mode === 'probe') {
                 await writePrivilegedFile(
                     MACHINE_TOOLS_ENV_PATH,
                     `PROBEURL=${shellQuote(resolved.probeUrl)}\nREPORTTOKEN=${shellQuote(currentReportToken())}\n`,
@@ -314,13 +355,13 @@ export function SetupPanel({
             }
             onConfigChange({
                 ...configForEndpoints(),
-                probeEnabled: useProbe,
+                probeEnabled: mode === 'probe',
             });
-            await startReporter();
+            const summary = await startReporter(mode);
             notifications.show({
                 color: 'blue',
                 title: force ? '已强制保存上报配置' : '上报配置已测试并保存',
-                message: useProbe ? '已启用 WebSocket Probe' : '已启用 HTTP heartbeat',
+                message: summary,
             });
         } catch (error) {
             setOperationError((error as Error).message);
@@ -339,10 +380,10 @@ export function SetupPanel({
             const hostname = await os.execCommand('hostname').then((result) => result.stdOut.trim()).catch(() => '');
             if (!force && hostname !== nextSeat) throw new Error('主机名与座位号不匹配，请先保存座位号');
             if (!force && !ip) throw new Error('未获取到内网 IP，请检查网络连接');
-            if (!force && (!config.heartbeatUrl || (useProbe && !config.probeEnabled))) {
+            if (!force && (!config.heartbeatUrl || (probeUnitInstalled && !config.probeEnabled))) {
                 throw new Error('上报配置尚未保存，请先保存上报配置');
             }
-            await startReporter();
+            await startReporter(await resolveReporterMode());
             const markup = `<span font='${nextSeat.length > 4 ? 128 : 256}'>${nextSeat}\n</span><span font='128'>${ip}</span>`;
             os.execCommand(`zenity --info --text ${shellQuote(markup)} > /dev/null 2>&1 &`).catch(() => undefined);
             notifications.show({
@@ -416,12 +457,12 @@ export function SetupPanel({
                         <StatusTile
                             icon={IconActivityHeartbeat}
                             label="HTTP Heartbeat"
-                            value={heartbeatTimerActive ? '定时器运行中' : '定时器未运行'}
-                            detail="heartbeat.timer"
+                            value={heartbeatTileValue}
+                            detail={HEARTBEAT_TIMER_UNIT}
                         />
                         <StatusTile
                             icon={IconServer}
-                            label="heartbeat.service"
+                            label={HEARTBEAT_SERVICE_UNIT}
                             value={heartbeatServiceResult || '未知'}
                             detail="Result 每 30 秒刷新"
                         />
@@ -475,13 +516,14 @@ export function SetupPanel({
                         </Group>
 
                         <Divider
-                            label={useProbe ? 'WebSocket Probe（当前上报方式）' : 'WebSocket Probe（镜像未安装）'}
+                            label={probeUnitInstalled
+                                ? `WebSocket Probe（当前上报方式 · ${probeServiceLabels[probeServiceState]}）`
+                                : `WebSocket Probe（镜像未安装 ${PROBE_SERVICE_UNIT}）`}
                             labelPosition="center"
                         />
                         <Group grow>
                             <Button
                                 variant="light"
-                                disabled={!useProbe}
                                 loading={testingProbe}
                                 onClick={() => testProbe().catch(() => undefined)}
                             >

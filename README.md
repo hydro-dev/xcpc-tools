@@ -118,7 +118,7 @@ hydro-machine-tools                 # 本机配置
 hydro-machine-tools --presentation  # 赛前展示
 ```
 
-座位号写入 `/var/lib/icpc/config.json`。如果镜像提供 `hydro-machine-tools.service`，配置程序把 Probe 地址和上报 Token 写入 `/etc/default/hydro-machine-tools`，启用 WebSocket Probe 并停用 `heartbeat.timer`；旧镜像则写入 `/etc/default/icpc-heartbeat`，继续使用 HTTP heartbeat。
+座位号写入 `/var/lib/icpc/config.json`。上报方式由镜像里实际存在的 unit 文件决定：提供 `hydro-machine-tools.service` 时把 Probe 地址和上报 Token 写入 `/etc/default/hydro-machine-tools`，启用 WebSocket Probe 并停用 `heartbeat.timer`（该 unit 不存在时跳过）；只提供 `heartbeat.timer` 的旧镜像写入 `/etc/default/icpc-heartbeat`，继续使用 HTTP heartbeat；两者都没有时直接提示镜像缺少上报服务。
 
 上报服务启动后，可在 `http://服务IP:5283/#/monitor` 查看选手机状态。
 
