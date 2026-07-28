@@ -17,8 +17,8 @@ import type {
 import { runPrivileged, writePrivilegedFile } from '../utils/privileged';
 import { testProbeReport } from '../utils/probe';
 import {
-    collectMachineSnapshot, deriveServerEndpoints, HEARTBEAT_CONFIG_PATH, heartbeatVersionUrl,
-    MACHINE_TOOLS_ENV_PATH, SEAT_CONFIG_PATH, shellQuote,
+    collectMachineSnapshot, deriveServerEndpoints, HEARTBEAT_CONFIG_PATH, HEARTBEAT_TIMER_UNIT,
+    heartbeatVersionUrl, MACHINE_TOOLS_ENV_PATH, SEAT_CONFIG_PATH, shellQuote, systemdUnitExists,
 } from '../utils/system';
 import { MachineInfo } from './MachineInfo';
 import { VideoDebug, VideoQuickControls } from './VideoDebug';
@@ -112,6 +112,7 @@ export function SetupPanel({
     const [testingHeartbeat, setTestingHeartbeat] = useState(false);
     const [testingProbe, setTestingProbe] = useState(false);
     const [heartbeatTimerActive, setHeartbeatTimerActive] = useState(false);
+    const [heartbeatAvailable, setHeartbeatAvailable] = useState(false);
     const [heartbeatServiceResult, setHeartbeatServiceResult] = useState('');
     const [probeTest, setProbeTest] = useState<ProbeTestState>();
     const [operationError, setOperationError] = useState('');
@@ -145,10 +146,12 @@ export function SetupPanel({
     const currentReportToken = useCallback(() => reportToken.trim(), [reportToken]);
 
     const refreshHeartbeatState = useCallback(async () => {
-        const [timer, service] = await Promise.all([
+        const [available, timer, service] = await Promise.all([
+            systemdUnitExists(HEARTBEAT_TIMER_UNIT),
             os.execCommand('systemctl is-active heartbeat.timer').catch(() => undefined),
             os.execCommand('systemctl show heartbeat.service --property=Result').catch(() => undefined),
         ]);
+        setHeartbeatAvailable(available);
         setHeartbeatTimerActive(timer?.stdOut.trim() === 'active');
         setHeartbeatServiceResult(service?.stdOut.trim().split('=')[1] || '');
     }, []);
@@ -284,7 +287,8 @@ export function SetupPanel({
     const startReporter = async () => {
         if (useProbe) {
             await restartProbe();
-            await runPrivileged('/usr/bin/systemctl', ['disable', 'heartbeat.timer', '--now']);
+            // v2-only images ship no heartbeat.timer, and systemctl disable fails on a missing unit.
+            if (heartbeatAvailable) await runPrivileged('/usr/bin/systemctl', ['disable', 'heartbeat.timer', '--now']);
         } else {
             await runPrivileged('/usr/bin/systemctl', ['enable', 'heartbeat.timer', '--now']);
         }
