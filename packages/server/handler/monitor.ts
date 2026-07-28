@@ -1,3 +1,4 @@
+import net from 'net';
 import path from 'path';
 import { Context } from 'cordis';
 import fs from 'fs-extra';
@@ -114,6 +115,19 @@ class MonitorAdminHandler extends AuthHandler {
 
 const escape = (str = '') => str.trim().replace(/"/g, '\\"').replace(/\r/g, '').replace(/\n/g, '\\n');
 
+const UNROUTABLE_IPS = new Set(['127.0.0.1', '0.0.0.0', '::1', '::']);
+
+/**
+ * The address a machine reports for itself is the one that is actually reachable for SSH and
+ * Prometheus scrapes. The connection address is only a fallback: behind a reverse proxy it
+ * degrades to the loopback address of the proxy, and behind NAT it points at the gateway.
+ */
+function normalizeReportedIp(value: any) {
+    const ip = String(value ?? '').trim().replace(/^::ffff:/, '');
+    if (!net.isIP(ip) || UNROUTABLE_IPS.has(ip)) return '';
+    return ip;
+}
+
 async function saveMonitorInfo(ctx: Context, monitor: any) {
     const {
         mac, version, uptime, seats, ip,
@@ -228,7 +242,7 @@ class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
             version: probe.version || 'machine-tools',
             uptime: probe.uptime || 0,
             seats: probe.hostname || this.mac,
-            ip: this.request.ip.replace('::ffff:', ''),
+            ip: normalizeReportedIp(probe.ip) || this.request.ip.replace('::ffff:', ''),
             os: probe.os,
             kernel: probe.kernel,
             cpu: probe.cpu,
