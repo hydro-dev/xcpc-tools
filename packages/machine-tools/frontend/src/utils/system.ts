@@ -8,6 +8,7 @@ export const SEAT_CONFIG_PATH = '/var/lib/icpc/config.json';
 export const HEARTBEAT_CONFIG_PATH = '/etc/default/icpc-heartbeat';
 export const MACHINE_TOOLS_ENV_PATH = '/etc/default/hydro-machine-tools';
 export const HEARTBEAT_TIMER_UNIT = 'heartbeat.timer';
+export const PROBE_SERVICE_UNIT = 'hydro-machine-tools.service';
 export const PRESENTATION_CACHE_PATH = `/tmp/xcpc-tools-presentation-${window.NL_PID || 'session'}.json`;
 const PRESENTATION_CACHE_TEMP_PATH = `${PRESENTATION_CACHE_PATH}.tmp`;
 let presentationCacheOperation = Promise.resolve<unknown>(undefined);
@@ -17,21 +18,6 @@ export interface MachineToolsEndpoints {
     heartbeatUrl: string;
     probeUrl: string;
     presentationUrl: string;
-}
-
-export async function getProbeServiceState(): Promise<ProbeServiceState> {
-    try {
-        const loadState = await os.execCommand(
-            'systemctl show hydro-machine-tools.service --property=LoadState --value',
-        );
-        if (loadState.stdOut.trim() !== 'loaded') return 'not-found';
-        const result = await os.execCommand('systemctl is-active hydro-machine-tools.service');
-        const state = result.stdOut.trim();
-        if (['active', 'activating', 'inactive', 'failed'].includes(state)) return state as ProbeServiceState;
-        return 'unknown';
-    } catch {
-        return 'unknown';
-    }
 }
 
 interface IpAddressEntry {
@@ -57,6 +43,18 @@ export async function systemdUnitExists(unit: string) {
         return loadState.stdOut.trim() === 'loaded';
     } catch {
         return false;
+    }
+}
+
+export async function getProbeServiceState(): Promise<ProbeServiceState> {
+    try {
+        if (!await systemdUnitExists(PROBE_SERVICE_UNIT)) return 'not-found';
+        const result = await os.execCommand(`systemctl is-active ${shellQuote(PROBE_SERVICE_UNIT)}`);
+        const state = result.stdOut.trim();
+        if (['active', 'activating', 'inactive', 'failed'].includes(state)) return state as ProbeServiceState;
+        return 'unknown';
+    } catch {
+        return 'unknown';
     }
 }
 
