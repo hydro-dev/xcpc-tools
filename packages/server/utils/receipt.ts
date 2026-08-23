@@ -1,18 +1,26 @@
 import { exec } from 'node:child_process';
 import path from 'node:path';
 import fs from 'fs-extra';
-import { Logger, windowsPrinterStatus } from './index';
+import { formatError, Logger, windowsPrinterStatus } from './index';
 
 const logger = new Logger('receipt');
 
 export async function checkReceiptPrinter(printers: object[]) {
     if (process.platform === 'linux') {
+        if (!fs.existsSync('/dev/usb')) {
+            logger.info('If you want to use balloon client, please connect your receipt printer first.');
+            return;
+        }
         const usbDevices = fs.readdirSync('/dev/usb');
         for (const f of usbDevices) {
             if (f.startsWith('lp')) {
-                const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
-                logger.info(`USB Printer ${f} found: ${lpid}`);
-                logger.info(`If you want to use this printer for balloon print, please set balloon: /dev/usb/${f} in config.yaml.`);
+                try {
+                    const lpid = fs.readFileSync(`/sys/class/usbmisc/${f}/device/ieee1284_id`, 'utf8').trim();
+                    logger.info(`USB Printer ${f} found: ${lpid}`);
+                    logger.info(`If you want to use this printer for balloon print, please set balloon: /dev/usb/${f} in config.yaml.`);
+                } catch (error) {
+                    logger.warn(`Unable to inspect receipt printer ${f}: ${formatError(error)}`);
+                }
             }
         }
         if (!usbDevices.length) logger.info('If you want to use balloon client, please connect your receipt printer first.');

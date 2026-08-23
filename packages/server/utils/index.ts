@@ -3,6 +3,17 @@ import { decode } from 'base16384';
 
 export { Logger, sleep, randomstring } from '@hydrooj/utils';
 
+export function formatError(error: any) {
+    const message = error instanceof Error ? error.message : String(error);
+    const nested = Array.isArray(error?.errors)
+        ? error.errors.map((item: any) => {
+            const detail = item instanceof Error ? item.message : String(item);
+            return item?.code && !detail.includes(item.code) ? `${item.code}: ${detail}` : detail;
+        }).filter(Boolean).join('; ')
+        : '';
+    return [message !== 'AggregateError' ? message : '', nested].filter(Boolean).join('; ') || 'Unknown error';
+}
+
 // https://github.com/andrasq/node-mongoid-js/blob/master/mongoid.js
 export function mongoId(idstring: string) {
     if (typeof idstring !== 'string') idstring = String(idstring);
