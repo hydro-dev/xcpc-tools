@@ -1,12 +1,12 @@
 import {
-  Alert, Badge, Button, FileInput, Group, Menu, Modal, Paper, ScrollArea, SegmentedControl,
+  Alert, Badge, Button, Checkbox, FileInput, Group, Modal, Paper, ScrollArea, SegmentedControl,
   Select, SimpleGrid, Skeleton, Stack, Table, Text, TextInput, ThemeIcon,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
   IconAlertCircle, IconCloudDownload, IconDownload, IconFileImport, IconPhotoDown,
-  IconSchool, IconSearch, IconUpload,
+  IconEye, IconSchool, IconSearch, IconUpload,
 } from '@tabler/icons-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
@@ -37,6 +37,11 @@ const sourceLabel = (source: string) => {
   return 'Not configured';
 };
 
+const previewValue = (value: unknown) => {
+  if (Array.isArray(value)) return value.join(', ') || '—';
+  return String(value ?? '').trim() || '—';
+};
+
 type ImportMappingField =
   | 'id' | 'name' | 'school' | 'seat'
   | 'member1' | 'member2' | 'member3'
@@ -54,6 +59,25 @@ const importFields: Array<{ field: ImportMappingField; label: string; required?:
   { field: 'coach', label: 'Coach' },
   { field: 'group', label: 'Group' },
 ];
+
+type ExportFormat = 'json' | 'csv' | 'accounts';
+const exportFieldOptions = [
+  { value: 'id', label: 'Team ID' },
+  { value: 'name', label: 'Name' },
+  { value: 'display_name', label: 'Display name' },
+  { value: 'school', label: 'School' },
+  { value: 'member1', label: 'Member 1' },
+  { value: 'member2', label: 'Member 2' },
+  { value: 'member3', label: 'Member 3' },
+  { value: 'coach', label: 'Coach' },
+  { value: 'organization_id', label: 'Organization ID' },
+  { value: 'seat', label: 'Seat' },
+  { value: 'location', label: 'Location' },
+  { value: 'group', label: 'Group' },
+  { value: 'ip', label: 'IP address' },
+  { value: 'logo', label: 'Logo' },
+];
+const defaultExportFields = exportFieldOptions.map((field) => field.value);
 
 const uploadFormat = (file: File | null) => {
   const filename = file?.name.toLowerCase() || '';
@@ -75,6 +99,11 @@ export default function PresentationTeams() {
   const [importColumns, setImportColumns] = React.useState<string[]>([]);
   const [importMapping, setImportMapping] = React.useState<ImportMapping>({});
   const [preview, setPreview] = React.useState<any>(null);
+  const [logoPreview, setLogoPreview] = React.useState<{ name: string; src: string } | null>(null);
+  const [exportOpened, setExportOpened] = React.useState(false);
+  const [exportFormat, setExportFormat] = React.useState<ExportFormat>('json');
+  const [exportFields, setExportFields] = React.useState(defaultExportFields);
+  const [exportSummary, setExportSummary] = React.useState<any>(null);
 
   const refresh = React.useCallback(async () => {
     await Promise.all([
@@ -98,21 +127,122 @@ export default function PresentationTeams() {
     }
   }, [refresh]);
 
-  const loadFromOj = () => modals.openConfirmModal({
-    title: 'Load the current OJ team list?',
-    children: (
-      <Text size="sm">
-        This replaces the presentation roster with the latest successfully fetched OJ snapshot.
-        Teams without a seat are skipped.
-      </Text>
-    ),
-    labels: { confirm: 'Load from OJ', cancel: 'Cancel' },
-    onConfirm: () => run(
-      'oj',
-      async () => (await operation('from_oj')).json(),
-      (result) => `Loaded ${result.teams?.length || 0} teams${result.skipped ? `; skipped ${result.skipped} without seats` : ''}.`,
-    ),
-  });
+  const loadFromOj = async () => {
+    setBusy('oj-preview');
+    try {
+      const preview = await (await operation('from_oj_preview')).json();
+      const { summary } = preview;
+      const changes: Array<{ key: string; label: string; color: string; title: string; details: string[] }> = [
+        ...(preview.added || []).map((team: any) => ({
+          key: `added-${team.id}`,
+          label: 'Added',
+          color: 'green',
+          title: `${team.name} (${team.id})`,
+          details: [
+            `Seat: ${previewValue(team.seat)}`,
+            `School: ${previewValue(team.school)}`,
+            `Members: ${previewValue(team.members)}`,
+            `Coach: ${previewValue(team.coach)}`,
+          ],
+        })),
+        ...(preview.updated || []).map((team: any) => ({
+          key: `updated-${team.id}`,
+          label: 'Changed',
+          color: 'yellow',
+          title: `${team.name} (${team.id})`,
+          details: (team.changes || []).map((change: any) => (
+            `${change.field}: ${previewValue(change.before)} → ${previewValue(change.after)}`
+          )),
+        })),
+        ...(preview.removed || []).map((team: any) => ({
+          key: `removed-${team.id}`,
+          label: 'Removed',
+          color: 'red',
+          title: `${team.name} (${team.id})`,
+          details: [
+            `Seat: ${previewValue(team.seat)}`,
+            `School: ${previewValue(team.school)}`,
+            `Members: ${previewValue(team.members)}`,
+            `Coach: ${previewValue(team.coach)}`,
+          ],
+        })),
+        ...(preview.skipped || []).map((team: any) => ({
+          key: `skipped-${team.id}`,
+          label: 'Skipped',
+          color: 'gray',
+          title: `${team.name} (${team.id})`,
+          details: [
+            'Seat: missing in OJ',
+            `School: ${previewValue(team.school)}`,
+            `Members: ${previewValue(team.members)}`,
+            `Coach: ${previewValue(team.coach)}`,
+          ],
+        })),
+      ];
+      modals.openConfirmModal({
+        title: 'Review changes from OJ',
+        size: 'xl',
+        children: (
+          <Stack gap="md">
+            <Text size="sm">No local data is changed until you confirm this replacement.</Text>
+            <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+              {[
+                { label: 'Current', value: summary.current, color: 'gray' },
+                { label: 'From OJ', value: summary.incoming, color: 'blue' },
+                { label: 'Added', value: summary.added, color: 'green' },
+                { label: 'Changed', value: summary.updated, color: 'yellow' },
+                { label: 'Removed', value: summary.removed, color: 'red' },
+                { label: 'Skipped', value: summary.skipped, color: 'gray' },
+              ].map(({ label, value, color }) => (
+                <Paper key={label} withBorder p="xs" radius="sm">
+                  <Text size="xs" c="dimmed">{label}</Text>
+                  <Text fw={700} ff="monospace" c={color}>{value}</Text>
+                </Paper>
+              ))}
+            </SimpleGrid>
+            {changes.length ? (
+              <Stack gap={6} mah={360} style={{ overflowY: 'auto' }}>
+                {changes.slice(0, 200).map((change) => (
+                  <Group key={change.key} gap="xs" align="flex-start" wrap="nowrap">
+                    <Badge color={change.color} variant="light" w={74}>{change.label}</Badge>
+                    <div style={{ minWidth: 0 }}>
+                      <Text size="sm">{change.title}</Text>
+                      {change.details.map((detail) => (
+                        <Text size="xs" c="dimmed" key={detail}>{detail}</Text>
+                      ))}
+                    </div>
+                  </Group>
+                ))}
+                {changes.length > 200 && (
+                  <Text size="xs" c="dimmed">Showing the first 200 of {changes.length} differences.</Text>
+                )}
+              </Stack>
+            ) : (
+              <Text size="sm" c="dimmed">The local roster already matches the OJ roster.</Text>
+            )}
+          </Stack>
+        ),
+        labels: { confirm: 'Replace with OJ roster', cancel: 'Cancel' },
+        confirmProps: { color: summary.removed ? 'red' : 'blue' },
+        onConfirm: () => run(
+          'oj',
+          async () => (await operation('from_oj', {
+            revision: preview.revision,
+            snapshotHash: preview.snapshotHash,
+          })).json(),
+          (result) => `Loaded ${result.teams?.length || 0} teams${result.skipped ? `; skipped ${result.skipped} without seats` : ''}.`,
+        ),
+      });
+    } catch (error) {
+      notifications.show({
+        title: 'Unable to compare OJ teams',
+        message: error instanceof Error ? error.message : String(error),
+        color: 'red',
+      });
+    } finally {
+      setBusy('');
+    }
+  };
 
   const chooseFile = async (file: File | null) => {
     setUploadFile(file);
@@ -188,27 +318,90 @@ export default function PresentationTeams() {
     }
   };
 
-  const syncAvatars = () => run(
-    'avatars',
-    async () => (await operation('sync_avatars')).json(),
-    (result) => `Matched ${result.matched} schools; ${result.failed} could not be downloaded.`,
-  );
-
-  const downloadExport = async (formatName: 'json' | 'csv') => {
-    setBusy(`export-${formatName}`);
+  const syncAvatars = async () => {
+    setBusy('avatars');
     try {
-      const response = await operation('export', { format: formatName });
+      const result = await (await operation('sync_avatars')).json();
+      const failures = Array.isArray(result.failures) ? result.failures : [];
+      await refresh();
+      modals.open({
+        title: 'Logo sync completed',
+        size: 'lg',
+        children: (
+          <Stack gap="md">
+            <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+              {[
+                { label: 'Matched', value: result.matched, color: 'blue' },
+                { label: 'Updated', value: result.updated, color: 'green' },
+                { label: 'Already current', value: result.cached, color: 'gray' },
+                { label: 'Unavailable', value: result.failed, color: result.failed ? 'red' : 'gray' },
+              ].map(({ label, value, color }) => (
+                <Paper key={label} withBorder p="xs" radius="sm">
+                  <Text size="xs" c="dimmed">{label}</Text>
+                  <Text fw={700} ff="monospace" c={color}>{value}</Text>
+                </Paper>
+              ))}
+            </SimpleGrid>
+            {result.fallbackReason && (
+              <Alert color="yellow" title="GitHub API fallback">
+                {result.fallbackReason}. Logos were fetched directly instead.
+              </Alert>
+            )}
+            {failures.length ? (
+              <Paper withBorder p="sm" radius="md">
+                <Text fw={600} size="sm" mb="sm">Unavailable schools</Text>
+                <Stack gap="sm" mah={320} style={{ overflowY: 'auto' }}>
+                  {failures.map((failure: any) => (
+                    <div key={failure.school}>
+                      <Text size="sm" fw={600}>{failure.school}</Text>
+                      <Text size="xs" c="dimmed">{failure.reason}</Text>
+                    </div>
+                  ))}
+                </Stack>
+                {Number(result.failed) > failures.length && (
+                  <Text size="xs" c="dimmed" mt="sm">
+                    Showing {failures.length} of {result.failed} unavailable schools.
+                  </Text>
+                )}
+              </Paper>
+            ) : (
+              <Text size="sm" c="dimmed">All roster schools available in the avatar registry are up to date.</Text>
+            )}
+          </Stack>
+        ),
+      });
+    } catch (error) {
+      notifications.show({
+        title: 'Logo sync failed',
+        message: error instanceof Error ? error.message : String(error),
+        color: 'red',
+      });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const downloadExport = async () => {
+    setBusy('export');
+    try {
+      const response = await operation('export', {
+        format: exportFormat,
+        ...(exportFormat !== 'accounts' && { fields: exportFields }),
+      });
       const blob = await response.blob();
       const href = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = href;
-      anchor.download = `presentation-teams.${formatName}`;
+      anchor.download = exportFormat === 'accounts'
+        ? 'accounts.json'
+        : `presentation-teams.${exportFormat}`;
       anchor.click();
       URL.revokeObjectURL(href);
       const matched = response.headers.get('X-Presentation-Matched') || '0';
       const missing = response.headers.get('X-Presentation-Missing') || '0';
       const ambiguous = response.headers.get('X-Presentation-Ambiguous') || '0';
       notifications.show({ title: 'Export ready', message: `${matched} IPs matched, ${missing} missing, ${ambiguous} ambiguous.`, color: 'blue' });
+      setExportOpened(false);
     } catch (error) {
       notifications.show({ title: 'Export failed', message: error instanceof Error ? error.message : String(error), color: 'red' });
     } finally {
@@ -216,26 +409,11 @@ export default function PresentationTeams() {
     }
   };
 
-  const confirmExport = async (formatName: 'json' | 'csv') => {
-    setBusy(`export-preview-${formatName}`);
+  const openExport = async () => {
+    setBusy('export-preview');
     try {
-      const summary = await (await operation('export_preview')).json();
-      modals.openConfirmModal({
-        title: `Export ${formatName.toUpperCase()} with current IP addresses?`,
-        children: (
-          <Stack gap="xs">
-            <Text size="sm">The export uses workstation reports received during the last two minutes.</Text>
-            <SimpleGrid cols={4} spacing="sm">
-              <div><Text size="xs" c="dimmed">Teams</Text><Text fw={700} ff="monospace">{summary.total}</Text></div>
-              <div><Text size="xs" c="dimmed">Matched</Text><Text fw={700} ff="monospace">{summary.matched}</Text></div>
-              <div><Text size="xs" c="dimmed">Missing</Text><Text fw={700} ff="monospace">{summary.missing}</Text></div>
-              <div><Text size="xs" c="dimmed">Ambiguous</Text><Text fw={700} ff="monospace">{summary.ambiguous}</Text></div>
-            </SimpleGrid>
-          </Stack>
-        ),
-        labels: { confirm: `Download ${formatName.toUpperCase()}`, cancel: 'Cancel' },
-        onConfirm: () => downloadExport(formatName),
-      });
+      setExportSummary(await (await operation('export_preview')).json());
+      setExportOpened(true);
     } catch (error) {
       notifications.show({
         title: 'Unable to prepare export',
@@ -279,7 +457,7 @@ export default function PresentationTeams() {
               variant="default"
               leftSection={<IconCloudDownload size={16} />}
               disabled={!query.data?.ojAvailable}
-              loading={busy === 'oj'}
+              loading={busy === 'oj' || busy === 'oj-preview'}
               onClick={loadFromOj}
             >
               Load from OJ
@@ -290,15 +468,14 @@ export default function PresentationTeams() {
             <Button size="xs" variant="default" leftSection={<IconPhotoDown size={16} />} loading={busy === 'avatars'} onClick={syncAvatars}>
               Fetch logos
             </Button>
-            <Menu position="bottom-end">
-              <Menu.Target>
-                <Button size="xs" leftSection={<IconDownload size={16} />} loading={busy.startsWith('export-')}>Export with IP</Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item onClick={() => confirmExport('json')}>JSON</Menu.Item>
-                <Menu.Item onClick={() => confirmExport('csv')}>CSV</Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+            <Button
+              size="xs"
+              leftSection={<IconDownload size={16} />}
+              loading={busy.startsWith('export')}
+              onClick={openExport}
+            >
+              Export teams
+            </Button>
           </Group>
         )}
       />
@@ -407,11 +584,27 @@ export default function PresentationTeams() {
                     <Text size="sm">{team.school || '-'}</Text>
                     <Group gap={4} mt={3} wrap="nowrap">
                       <Text size="xs" c="dimmed">Logo:</Text>
-                      <Badge size="sm" variant="light" color={team.logo ? 'blue' : 'gray'}>
-                        {team.logo?.startsWith('/presentation-assets/')
-                          ? 'Cached'
-                          : team.logo ? 'Remote' : 'Missing'}
-                      </Badge>
+                      {team.logo?.startsWith('/presentation-assets/') ? (
+                        <Badge
+                          component="button"
+                          type="button"
+                          size="sm"
+                          variant="light"
+                          color="blue"
+                          rightSection={<IconEye size={11} />}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setLogoPreview({
+                            name: String(team.school || team.displayName || team.name || 'School logo'),
+                            src: String(team.logo),
+                          })}
+                        >
+                          Cached
+                        </Badge>
+                      ) : (
+                        <Badge size="sm" variant="light" color={team.logo ? 'blue' : 'gray'}>
+                          {team.logo ? 'Remote' : 'Missing'}
+                        </Badge>
+                      )}
                     </Group>
                   </Table.Td>
                   <Table.Td>
@@ -432,6 +625,85 @@ export default function PresentationTeams() {
           </Table>
         </ScrollArea>
       </Paper>
+
+      <Modal opened={exportOpened} onClose={() => setExportOpened(false)} title="Export teams" size="lg" centered>
+        <Stack gap="md">
+          <Text size="sm">IP addresses are matched from workstation reports received during the last two minutes.</Text>
+          {exportSummary && (
+            <SimpleGrid cols={4} spacing="sm">
+              <div><Text size="xs" c="dimmed">Teams</Text><Text fw={700} ff="monospace">{exportSummary.total}</Text></div>
+              <div><Text size="xs" c="dimmed">Matched</Text><Text fw={700} ff="monospace">{exportSummary.matched}</Text></div>
+              <div><Text size="xs" c="dimmed">Missing</Text><Text fw={700} ff="monospace">{exportSummary.missing}</Text></div>
+              <div><Text size="xs" c="dimmed">Ambiguous</Text><Text fw={700} ff="monospace">{exportSummary.ambiguous}</Text></div>
+            </SimpleGrid>
+          )}
+          <SegmentedControl
+            fullWidth
+            value={exportFormat}
+            onChange={(value) => setExportFormat(value as ExportFormat)}
+            data={[
+              { value: 'json', label: 'Hydro JSON' },
+              { value: 'csv', label: 'CSV' },
+              { value: 'accounts', label: 'CLICS accounts.json' },
+            ]}
+          />
+          {exportFormat === 'accounts' ? (
+            <Text size="sm" c="dimmed">CLICS account fields are fixed by the specification.</Text>
+          ) : (
+            <Paper withBorder p="sm" radius="md">
+              <Group justify="space-between" mb="sm">
+                <Text size="sm" fw={600}>Fields</Text>
+                <Group gap="xs">
+                  <Button size="xs" variant="subtle" onClick={() => setExportFields(defaultExportFields)}>Select all</Button>
+                  <Button size="xs" variant="subtle" onClick={() => setExportFields([])}>Clear</Button>
+                </Group>
+              </Group>
+              <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
+                {exportFieldOptions.map((field) => (
+                  <Checkbox
+                    key={field.value}
+                    label={field.label}
+                    checked={exportFields.includes(field.value)}
+                    onChange={(event) => setExportFields((current) => {
+                      const selected = new Set(current);
+                      if (event.currentTarget.checked) selected.add(field.value);
+                      else selected.delete(field.value);
+                      return exportFieldOptions.map((option) => option.value).filter((value) => selected.has(value));
+                    })}
+                  />
+                ))}
+              </SimpleGrid>
+            </Paper>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setExportOpened(false)}>Cancel</Button>
+            <Button
+              leftSection={<IconDownload size={16} />}
+              disabled={exportFormat !== 'accounts' && !exportFields.length}
+              loading={busy === 'export'}
+              onClick={downloadExport}
+            >
+              Download
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={Boolean(logoPreview)}
+        onClose={() => setLogoPreview(null)}
+        title={logoPreview?.name || 'School logo'}
+        centered
+        size="sm"
+      >
+        {logoPreview && (
+          <img
+            src={logoPreview.src}
+            alt={`${logoPreview.name} logo`}
+            style={{ display: 'block', maxWidth: '100%', maxHeight: '60dvh', margin: '0 auto', objectFit: 'contain' }}
+          />
+        )}
+      </Modal>
 
       <Modal opened={uploadOpened} onClose={() => setUploadOpened(false)} title="Upload presentation teams" size="lg">
         <Stack>

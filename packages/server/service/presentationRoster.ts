@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import path from 'node:path';
 import superagent from 'superagent';
-import { fs } from '../utils';
+import { formatError, fs } from '../utils';
 import { normalizePresentationLogo } from './presentation';
 
 export interface PresentationTeam {
@@ -70,7 +70,10 @@ const emptyDocument = (): PresentationRosterDocument => ({
 });
 
 const text = (value: unknown, max = maxFieldLength) => String(value ?? '').trim().slice(0, max);
-export const normalizeSeat = (value: unknown) => text(value, 64).normalize('NFKC').toUpperCase();
+export const normalizeSeat = (value: unknown) => text(
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as any).description : value,
+    64,
+).normalize('NFKC').toUpperCase();
 const normalizeSchool = (value: unknown) => text(value, 160).normalize('NFKC');
 
 const readInitialDocument = (): PresentationRosterDocument => {
@@ -153,6 +156,17 @@ const pick = (team: any, ...keys: string[]) => {
     return '';
 };
 
+const parsePublicDescription = (value: unknown) => {
+    const people = text(value).split(/[|/,，、]/).map((person) => text(person, 160)).filter(Boolean);
+    const coach = people[people.length - 1] || '';
+    const marker = /\s*[（(](?:教练|coach)[)）]\s*$/i;
+    if (!marker.test(coach)) return { members: [], coach: '' };
+    return {
+        members: people.slice(0, -1).slice(0, 3),
+        coach: coach.replace(marker, '').trim(),
+    };
+};
+
 export const normalizePresentationTeam = (
     team: any,
     source: PresentationTeam['source'],
@@ -163,7 +177,8 @@ export const normalizePresentationTeam = (
     const groupIds = Array.isArray(team?.group_ids) ? team.group_ids : [];
     const explicitGroup = pick(team, 'group', 'location_group', 'group_id');
     const group = explicitGroup === '' ? groupIds[0] : explicitGroup;
-    const members = (Array.isArray(team?.members)
+    const description = parsePublicDescription(team?.public_description);
+    const explicitMembers = (Array.isArray(team?.members)
         ? team.members
         : [
             pick(team, 'member1', 'member_1', 'contestant1'),
@@ -173,13 +188,14 @@ export const normalizePresentationTeam = (
         .map((member) => text(member, 160))
         .filter(Boolean)
         .slice(0, 3);
+    const members = explicitMembers.length ? explicitMembers : description.members;
     return {
         id: text(pick(team, 'id', '_id', 'team_id'), 128),
         name: text(pick(team, 'name', 'team_name', 'uname'), 160),
         displayName: text(pick(team, 'displayName', 'display_name', 'name', 'team_name', 'uname'), 160),
         school,
         members,
-        coach: text(pick(team, 'coach', 'coach_name'), 160),
+        coach: text(pick(team, 'coach', 'coach_name'), 160) || description.coach,
         organizationId: text(pick(team, 'organizationId', 'organization_id'), 128),
         seat,
         location: normalizeSeat(pick(team, 'location', 'seat', 'studentId', 'room', 'romm')) || seat,
@@ -415,16 +431,101 @@ export const commitImport = async (
     return saveDocument(teams, 'upload', '', text(revision, 128));
 };
 
-export const replaceFromOj = async (teams: any[], contestId: unknown) => {
+const ojSnapshotHash = (teams: PresentationTeam[]) => createHash('sha256')
+    .update(JSON.stringify(teams, (key, value) => (key === 'updatedAt' ? undefined : value)))
+    .digest('hex');
+
+const prepareOjTeams = (teams: any[], contestId: unknown) => {
+    const teamsWithCachedLogos = currentDocument.teams
+        .filter((team) => team.logo.startsWith('/presentation-assets/'));
+    const cachedLogosById = new Map(teamsWithCachedLogos.map((team) => [team.id, team.logo]));
+    const cachedLogosBySchool = new Map(teamsWithCachedLogos
+        .filter((team) => team.school)
+        .map((team) => [normalizeSchool(team.school), team.logo]));
     const normalized = teams
         .filter((team) => !team.hidden)
         .map((team) => normalizePresentationTeam(team, 'oj', text(contestId, 128)));
-    const skipped = normalized.filter((team) => !team.seat).length;
-    const assigned = normalized.filter((team) => team.seat);
+    const snapshotHash = ojSnapshotHash(normalized);
+    const prepared = normalized.map((team) => ({
+        ...team,
+        logo: cachedLogosById.get(team.id)
+            || cachedLogosBySchool.get(normalizeSchool(team.school))
+            || team.logo,
+    }));
+    const skipped = prepared.filter((team) => !team.seat);
+    const assigned = prepared.filter((team) => team.seat);
     const errors = validateTeams(assigned);
     if (errors.length) throw new Error(errors[0]);
-    const document = await saveDocument(assigned, 'oj', text(contestId, 128));
-    return { document, skipped };
+    return { assigned, skipped, snapshotHash };
+};
+
+const ojComparableFields = [
+    'name', 'displayName', 'school', 'members', 'coach', 'organizationId',
+    'seat', 'location', 'group', 'logo',
+] as const;
+
+const ojTeamSummary = (team: PresentationTeam) => ({
+    id: team.id,
+    name: team.displayName || team.name,
+    seat: team.seat,
+    school: team.school,
+    members: team.members,
+    coach: team.coach,
+});
+
+export const previewFromOj = (teams: any[], contestId: unknown) => {
+    const { assigned, skipped, snapshotHash } = prepareOjTeams(teams, contestId);
+    const currentById = new Map(currentDocument.teams.map((team) => [team.id, team]));
+    const incomingIds = new Set(assigned.map((team) => team.id));
+    const added = assigned.filter((team) => !currentById.has(team.id));
+    const updated = assigned.flatMap((team) => {
+        const current = currentById.get(team.id);
+        if (!current) return [];
+        const fields = ojComparableFields.filter((field) => JSON.stringify(current[field]) !== JSON.stringify(team[field]));
+        return fields.length ? [{
+            ...ojTeamSummary(team),
+            previousSeat: current.seat,
+            fields,
+            changes: fields.map((field) => ({
+                field,
+                before: current[field],
+                after: team[field],
+            })),
+        }] : [];
+    });
+    const removed = currentDocument.teams.filter((team) => !incomingIds.has(team.id));
+    return {
+        revision: currentDocument.revision,
+        snapshotHash,
+        summary: {
+            current: currentDocument.teams.length,
+            incoming: assigned.length,
+            added: added.length,
+            updated: updated.length,
+            removed: removed.length,
+            unchanged: assigned.length - added.length - updated.length,
+            skipped: skipped.length,
+        },
+        added: added.map(ojTeamSummary),
+        updated,
+        removed: removed.map(ojTeamSummary),
+        skipped: skipped.map(ojTeamSummary),
+    };
+};
+
+export const replaceFromOj = async (
+    teams: any[],
+    contestId: unknown,
+    expectedRevision?: unknown,
+    expectedSnapshotHash?: unknown,
+) => {
+    const { assigned, skipped, snapshotHash } = prepareOjTeams(teams, contestId);
+    if (expectedSnapshotHash !== undefined && snapshotHash !== text(expectedSnapshotHash, 128)) {
+        throw new Error('OJ roster changed after preview; preview it again');
+    }
+    const revision = expectedRevision === undefined ? undefined : text(expectedRevision, 128);
+    const document = await saveDocument(assigned, 'oj', text(contestId, 128), revision);
+    return { document, skipped: skipped.length };
 };
 
 const safeRegistrySchool = (school: string) => {
@@ -433,70 +534,123 @@ const safeRegistrySchool = (school: string) => {
     return normalized;
 };
 
-const downloadAvatar = async (school: string) => {
+const gitBlobSha = (body: Buffer) => createHash('sha1')
+    .update(`blob ${body.length}\0`)
+    .update(body)
+    .digest('hex');
+
+const cachedAvatarSha = (logo: string) => {
+    const match = /^\/presentation-assets\/([a-f0-9]{64}\.webp)$/i.exec(logo);
+    if (!match) return '';
+    const asset = path.join(avatarDirectory, match[1]);
+    if (!fs.existsSync(asset)) return '';
+    return gitBlobSha(fs.readFileSync(asset));
+};
+
+const downloadAvatar = async (school: string, expectedSha = '') => {
     const safeSchool = safeRegistrySchool(school);
     if (!safeSchool) throw new Error('invalid school name');
-    const hash = createHash('sha256').update(safeSchool).digest('hex');
-    const filename = `${hash}.webp`;
-    const destination = path.join(avatarDirectory, filename);
-    if (fs.existsSync(destination)) return `/presentation-assets/${filename}`;
-    const url = `https://raw.githubusercontent.com/hydro-dev/avatar-registry/main/avatars/${encodeURIComponent(safeSchool)}.webp`;
+    const url = `https://raw.githubusercontent.com/hydro-dev/avatar-registry/main/avatars/${encodeURIComponent(safeSchool)}.webp?v=${expectedSha || Date.now()}`;
     const response = await superagent.get(url)
         .redirects(2)
         .buffer(true)
         .timeout({ response: 10_000, deadline: 20_000 })
         .ok((res) => res.status === 200);
-    const mime = String(response.headers['content-type'] || '').split(';')[0].toLowerCase();
     const body = Buffer.isBuffer(response.body) ? response.body : Buffer.from(response.body || '');
-    if (mime !== 'image/webp') throw new Error(`unexpected content type ${mime || 'unknown'}`);
     if (!body.length || body.length > 2 * 1024 * 1024) throw new Error('avatar exceeds the 2MB limit');
+    if (expectedSha && gitBlobSha(body) !== expectedSha) throw new Error('avatar registry changed; retry the update');
+    if (body.length < 12 || body.subarray(0, 4).toString('ascii') !== 'RIFF'
+        || body.subarray(8, 12).toString('ascii') !== 'WEBP') throw new Error('avatar is not a WebP image');
+    const filename = `${createHash('sha256').update(body).digest('hex')}.webp`;
+    const destination = path.join(avatarDirectory, filename);
     fs.ensureDirSync(avatarDirectory);
-    const temporary = `${destination}.${process.pid}.tmp`;
-    fs.writeFileSync(temporary, body);
-    await fs.move(temporary, destination, { overwrite: true });
+    if (!fs.existsSync(destination)) {
+        const temporary = `${destination}.${process.pid}.${createHash('sha256').update(safeSchool).digest('hex').slice(0, 12)}.tmp`;
+        fs.writeFileSync(temporary, body);
+        await fs.move(temporary, destination, { overwrite: true });
+    }
     return `/presentation-assets/${filename}`;
 };
 
 export const syncRegistryAvatars = async () => {
     const current = currentDocument;
     const schools = [...new Set(current.teams.map((team) => safeRegistrySchool(team.school)).filter(Boolean))];
+    if (!schools.length) return {
+        document: current, matched: 0, updated: 0, cached: 0, failed: 0, failures: [],
+    };
+    let registryShas: Map<string, string> | null = null;
+    let fallbackReason = '';
+    try {
+        const treeResponse = await superagent
+            .get('https://api.github.com/repos/hydro-dev/avatar-registry/git/trees/main?recursive=1')
+            .accept('application/vnd.github+json')
+            .set('User-Agent', 'hydro-dev/xcpc-tools')
+            .timeout({ response: 10_000, deadline: 20_000 })
+            .ok((res) => res.status === 200);
+        if (!Array.isArray(treeResponse.body?.tree) || treeResponse.body.truncated) {
+            throw new Error('GitHub returned an incomplete avatar registry tree');
+        }
+        registryShas = new Map(treeResponse.body.tree
+            .filter((entry: any) => entry.type === 'blob' && /^avatars\/[^/]+\.webp$/.test(entry.path))
+            .map((entry: any) => [entry.path, String(entry.sha)]));
+    } catch (error) {
+        fallbackReason = formatError(error);
+    }
+    const currentLogos = new Map(current.teams
+        .filter((team) => team.school && team.logo)
+        .map((team) => [safeRegistrySchool(team.school), team.logo]));
     const logos = new Map<string, string>();
     const failures: Array<{ school: string; reason: string }> = [];
+    let cached = 0;
     let cursor = 0;
     const workers = Array.from({ length: Math.min(4, schools.length) }, async () => {
         // Each worker intentionally processes one bounded registry download at a time.
         while (cursor < schools.length) {
             const school = schools[cursor++];
             try {
+                const expectedSha = registryShas?.get(`avatars/${school}.webp`) || '';
+                if (registryShas && !expectedSha) throw new Error('not found in avatar registry');
+                if (expectedSha && cachedAvatarSha(currentLogos.get(school) || '') === expectedSha) {
+                    cached++;
+                    continue;
+                }
                 // eslint-disable-next-line no-await-in-loop
-                logos.set(school, await downloadAvatar(school));
+                logos.set(school, await downloadAvatar(school, expectedSha));
             } catch (error: any) {
-                failures.push({ school, reason: text(error?.message || error, 200) });
+                failures.push({ school, reason: text(formatError(error), 200) });
             }
         }
     });
     await Promise.all(workers);
-    const teams = current.teams.map((team) => (
-        logos.has(team.school) ? { ...team, logo: logos.get(team.school)! } : team
-    ));
+    const teams = current.teams.map((team) => {
+        const school = safeRegistrySchool(team.school);
+        return logos.has(school) ? { ...team, logo: logos.get(school)! } : team;
+    });
     const document = logos.size
         ? await saveDocument(teams, current.source, current.sourceContestId, current.revision)
         : current;
     return {
         document,
-        matched: logos.size,
+        matched: cached + logos.size,
+        updated: logos.size,
+        cached,
         failed: failures.length,
         failures: failures.slice(0, 100),
+        fallbackReason,
     };
 };
 
-const csvCell = (value: unknown) => {
-    const cell = String(value ?? '');
-    const safe = /^[=+\-@]/.test(cell) ? `'${cell}` : cell;
-    return `"${safe.replace(/"/g, '""')}"`;
-};
+export type TeamExportField =
+    | 'id' | 'name' | 'display_name' | 'school'
+    | 'member1' | 'member2' | 'member3' | 'coach'
+    | 'organization_id' | 'seat' | 'location' | 'group' | 'ip' | 'logo';
 
-export const buildExport = (monitors: any[], format: unknown) => {
+export const teamExportFields: TeamExportField[] = [
+    'id', 'name', 'display_name', 'school', 'member1', 'member2', 'member3',
+    'coach', 'organization_id', 'seat', 'location', 'group', 'ip', 'logo',
+];
+
+const rosterWithIps = (monitors: any[]) => {
     const roster = currentDocument;
     const now = Date.now();
     const monitorBySeat = new Map<string, any[]>();
@@ -508,11 +662,54 @@ export const buildExport = (monitors: any[], format: unknown) => {
     }
     let matched = 0;
     let ambiguous = 0;
-    const rows = roster.teams.map((team) => {
+    const teams = roster.teams.map((team) => {
         const candidates = monitorBySeat.get(team.seat) || [];
         if (candidates.length === 1) matched++;
         else if (candidates.length > 1) ambiguous++;
-        return {
+        return { team, ip: candidates.length === 1 ? text(candidates[0].ip, 64) : '' };
+    });
+    const summary = {
+        total: teams.length,
+        matched,
+        missing: teams.length - matched - ambiguous,
+        ambiguous,
+    };
+    return { teams, summary };
+};
+
+export const buildAccountsExport = (monitors: any[]) => {
+    const { teams, summary } = rosterWithIps(monitors);
+    const accounts = teams.map(({ team, ip }) => ({
+        id: team.id,
+        username: team.id,
+        name: team.displayName || team.name,
+        type: 'team',
+        ...(ip && { ip }),
+        team_id: team.id,
+    }));
+    return {
+        content: JSON.stringify(accounts, null, 2),
+        type: 'application/json; charset=utf-8',
+        filename: 'accounts.json',
+        summary,
+    };
+};
+
+const csvCell = (value: unknown) => {
+    const cell = String(value ?? '');
+    const safe = /^[=+\-@]/.test(cell) ? `'${cell}` : cell;
+    return `"${safe.replace(/"/g, '""')}"`;
+};
+
+export const buildTeamExport = (monitors: any[], format: unknown, requestedFields: unknown) => {
+    const allowed = new Set(teamExportFields);
+    const fields = [...new Set((Array.isArray(requestedFields) ? requestedFields : teamExportFields)
+        .map((field) => String(field) as TeamExportField)
+        .filter((field) => allowed.has(field)))];
+    if (!fields.length) throw new Error('Select at least one field to export');
+    const { teams, summary } = rosterWithIps(monitors);
+    const rows = teams.map(({ team, ip }) => {
+        const values: Record<TeamExportField, string> = {
             id: team.id,
             name: team.name,
             display_name: team.displayName,
@@ -525,33 +722,24 @@ export const buildExport = (monitors: any[], format: unknown) => {
             seat: team.seat,
             location: team.location,
             group: team.group,
-            ip: candidates.length === 1 ? text(candidates[0].ip, 64) : '',
+            ip,
             logo: team.logo,
         };
+        return Object.fromEntries(fields.map((field) => [field, values[field]]));
     });
-    const fields = [
-        'id', 'name', 'display_name', 'school', 'member1', 'member2', 'member3', 'coach',
-        'organization_id', 'seat', 'location', 'group', 'ip', 'logo',
-    ];
-    const summary = {
-        total: rows.length,
-        matched,
-        missing: rows.length - matched - ambiguous,
-        ambiguous,
-    };
     if (String(format).toLowerCase() === 'csv') {
         const csv = [fields.join(','), ...rows.map((row) => fields.map((field) => csvCell(row[field])).join(','))].join('\r\n');
         return {
             content: `\uFEFF${csv}`,
             type: 'text/csv; charset=utf-8',
-            extension: 'csv',
+            filename: 'presentation-teams.csv',
             summary,
         };
     }
     return {
         content: JSON.stringify({ teams: rows, summary, exportedAt: Date.now() }, null, 2),
         type: 'application/json; charset=utf-8',
-        extension: 'json',
+        filename: 'presentation-teams.json',
         summary,
     };
 };

@@ -11,7 +11,8 @@ import StaticFrontend from '../data/static.frontend';
 import { normalizePresentationLogo } from '../service/presentation';
 import {
     avatarDirectory,
-    buildExport,
+    buildAccountsExport,
+    buildTeamExport,
     commitImport,
     getPresentationRoster,
     getPresentationRosterStats,
@@ -19,11 +20,12 @@ import {
     inspectImport,
     normalizeSeat,
     previewImport,
+    previewFromOj,
     replaceFromOj,
     syncRegistryAvatars,
 } from '../service/presentationRoster';
 import {
-    createMetricsRegistry, decodeBinary, fs, randomstring, StaticHTML,
+    createMetricsRegistry, decodeBinary, formatError, fs, randomstring, StaticHTML,
 } from '../utils';
 import { CLIENT_ONLINE_WINDOW } from './printRouting';
 
@@ -323,7 +325,7 @@ class OverviewHandler extends AuthHandler {
 }
 
 const asBadRequest = (error: unknown): never => {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = formatError(error);
     throw new BadRequestError(message.slice(0, 500));
 };
 
@@ -339,15 +341,33 @@ class PresentationTeamsHandler extends AuthHandler {
         };
     }
 
-    async postFromOj() {
+    async postFromOj(params) {
         const overview = await contestOverview(this.ctx);
         if (config.type === 'server' || !overview.contest) throw new BadRequestError('Configure Hydro or DOMjudge before loading teams');
         try {
             await this.ctx.fetcher.teamInfo();
             const teams = await this.ctx.db.teams.find({});
             if (!teams.some((team) => !team.hidden)) throw new Error('The OJ team list is empty');
-            const { document, skipped } = await replaceFromOj(teams, overview.contest?.id || '');
+            const { document, skipped } = await replaceFromOj(
+                teams,
+                overview.contest?.id || '',
+                params.revision,
+                params.snapshotHash,
+            );
             this.response.body = { ...document, skipped };
+        } catch (error) {
+            asBadRequest(error);
+        }
+    }
+
+    async postFromOjPreview() {
+        const overview = await contestOverview(this.ctx);
+        if (config.type === 'server' || !overview.contest) throw new BadRequestError('Configure Hydro or DOMjudge before loading teams');
+        try {
+            await this.ctx.fetcher.teamInfo();
+            const teams = await this.ctx.db.teams.find({});
+            if (!teams.some((team) => !team.hidden)) throw new Error('The OJ team list is empty');
+            this.response.body = previewFromOj(teams, overview.contest?.id || '');
         } catch (error) {
             asBadRequest(error);
         }
@@ -392,20 +412,26 @@ class PresentationTeamsHandler extends AuthHandler {
     }
 
     async postExport(params) {
-        const monitors = await this.ctx.db.monitor.find({});
-        const result = buildExport(monitors, params.format);
-        this.response.type = result.type;
-        this.response.disposition = `attachment; filename="presentation-teams.${result.extension}"`;
-        this.response.addHeader('X-Presentation-Total', String(result.summary.total));
-        this.response.addHeader('X-Presentation-Matched', String(result.summary.matched));
-        this.response.addHeader('X-Presentation-Missing', String(result.summary.missing));
-        this.response.addHeader('X-Presentation-Ambiguous', String(result.summary.ambiguous));
-        this.response.body = result.content;
+        try {
+            const monitors = await this.ctx.db.monitor.find({});
+            const result = params.format === 'accounts'
+                ? buildAccountsExport(monitors)
+                : buildTeamExport(monitors, params.format, params.fields);
+            this.response.type = result.type;
+            this.response.disposition = `attachment; filename="${result.filename}"`;
+            this.response.addHeader('X-Presentation-Total', String(result.summary.total));
+            this.response.addHeader('X-Presentation-Matched', String(result.summary.matched));
+            this.response.addHeader('X-Presentation-Missing', String(result.summary.missing));
+            this.response.addHeader('X-Presentation-Ambiguous', String(result.summary.ambiguous));
+            this.response.body = result.content;
+        } catch (error) {
+            asBadRequest(error);
+        }
     }
 
     async postExportPreview() {
         const monitors = await this.ctx.db.monitor.find({});
-        this.response.body = buildExport(monitors, 'json').summary;
+        this.response.body = buildAccountsExport(monitors).summary;
     }
 }
 

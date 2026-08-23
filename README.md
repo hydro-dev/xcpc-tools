@@ -192,8 +192,8 @@ scrape_configs:
 
 `Teams / Presentation` 页面维护选手设备展示页使用的独立 roster。Server Mode 可上传 JSON、CSV 或 TSV；选择文件后需将原始表头映射到队伍 ID、队名、学校、座位、队员 1/2/3、教练和组别。队伍 ID 未选择时使用座位号。Hydro 或 DOMjudge 已连接时也可点击 `Load from OJ` 现场刷新并复制当前比赛队伍。OJ 数据不会持续覆盖已经确认的展示 roster。
 
-- `Fetch logos` 按完整学校名从 `hydro-dev/avatar-registry` 获取 WebP 校徽，下载后由本服务本地缓存和提供。
-- `Export with IP` 会先显示实时 IP 的匹配、缺失和歧义统计，确认后下载 JSON 或带 UTF-8 BOM 的 CSV。
+- `Fetch logos` 按完整学校名从 `hydro-dev/avatar-registry` 获取 WebP 校徽，优先通过 GitHub blob SHA 只更新变化的文件；GitHub API 不可用时退回逐校直接拉取。下载后由本服务本地缓存和提供。
+- `Export teams` 会先显示实时 IP 的匹配、缺失和歧义统计。可导出字段可选的 Hydro JSON 或 CSV，也可下载字段固定、符合 CLICS Account 对象格式的 `accounts.json`。
 - `/presentation?seat=A01` 始终从该 roster 精确匹配座位，为 machine-tools 展示队名、学校、座位和校徽。
 
 #### WebSSH
