@@ -291,10 +291,12 @@ class HydroFetcher extends BasicFetcher {
         }
         await this.ctx.db.teams.remove({ id: { $nin: teams.map((team) => team._id) } }, { multi: true });
         for (const team of teams) {
+            const { _id: teamId, ...teamData } = team;
             const logo = resolvePublicAssetUrl(team.schoolLogo || team.logo || team.avatar, config.server);
-            await this.ctx.db.teams.update({ id: team._id }, {
+            await this.ctx.db.teams.update({ id: teamId }, {
                 $set: {
-                    ...team,
+                    ...teamData,
+                    id: teamId,
                     ...logo && { logo },
                 },
             }, { upsert: true });
