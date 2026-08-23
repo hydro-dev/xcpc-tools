@@ -3,7 +3,7 @@ import Schema from 'schemastery';
 import { version as packageVersion } from './package.json';
 import {
     checkReceiptPrinter,
-    fs, getPrinters, Logger, randomstring, yaml,
+    formatError, fs, getPrinters, Logger, randomstring, yaml,
 } from './utils';
 
 const logger = new Logger('init');
@@ -78,9 +78,17 @@ monitor:
 `;
         let printers = [];
         if (isClient) {
-            printers = (await getPrinters().catch(() => [])).map((p: any) => p.printer);
+            try {
+                printers = (await getPrinters()).map((p: any) => p.printer);
+            } catch (error) {
+                logger.warn(`Unable to detect printers: ${formatError(error)}`);
+            }
             logger.info(printers.length, 'printers found:', JSON.stringify(printers));
-            await checkReceiptPrinter(await getPrinters(true));
+            try {
+                await checkReceiptPrinter(process.platform === 'win32' ? await getPrinters(true) : []);
+            } catch (error) {
+                logger.warn(`Unable to detect receipt printers: ${formatError(error)}`);
+            }
         }
         const clientConfigDefault = yaml.dump({
             server: '',

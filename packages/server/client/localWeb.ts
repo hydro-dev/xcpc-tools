@@ -28,7 +28,6 @@ const checkPortAvailable = (host: string, port: number) => new Promise<void>((re
 class ClientHomeHandler extends Handler {
     async get() {
         this.response.addHeader('Cache-Control', 'no-store');
-        this.response.addHeader('Content-Security-Policy', "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
         this.response.type = 'text/html';
         this.response.body = StaticHTML({ clientMode: true }, frontendHash);
     }
@@ -37,8 +36,8 @@ class ClientHomeHandler extends Handler {
 class ClientFrontendHandler extends Handler {
     async get() {
         this.response.addHeader('Cache-Control', 'public, max-age=86400');
-        this.response.type = 'text/javascript';
         this.binary(frontend, 'main.js');
+        this.response.type = 'text/javascript';
     }
 }
 

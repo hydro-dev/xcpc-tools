@@ -137,8 +137,8 @@ class StaticHandler extends Handler {
     async get() {
         this.response.addHeader('Cache-Control', 'public');
         this.response.addHeader('Expires', new Date(new Date().getTime() + 86400000).toUTCString());
-        this.response.type = 'text/javascript';
         this.binary(buf, 'main.js');
+        this.response.type = 'text/javascript';
     }
 }
 
