@@ -95,6 +95,10 @@ export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, locat
     }
 }
 
+const printerUsable = (printer: any) => (
+    config.printIgnorePrinterStatus || printer.status === 'idle'
+);
+
 export async function printFile(docs, targetPrinter = '') {
     let finalFile = null;
     const files = [];
@@ -132,7 +136,7 @@ export async function printFile(docs, targetPrinter = '') {
         const printers = printersInfo.filter((p) => (
             enabledPrinters.includes(p.printer)
             && (!targetPrinter || p.printer === targetPrinter)
-            && p.status === 'idle'
+            && printerUsable(p)
         ));
         if (printers.length) {
             const randomP = targetPrinter ? printers[0] : printers[Math.floor(Math.random() * printers.length)];
@@ -143,7 +147,7 @@ export async function printFile(docs, targetPrinter = '') {
             await print(finalFile, randomP.printer, 1, files.length > 1 ? undefined : config.printPageMax);
             return randomP.printer;
         }
-        logger.info(`No idle ${targetPrinter || 'enabled'} printer found, sleeping...`);
+        logger.info(`No ${config.printIgnorePrinterStatus ? 'available' : 'idle'} ${targetPrinter || 'enabled'} printer found, sleeping...`);
         await sleep(3000);
     }
     throw new Error('No Printer Configured');
@@ -194,6 +198,7 @@ async function fetchTask(c) {
                         group: printerGroups.get(p.printer) || undefined,
                     })),
                     preferredTargetPrinter: targetPrinter || undefined,
+                    ignorePrinterStatus: config.printIgnorePrinterStatus,
                 });
             setClientConnection('print', true);
             if (body.doc) {

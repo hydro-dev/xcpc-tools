@@ -176,12 +176,14 @@ class ClientPrintConnectHandler extends Handler {
         logger.info(`Client ${client.name}(${ip}) connected.`);
         const printers = stringArray(params.printers);
         const printersInfo = jsonArray(params.printersInfo);
+        const ignorePrinterStatus = params.ignorePrinterStatus === true || params.ignorePrinterStatus === 'true';
         await this.ctx.db.client.updateOne(
             { id: params.cid },
             {
                 $set: {
                     printers,
                     printersInfo,
+                    ignorePrinterStatus,
                     updateAt: Date.now(),
                     ip,
                 },
@@ -191,6 +193,7 @@ class ClientPrintConnectHandler extends Handler {
             ...client,
             printers,
             printersInfo,
+            ignorePrinterStatus,
             updateAt: Date.now(),
             ip,
         };

@@ -14,9 +14,18 @@ export interface PrinterClientState {
     updateAt?: number;
     printers?: string[];
     printersInfo?: Array<{ printer: string; status?: string; group?: string }>;
+    ignorePrinterStatus?: boolean;
 }
 
 const OPERATIONAL_PRINTER_STATUSES = new Set(['idle']);
+
+export function printerIsAvailable(client: PrinterClientState | undefined, printer: string) {
+    // A client may opt out of the idle-only check when the status reported by
+    // the driver is unreliable (see `printIgnorePrinterStatus` in config.yaml).
+    if (client?.ignorePrinterStatus) return true;
+    const info = client?.printersInfo?.find((item) => item.printer === printer);
+    return OPERATIONAL_PRINTER_STATUSES.has(String(info?.status || '').trim().toLowerCase());
+}
 
 export const normalizePrintGroup = (value: unknown) => String(value ?? '').trim().toUpperCase();
 
@@ -40,8 +49,7 @@ export function collectPrinterTargets(clients: PrinterClientState[]): PrinterTar
 export function clientHasTargetPrinter(client: PrinterClientState | undefined, printer: string, now = Date.now()) {
     if (!client?.updateAt || client.updateAt < now - CLIENT_ONLINE_WINDOW) return false;
     if (!client.printers?.includes(printer)) return false;
-    const info = client.printersInfo?.find((item) => item.printer === printer);
-    return OPERATIONAL_PRINTER_STATUSES.has(String(info?.status || '').trim().toLowerCase());
+    return printerIsAvailable(client, printer);
 }
 
 export function printCandidates(targets: PrinterTarget[], group: unknown, location: unknown) {
