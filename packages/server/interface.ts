@@ -80,6 +80,7 @@ export interface ClientDoc {
     // for print client
     printers?: string[];
     printersInfo?: any[];
+    ignorePrinterStatus?: boolean;
     updateAt?: number;
     ip?: string;
 }

@@ -89,6 +89,7 @@ monitor:
             balloonLang: 'zh',
             balloonType: 80,
             printColor: false,
+            printIgnorePrinterStatus: false,
             printers,
             localWeb: {
                 enabled: true,
@@ -201,6 +202,8 @@ const clientSchema = Schema.object({
     balloonCommand: Schema.string().default(''),
     balloonTemplate: Schema.string().default(balloonTemplateDefault),
     printColor: Schema.boolean().default(false),
+    printIgnorePrinterStatus: Schema.boolean().default(false)
+        .description('treat printers as available even when their reported status is not idle'),
     printPageMax: Schema.number().default(5),
     printMergeQueue: Schema.number().default(1),
     printers: Schema.array(Schema.union([
