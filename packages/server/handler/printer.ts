@@ -2,7 +2,6 @@ import path from 'node:path';
 import { Context } from 'cordis';
 import { BadRequestError, Handler, ValidationError } from '@hydrooj/framework';
 import { ConvertCodeToPDF } from '../client/printer';
-import { config } from '../config';
 import { fs, Logger } from '../utils';
 import { AuthHandler } from './misc';
 import {
@@ -209,8 +208,11 @@ class CodeHandler extends Handler {
     }
 }
 
-export async function apply(ctx: Context) {
+async function applyPrinterHandler(ctx: Context) {
     ctx.Route('print_admin', '/print', PrintAdminHandler);
-    ctx.Route('receive_code', `/print/${config.secretRoute}`, CodeHandler);
-    logger.info(`Code Print Route: /print/${config.secretRoute}`);
+    ctx.Route('receive_code', `/print/${ctx.config.config.secretRoute}`, CodeHandler);
+    logger.info(`Code Print Route: /print/${ctx.config.config.secretRoute}`);
 }
+
+export const inject = { config: true };
+export const apply = applyPrinterHandler;

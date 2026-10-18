@@ -4,7 +4,6 @@ import chardet from 'chardet';
 import * as iconv from 'iconv-lite';
 import { PDFDocument } from 'pdf-lib';
 import superagent from 'superagent';
-import { config } from '../config';
 import {
     fs, getPrinters, initWinPrinter, Logger, print, randomstring, sleep,
 } from '../utils';
@@ -15,14 +14,15 @@ import { createTypstCompiler, generateTypst } from './typst';
 
 let compiler;
 
-const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
+let cfg: any = null;
+const post = (url: string) => superagent.post(new URL(url, cfg.server).toString()).set('Accept', 'application/json');
 const logger = new Logger('printer');
 
 let timer = null;
 const CLIENT_PROTOCOL_VERSION = 2;
 
 const configuredPrinters = () => {
-    const printers = (config.printers || []).map((item: any) => (
+    const printers = (cfg.printers || []).map((item: any) => (
         typeof item === 'string'
             ? { printer: item, group: '' }
             : { printer: String(item.printer || ''), group: String(item.group || '').trim().toUpperCase() }
@@ -45,7 +45,7 @@ const mergePDFs = async (files: string[], output: string) => {
         logger.info(`${file} has ${srcPageCount} pages`);
         const copiedPages = await pdf.copyPages(
             srcDoc,
-            Array.from({ length: config.printPageMax > srcPageCount ? srcPageCount : config.printPageMax }, (_, i) => i),
+            Array.from({ length: cfg.printPageMax > srcPageCount ? srcPageCount : cfg.printPageMax }, (_, i) => i),
         );
         for (const page of copiedPages) {
             pdf.addPage(page);
@@ -111,7 +111,7 @@ export async function printFile(docs, targetPrinter = '') {
             team,
             location,
             createAt,
-            config.printColor,
+            cfg.printColor,
         );
         fs.writeFileSync(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`), pdf);
         files.push(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`));
@@ -140,7 +140,7 @@ export async function printFile(docs, targetPrinter = '') {
             for (const doc of docs) {
                 updateClientTask('print', doc._id, `${doc.location || 'Unknown seat'} · ${doc.filename}`, 'printing', { printer: randomP.printer });
             }
-            await print(finalFile, randomP.printer, 1, files.length > 1 ? undefined : config.printPageMax);
+            await print(finalFile, randomP.printer, 1, files.length > 1 ? undefined : cfg.printPageMax);
             return randomP.printer;
         }
         logger.info(`No idle ${targetPrinter || 'enabled'} printer found, sleeping...`);
@@ -182,7 +182,7 @@ async function fetchTask(c) {
         setPrinterStatus(printersInfo, enabledPrinters);
         const tasks = [];
         let targetPrinter = '';
-        for (let i = 0; i < config.printMergeQueue; i++) {
+        for (let i = 0; i < cfg.printMergeQueue; i++) {
             const { body } = await post(`${c.server}client/${c.token}/print`)
                 .send({
                     protocolVersion: CLIENT_PROTOCOL_VERSION,
@@ -271,7 +271,8 @@ async function fetchTask(c) {
     timer = setTimeout(() => fetchTask(c), 3000);
 }
 
-export async function apply() {
+async function applyPrinterClient(ctx) {
+    cfg = ctx.config.config;
     compiler = await createTypstCompiler();
     const printers = configuredPrinters();
     if (process.platform === 'win32') {
@@ -282,6 +283,9 @@ export async function apply() {
             process.exit(1);
         }
     }
-    if (config.token && config.server && printers.length) await fetchTask(config);
+    if (cfg.token && cfg.server && printers.length) await fetchTask(cfg);
     else logger.error('Config not found, please check the config.yaml');
 }
+
+export const inject = { config: true };
+export const apply = applyPrinterClient;

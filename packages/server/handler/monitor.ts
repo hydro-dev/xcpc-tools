@@ -4,7 +4,6 @@ import fs from 'fs-extra';
 import {
     BadRequestError, ConnectionHandler, ForbiddenError, Handler,
 } from '@hydrooj/framework';
-import { config } from '../config';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
 
@@ -134,7 +133,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
     const autoPayload: Record<string, string> = {};
     const templateValues = { ...monitor, hostname: seats };
     for (const field of ['name', 'group', 'camera', 'desktop'] as const) {
-        const template = config.monitor.auto?.[field];
+        const template = ctx.config.config.monitor.auto?.[field];
         if (field === 'group' && (template === true || typeof template === 'number')) {
             const hostname = String(seats || '').trim().toUpperCase();
             const group = template === true
@@ -186,7 +185,7 @@ class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
     dispatchQueue = Promise.resolve();
 
     async prepare() {
-        const expected = String(config.monitor.reportToken || '');
+        const expected = String(this.ctx.config.config.monitor.reportToken || '');
         if (expected && String(this.request.query?.token || '') !== expected) {
             throw new ForbiddenError('Invalid report token');
         }
@@ -307,7 +306,7 @@ class MonitorReportHandler extends Handler {
     }
 
     async post(params) {
-        const expected = String(config.monitor.reportToken || '');
+        const expected = String(this.ctx.config.config.monitor.reportToken || '');
         if (expected && String(this.request.query?.token || '') !== expected) {
             throw new ForbiddenError('Invalid report token');
         }
@@ -325,8 +324,8 @@ class MonitorPrometheusSDHandler extends AuthHandler {
     notUsage = true;
 
     async get() {
-        const exporters = config.monitor.exporters?.length
-            ? config.monitor.exporters
+        const exporters = this.ctx.config.config.monitor.exporters?.length
+            ? this.ctx.config.config.monitor.exporters
             : [{ job: 'node', port: 9100 }];
         const monitors = await this.ctx.db.monitor.find({});
         this.response.body = exporters.flatMap((exporter) => monitors
@@ -342,9 +341,12 @@ class MonitorPrometheusSDHandler extends AuthHandler {
     }
 }
 
-export async function apply(ctx: Context) {
+async function applyMonitorHandler(ctx: Context) {
     ctx.Route('monitor_report', '/report', MonitorReportHandler);
     ctx.Route('monitor_admin', '/monitor', MonitorAdminHandler);
     ctx.Route('monitor_prometheus_sd', '/sd', MonitorPrometheusSDHandler);
     ctx.Connection('machine_probe', '/probe', MachineProbeConnectionHandler);
 }
+
+export const inject = { config: true };
+export const apply = applyMonitorHandler;

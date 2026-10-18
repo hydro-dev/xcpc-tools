@@ -13,6 +13,11 @@ import type { Context } from 'cordis';
 // ---------------------------------------------------------------------------
 
 export async function applyServer(ctx: Context) {
+    // ConfigService loads config.server.yaml (template on first run); every
+    // downstream consumer injects 'config' and reads ctx.config.config
+    await ctx.plugin(require('../service/config'));
+    const configService = ctx.get('config') as any;
+    if (!configService?.loaded) return;
     // dbservice is required by everything downstream; register it here so
     // the loader path (which has no separate DBService entry) works too
     await ctx.plugin(require('../service/db').default);
@@ -40,8 +45,10 @@ export async function applyServer(ctx: Context) {
 }
 
 export async function applyClient(ctx: Context) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    const config = require('../config').config;
+    await ctx.plugin(require('../service/config'));
+    const configService = ctx.get('config') as any;
+    if (!configService?.loaded) return;
+    const config = configService.config;
     const localWeb = config.localWeb || {};
     if (localWeb.enabled !== false) {
         await ctx.plugin(require('../client/localWeb'), {

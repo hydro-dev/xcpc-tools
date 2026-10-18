@@ -4,7 +4,6 @@ import path from 'node:path';
 import { Context } from 'cordis';
 import { Registry } from 'prom-client';
 import { BadRequestError, Handler, NotFoundError } from '@hydrooj/framework';
-import { arenaLayouts, config, version } from '../config';
 import { getNotifierStatuses } from '../service/notifier';
 // @ts-ignore
 import StaticFrontend from '../data/static.frontend';
@@ -27,21 +26,21 @@ import {
 } from '../utils';
 import { CLIENT_ONLINE_WINDOW } from './printRouting';
 
-const randomHash = randomstring(8).toLowerCase();
 const buf = decodeBinary(StaticFrontend, 'static.frontend');
 const PRESENTATION_ONLINE_WINDOW = 120_000;
-const presentationConnections = new Map<string, number>();
-let registry: Registry;
 
-const connectedPresentationDevices = (now: number) => {
-    for (const [device, lastConnectedAt] of presentationConnections) {
-        if (lastConnectedAt <= now - PRESENTATION_ONLINE_WINDOW) presentationConnections.delete(device);
+declare module 'cordis' {
+    interface Context {
+        presentation: {
+            touch(device: string, at: number): void;
+            connectedDevices(now: number): number;
+        };
+        misc: { randomHash: string };
     }
-    return presentationConnections.size;
-};
+}
 
-const arenaLayoutsPath = () => path.resolve(process.cwd(), String(config.arenaLayouts || 'data/arena-layouts.json'));
-const arenaRevision = (layouts: unknown = arenaLayouts) => createHash('sha256')
+const arenaLayoutsPath = (config: any) => path.resolve(process.cwd(), String(config.arenaLayouts || 'data/arena-layouts.json'));
+const arenaRevision = (layouts: unknown) => createHash('sha256')
     .update(JSON.stringify(layouts))
     .digest('hex')
     .slice(0, 16);
@@ -119,8 +118,8 @@ const validateArenaLayouts = (input: unknown): any[] => {
     });
 };
 
-const saveArenaLayouts = (layouts: any[]) => {
-    const target = arenaLayoutsPath();
+const saveArenaLayouts = (config: any, arenaLayouts: unknown[], layouts: any[]) => {
+    const target = arenaLayoutsPath(config);
     fs.ensureDirSync(path.dirname(target));
     const content = `${JSON.stringify(layouts, null, 2)}\n`;
     const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
@@ -151,7 +150,7 @@ export class AuthHandler extends Handler {
             return 'cleanup';
         }
         const [uname, pass] = Buffer.from(this.request.headers.authorization.split(' ')[1], 'base64').toString().split(':');
-        if (uname !== 'admin' || pass !== config.viewPass.toString()) {
+        if (uname !== 'admin' || pass !== this.ctx.config.config.viewPass.toString()) {
             this.response.status = 401;
             this.response.addHeader('WWW-Authenticate', 'Basic realm="XCPC Tools"');
             this.response.body = 'Authentication failed';
@@ -168,13 +167,13 @@ const toTimestamp = (value: unknown): number | null => {
     return Number.isFinite(timestamp) ? timestamp : null;
 };
 
-const ojConnected = (ctx: Context) => config.type !== 'server'
+const ojConnected = (ctx: Context) => ctx.config.config.type !== 'server'
     && Number(ctx.fetcher?.sourceSuccessAt || 0) > Date.now() - 45_000
     && Number(ctx.fetcher?.sourceSuccessAt || 0) >= Number(ctx.fetcher?.sourceErrorAt || 0);
 
 const contestOverview = async (ctx: Context) => {
     const source = ctx.fetcher?.contest;
-    const hasContest = Boolean(config.type !== 'server' && source?.id && source.id !== 'server-mode');
+    const hasContest = Boolean(ctx.config.config.type !== 'server' && source?.id && source.id !== 'server-mode');
     const connected = Boolean(hasContest && ojConnected(ctx));
     const roster = getPresentationRoster();
     const [monitors, serviceClients] = await Promise.all([
@@ -220,7 +219,7 @@ const contestOverview = async (ctx: Context) => {
         };
     });
     return {
-        mode: config.type,
+        mode: ctx.config.config.type,
         connected,
         connectionError: connected ? '' : String(ctx.fetcher?.sourceError || '').slice(0, 240),
         contest: hasContest ? {
@@ -242,7 +241,7 @@ const contestOverview = async (ctx: Context) => {
         },
         ojTeams: ojTeams.length,
         presentation: {
-            connectedTeams: connectedPresentationDevices(now),
+            connectedTeams: ctx.presentation.connectedDevices(now),
         },
         clients: {
             services: clientOverview,
@@ -255,16 +254,16 @@ const contestOverview = async (ctx: Context) => {
 class HomeHandler extends AuthHandler {
     async get() {
         const context = {
-            secretRoute: config.secretRoute,
+            secretRoute: this.ctx.config.config.secretRoute,
             contest: this.ctx.fetcher?.contest || { name: 'Server Mode' },
-            arenaLayouts,
-            sshEnabled: config.ssh.enabled,
+            arenaLayouts: this.ctx.config.arenaLayouts,
+            sshEnabled: this.ctx.config.config.ssh.enabled,
         };
         if (this.request.headers.accept === 'application/json') {
             this.response.body = context;
         } else {
             this.response.type = 'text/html';
-            this.response.body = StaticHTML(context, randomHash);
+            this.response.body = StaticHTML(context, this.ctx.misc.randomHash);
         }
     }
 }
@@ -291,7 +290,7 @@ class PresentationHandler extends Handler {
             endAt = startAt + (duration < 100_000 ? duration * 1000 : duration);
         }
         const serverTime = Date.now();
-        if (seat || clientIp) presentationConnections.set(seat || clientIp, serverTime);
+        if (seat || clientIp) this.ctx.presentation.touch(seat || clientIp, serverTime);
         this.response.body = {
             contest: {
                 id: String(source.id || 'server-mode'),
@@ -333,7 +332,7 @@ class PresentationTeamsHandler extends AuthHandler {
         this.response.addHeader('Cache-Control', 'no-store');
         this.response.body = {
             ...getPresentationRoster(),
-            ojAvailable: config.type !== 'server' && Boolean(overview.contest),
+            ojAvailable: this.ctx.config.config.type !== 'server' && Boolean(overview.contest),
             ojConnected: overview.connected,
             contest: overview.contest,
         };
@@ -341,7 +340,7 @@ class PresentationTeamsHandler extends AuthHandler {
 
     async postFromOj() {
         const overview = await contestOverview(this.ctx);
-        if (config.type === 'server' || !overview.contest) throw new BadRequestError('Configure Hydro or DOMjudge before loading teams');
+        if (this.ctx.config.config.type === 'server' || !overview.contest) throw new BadRequestError('Configure Hydro or DOMjudge before loading teams');
         try {
             await this.ctx.fetcher.teamInfo();
             const teams = await this.ctx.db.teams.find({});
@@ -433,17 +432,18 @@ class MetricsHandler extends AuthHandler {
 
     async get() {
         if (this.request.json) {
-            this.response.body = await registry.getMetricsAsJSON();
+            this.response.body = await this.ctx.metrics.getMetricsAsJSON();
             return;
         }
-        this.response.body = await registry.metrics();
+        this.response.body = await this.ctx.metrics.metrics();
         this.response.type = 'text/plain';
     }
 }
 
 class ArenaLayoutsHandler extends AuthHandler {
     async get() {
-        const revision = arenaRevision();
+        const { config, arenaLayouts } = this.ctx.config;
+        const revision = arenaRevision(arenaLayouts);
         this.response.addHeader('Cache-Control', 'no-store');
         this.response.addHeader('ETag', `"${revision}"`);
         this.response.body = {
@@ -453,8 +453,9 @@ class ArenaLayoutsHandler extends AuthHandler {
     }
 
     async post(params) {
+        const { config, arenaLayouts } = this.ctx.config;
         const expectedRevision = String(params?.revision || '');
-        const currentRevision = arenaRevision();
+        const currentRevision = arenaRevision(arenaLayouts);
         if (!expectedRevision || expectedRevision !== currentRevision) {
             this.response.status = 409;
             this.response.body = {
@@ -465,8 +466,8 @@ class ArenaLayoutsHandler extends AuthHandler {
         }
         try {
             const layouts = validateArenaLayouts(params?.layouts);
-            saveArenaLayouts(layouts);
-            const revision = arenaRevision();
+            saveArenaLayouts(config, arenaLayouts, layouts);
+            const revision = arenaRevision(arenaLayouts);
             this.response.addHeader('Cache-Control', 'no-store');
             this.response.addHeader('ETag', `"${revision}"`);
             this.response.body = {
@@ -488,7 +489,7 @@ class VersionHandler extends Handler {
     async get() {
         this.response.body = {
             program: '@hydro/xcpc-tools',
-            version,
+            version: this.ctx.config.version,
         };
         this.response.addHeader('Access-Control-Allow-Origin', '*');
         this.response.addHeader('Access-Control-Allow-Methods', 'GET');
@@ -497,8 +498,22 @@ class VersionHandler extends Handler {
     }
 }
 
-export async function apply(ctx: Context) {
-    registry = createMetricsRegistry(ctx);
+async function applyMiscHandler(ctx: Context) {
+    // Block 4 (singleton collection): the presentation connection tracker and
+    // the metrics registry used to be module-level mutable state; they now
+    // live on the plugin context.
+    const presentationConnections = new Map<string, number>();
+    ctx.provide('presentation', {
+        touch: (device: string, at: number) => presentationConnections.set(device, at),
+        connectedDevices: (now: number) => {
+            for (const [device, lastConnectedAt] of presentationConnections) {
+                if (lastConnectedAt <= now - PRESENTATION_ONLINE_WINDOW) presentationConnections.delete(device);
+            }
+            return presentationConnections.size;
+        },
+    });
+    createMetricsRegistry(ctx); // provides ctx.metrics
+    ctx.provide('misc', { randomHash: randomstring(8).toLowerCase() });
     ctx.Route('home', '/', HomeHandler);
     ctx.Route('presentation', '/presentation', PresentationHandler);
     ctx.Route('overview', '/overview', OverviewHandler);
@@ -509,3 +524,6 @@ export async function apply(ctx: Context) {
     ctx.Route('arena_layouts', '/arena-layouts', ArenaLayoutsHandler);
     ctx.Route('version', '/version', VersionHandler);
 }
+
+export const inject = { config: true };
+export const apply = applyMiscHandler;

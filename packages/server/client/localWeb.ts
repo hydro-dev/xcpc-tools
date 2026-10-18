@@ -1,7 +1,6 @@
 import net from 'node:net';
 import { Context } from 'cordis';
 import { Handler, WebService } from '@hydrooj/framework';
-import { config } from '../config';
 // @ts-ignore
 import StaticFrontend from '../data/static.frontend';
 import {
@@ -55,7 +54,7 @@ class ClientPageHandler extends Handler {
     }
 }
 
-export async function apply(pluginContext: Context, params: LocalWebParams = {}) {
+async function applyLocalWeb(pluginContext: Context, params: LocalWebParams = {}) {
     const host = params.host || '127.0.0.1';
     const port = params.port || 5284;
     try {
@@ -72,10 +71,11 @@ export async function apply(pluginContext: Context, params: LocalWebParams = {})
         enableSSE: false,
     } as any);
 
+    const config = pluginContext.config.config;
     const services: Array<'print' | 'balloon'> = [];
-    if ((config as any).printers?.length) services.push('print');
-    if ((config as any).balloon) services.push('balloon');
-    initializeClientStatus((config as any).server, (config as any).token, services);
+    if (config.printers?.length) services.push('print');
+    if (config.balloon) services.push('balloon');
+    initializeClientStatus(config.server, config.token, services);
     await pluginContext.inject(['server'], async (ctx) => {
         ctx.Route('client_home', '/', ClientHomeHandler);
         ctx.Route('client_frontend', '/main.js', ClientFrontendHandler);
@@ -85,3 +85,6 @@ export async function apply(pluginContext: Context, params: LocalWebParams = {})
         await ctx.server.listen();
     });
 }
+
+export const inject = { config: true };
+export const apply = applyLocalWeb;

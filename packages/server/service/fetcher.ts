@@ -2,35 +2,12 @@
 import path from 'node:path';
 import { Context, Service } from 'cordis';
 import superagent from 'superagent';
-import { config } from '../config';
 import type { BalloonDoc } from '../interface';
 import {
     fs, Logger, mongoId, sleep,
 } from '../utils';
 import { extractHydroTeams, resolvePublicAssetUrl } from './presentation';
 
-const logger = new Logger('fetcher');
-const fetch = (url: string, type: 'get' | 'post' = 'get') => {
-    const endpoint = new URL(url, config.server).toString();
-    let req = superagent[type](endpoint)
-        .set('Accept', 'application/json')
-        .ok(() => true);
-    if (config.token) req = req.set('Authorization', config.token);
-    return new Proxy(req, {
-        get(target, prop) {
-            if (prop === 'then') {
-                return (...args) => target.then((res) => {
-                    if (![200, 204].includes(res.status)) {
-                        logger.error(`Failed to ${type} ${url} : ${res.status} - ${JSON.stringify(res.body || {})}`);
-                        throw new Error(`Failed to ${type} ${endpoint} : ${res.status} - ${JSON.stringify(res.body || {})}`);
-                    }
-                    return res;
-                }).then(...args);
-            }
-            return req[prop];
-        },
-    });
-};
 
 export interface IBasicFetcher {
     contest: Record<string, any>
@@ -48,9 +25,32 @@ export interface IBasicFetcher {
 class BasicFetcher extends Service implements IBasicFetcher {
     // cordis rc.11: accessing ctx.interval inside [Service.init] requires the
     // dependency to be declared (beta.5 tolerated undeclared access)
-    static inject = { timer: true };
+    static inject = { timer: true, config: true };
 
     contest: any;
+    get config() { return this.ctx.config.config; }
+
+    fetch = (url: string, type: 'get' | 'post' = 'get') => {
+        const endpoint = new URL(url, this.config.server).toString();
+        let req = superagent[type](endpoint)
+            .set('Accept', 'application/json')
+            .ok(() => true);
+        if (this.config.token) req = req.set('Authorization', this.config.token);
+        return new Proxy(req, {
+            get: (target, prop) => {
+                if (prop === 'then') {
+                    return (...args) => target.then((res) => {
+                        if (![200, 204].includes(res.status)) {
+                            this.logger.error(`Failed to ${type} ${url} : ${res.status} - ${JSON.stringify(res.body || {})}`);
+                            throw new Error(`Failed to ${type} ${endpoint} : ${res.status} - ${JSON.stringify(res.body || {})}`);
+                        }
+                        return res;
+                    }).then(...args);
+                }
+                return req[prop];
+            },
+        });
+    };
     lastSuccessAt = 0;
     lastErrorAt = 0;
     lastError = '';
@@ -67,7 +67,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
         this.ctx.interval(async () => {
             try {
                 await this.cron();
-                if (config.type !== 'server') {
+                if (this.config.type !== 'server') {
                     this.lastSuccessAt = Date.now();
                     this.lastError = '';
                 }
@@ -80,9 +80,9 @@ class BasicFetcher extends Service implements IBasicFetcher {
     }
 
     async cron() {
-        if (config.type === 'server') return;
-        if (!config.token) {
-            if (config.username && config.password) await this.getToken(config.username, config.password);
+        if (this.config.type === 'server') return;
+        if (!this.config.token) {
+            if (this.config.username && this.config.password) await this.getToken(this.config.username, this.config.password);
             else throw new Error('No token or username/password provided');
         }
         const pendingPrintAcks = await this.ctx.db.code.find({
@@ -124,7 +124,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
     }
 
     async getToken(username, password) {
-        config.token = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+        this.ctx.config.setCredential(`Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`);
     }
 
     async teamInfo() {
@@ -152,16 +152,16 @@ class BasicFetcher extends Service implements IBasicFetcher {
 class DOMjudgeFetcher extends BasicFetcher {
     async contestInfo() {
         let contest;
-        if (!config.contestId) {
-            const { body } = await fetch('./api/v4/contests?onlyActive=true');
+        if (!this.config.contestId) {
+            const { body } = await this.fetch('./api/v4/contests?onlyActive=true');
             if (!body || !body.length) {
                 throw new Error('Contest not found');
             }
             contest = body[0];
         } else {
-            const { body } = await fetch(`./api/v4/contests/${config.contestId}`);
+            const { body } = await this.fetch(`./api/v4/contests/${this.config.contestId}`);
             if (!body || !body.id) {
-                throw new Error(`Contest ${config.contestId} not found`);
+                throw new Error(`Contest ${this.config.contestId} not found`);
             }
             contest = body;
         }
@@ -177,8 +177,8 @@ class DOMjudgeFetcher extends BasicFetcher {
     async teamInfo() {
         if (!this.ctx.db.teams) await sleep(1000);
         const [{ body }, organizationResponse] = await Promise.all([
-            fetch(`./api/v4/contests/${this.contest.id}/teams`),
-            fetch(`./api/v4/contests/${this.contest.id}/organizations`).catch((error) => {
+            this.fetch(`./api/v4/contests/${this.contest.id}/teams`),
+            this.fetch(`./api/v4/contests/${this.contest.id}/organizations`).catch((error) => {
                 this.logger.warn('Unable to load DOMjudge organizations: %s', error.message);
                 return { body: [] };
             }),
@@ -196,7 +196,7 @@ class DOMjudgeFetcher extends BasicFetcher {
             const school = organization?.formal_name || organization?.name || team.affiliation || team.organization_id || '';
             const logo = resolvePublicAssetUrl(
                 organization?.logo || organization?.logo_url || organization?.avatar,
-                config.server,
+                this.config.server,
             );
             await this.ctx.db.teams.update({ id: team.id }, {
                 $set: {
@@ -211,13 +211,13 @@ class DOMjudgeFetcher extends BasicFetcher {
 
     async balloonInfo(all) {
         if (all) this.logger.info('Sync all balloons...');
-        const { body } = await fetch(`./api/v4/contests/${this.contest.id}/balloons?todo=${all ? 'false' : 'true'}`);
+        const { body } = await this.fetch(`./api/v4/contests/${this.contest.id}/balloons?todo=${all ? 'false' : 'true'}`);
         if (!body || !body.length) return;
         const balloons = body.sort((a, b) => a.time - b.time);
         const pending: BalloonDoc[] = [];
         for (const balloon of balloons) {
             const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.teamid, time: { $lt: (balloon.time * 1000).toFixed(0) } });
-            const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
+            const encourage = teamTotal.length < (this.config.freezeEncourage ?? 0);
             const totalDict = {};
             for (const t of teamTotal) {
                 totalDict[t.problem] = t.contestproblem;
@@ -256,16 +256,16 @@ class DOMjudgeFetcher extends BasicFetcher {
     }
 
     async setBalloonDone(bid: string) {
-        await fetch(`./api/v4/contests/${this.contest.id}/balloons/${bid}/done`, 'post');
+        await this.fetch(`./api/v4/contests/${this.contest.id}/balloons/${bid}/done`, 'post');
         this.logger.debug(`Balloon ${bid} set done`);
     }
 }
 
 class HydroFetcher extends BasicFetcher {
     async contestInfo() {
-        const ids = config.contestId.split('/');
-        const [domainId, contestId] = ids.length === 2 ? ids : ['system', config.contestId];
-        const { body } = await fetch(`/d/${domainId}/contest/${contestId}`);
+        const ids = this.config.contestId.split('/');
+        const [domainId, contestId] = ids.length === 2 ? ids : ['system', this.config.contestId];
+        const { body } = await this.fetch(`/d/${domainId}/contest/${contestId}`);
         if (!body || !body.tdoc) {
             throw new Error('Contest not found');
         }
@@ -281,13 +281,13 @@ class HydroFetcher extends BasicFetcher {
     }
 
     async getToken(username, password) {
-        const res = await fetch('/login', 'post').send({ uname: username, password, rememberme: 'on' }).redirects(0);
+        const res = await this.fetch('/login', 'post').send({ uname: username, password, rememberme: 'on' }).redirects(0);
         if (!res || res.error) throw new Error('Failed to get token');
-        config.token = `Bearer ${res.header['set-cookie'][0].split(';')[0].split('=')[1]}`;
+        this.ctx.config.setCredential(`Bearer ${res.header['set-cookie'][0].split(';')[0].split('=')[1]}`);
     }
 
     async teamInfo() {
-        const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/user`);
+        const { body } = await this.fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/user`);
         const teams = extractHydroTeams(body);
         if (!teams.length) {
             await this.ctx.db.teams.remove({}, { multi: true });
@@ -295,7 +295,7 @@ class HydroFetcher extends BasicFetcher {
         }
         await this.ctx.db.teams.remove({ id: { $nin: teams.map((team) => team._id) } }, { multi: true });
         for (const team of teams) {
-            const logo = resolvePublicAssetUrl(team.schoolLogo || team.logo || team.avatar, config.server);
+            const logo = resolvePublicAssetUrl(team.schoolLogo || team.logo || team.avatar, this.config.server);
             await this.ctx.db.teams.update({ id: team._id }, {
                 $set: {
                     ...team,
@@ -308,13 +308,13 @@ class HydroFetcher extends BasicFetcher {
 
     async balloonInfo(all) {
         if (all) this.logger.info('Sync all balloons...');
-        const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon?todo=${all ? 'false' : 'true'}`);
+        const { body } = await this.fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon?todo=${all ? 'false' : 'true'}`);
         if (!body?.bdocs?.length) return;
         const baloons = body.bdocs.map((b) => ({ ...b, time: mongoId(b._id).timestamp * 1000 })).sort((a, b) => a.time - b.time);
         const pending: BalloonDoc[] = [];
         for (const balloon of baloons) {
             const teamTotal = await this.ctx.db.balloon.find({ teamid: balloon.uid, time: { $lt: balloon.time } });
-            const encourage = teamTotal.length < (config.freezeEncourage ?? 0);
+            const encourage = teamTotal.length < (this.config.freezeEncourage ?? 0);
             const totalDict = {};
             for (const t of teamTotal) {
                 totalDict[t.problem] = t.contestproblem;
@@ -358,13 +358,13 @@ class HydroFetcher extends BasicFetcher {
     }
 
     async setBalloonDone(bid) {
-        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon`, 'post').send({ operation: 'done', balloon: bid });
+        await this.fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/balloon`, 'post').send({ operation: 'done', balloon: bid });
         this.logger.debug(`Balloon ${bid} set done`);
     }
 
     async printInfo(_all) {
         const doFetch = async () => {
-            const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post')
+            const { body } = await this.fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post')
                 .send({ operation: 'allocate_print_task' });
             return body;
         };
@@ -389,7 +389,7 @@ class HydroFetcher extends BasicFetcher {
                 await this.ctx.db.code.removeOne({ _id: res._id }, {});
                 throw error;
             }
-            logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${res._id}`);
+            this.logger.info(`Team(${task.owner}): ${udoc.displayName || udoc.uname} submitted code. Code Print ID: ${task.owner}#${res._id}`);
             cnt++;
             ({ task, udoc } = await doFetch());
         }
@@ -397,7 +397,7 @@ class HydroFetcher extends BasicFetcher {
     }
 
     async setPrintDone(pid) {
-        await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post')
+        await this.fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/print`, 'post')
             .send({ operation: 'update_print_task', taskId: pid, status: 'printed' });
         this.logger.debug(`Print ${pid} set done`);
     }
@@ -409,7 +409,11 @@ const fetcherList = {
     hydro: HydroFetcher,
 };
 
-export async function apply(ctx: Context) {
+async function applyFetcher(ctx: Context) {
+    const { config } = ctx.config;
     if (config.type !== 'server') ctx.logger('fetcher').info('Fetch mode:', config.type);
     ctx.plugin(fetcherList[config.type]);
 }
+
+export const inject = { config: true };
+export const apply = applyFetcher;

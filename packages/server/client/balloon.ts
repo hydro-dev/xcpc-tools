@@ -1,13 +1,13 @@
 /* eslint-disable no-await-in-loop */
 import EscPosEncoder from '@freedom_sky/esc-pos-encoder';
 import superagent from 'superagent';
-import { config } from '../config';
 import {
     getBalloonName, Logger, receiptPrint, sleep,
 } from '../utils';
 import { setClientConnection, updateClientTask } from './status';
 
-const post = (url: string) => superagent.post(new URL(url, config.server).toString()).set('Accept', 'application/json');
+let cfg: any = null;
+const post = (url: string) => superagent.post(new URL(url, cfg.server).toString()).set('Accept', 'application/json');
 const encoder = new EscPosEncoder();
 const logger = new Logger('balloon');
 
@@ -35,7 +35,7 @@ const i18n = {
 export const receiptBalloonText = (
     id: number, location: string, problem: string, color: string, comment: string, teamname: string, status: string, lang: 'zh' | 'en' = 'zh',
 ) => {
-    let enc = encoder.initialize().codepage('cp936').setPinterType(config.balloonType ?? 80);
+    let enc = encoder.initialize().codepage('cp936').setPinterType(cfg.balloonType ?? 80);
     const whitelist = [
         'align', 'barcode', 'bold', 'cut', 'curPartial',
         'emptyLine', 'image', 'italic', 'line', 'newLine',
@@ -57,7 +57,7 @@ export const receiptBalloonText = (
         .replace(/%TEAM/g, i18n[lang].team)
         .replace(/%STATUS/g, i18n[lang].status)
         .replace(/%RECEIPT/g, i18n[lang].receipt);
-    for (const line of config.balloonTemplate.replace(/\r/g, '').split('\n')) {
+    for (const line of cfg.balloonTemplate.replace(/\r/g, '').split('\n')) {
         if (!line.startsWith('#')) {
             enc = enc.line(replace(line));
             continue;
@@ -108,7 +108,7 @@ async function printBalloon(doc, lang) {
     for (const i in doc.total) {
         status += `- ${i}: ${doc.total[i].color || getBalloonName(doc.total[i].rgb, lang)}\n`;
     }
-    const genText = config.balloonType === 'plain' ? plainBalloonText : receiptBalloonText;
+    const genText = cfg.balloonType === 'plain' ? plainBalloonText : receiptBalloonText;
     const bReceipt = await genText(
         doc.balloonid,
         doc.location ? doc.location : 'N/A',
@@ -119,7 +119,7 @@ async function printBalloon(doc, lang) {
         status,
         lang,
     );
-    await receiptPrint(printer, bReceipt, config.balloonCommand);
+    await receiptPrint(printer, bReceipt, cfg.balloonCommand);
 }
 
 async function fetchTask(c) {
@@ -136,7 +136,7 @@ async function fetchTask(c) {
                 updateClientTask('balloon', doc.balloonid, label, 'received', { printer });
                 try {
                     updateClientTask('balloon', doc.balloonid, label, 'printing', { printer });
-                    await printBalloon(doc, config.balloonLang);
+                    await printBalloon(doc, cfg.balloonLang);
                 } catch (error) {
                     stopLeaseHeartbeat();
                     updateClientTask('balloon', doc.balloonid, label, 'failed', { printer, error });
@@ -181,8 +181,12 @@ async function fetchTask(c) {
     timer = setTimeout(() => fetchTask(c), 3000);
 }
 
-export async function apply() {
-    printer = config.balloon;
-    if (config.token && config.server && config.balloon) await fetchTask(config);
+async function applyBalloonClient(ctx) {
+    cfg = ctx.config.config;
+    printer = cfg.balloon;
+    if (cfg.token && cfg.server && cfg.balloon) await fetchTask(cfg);
     else logger.error('Config not found, please check the config.yaml');
 }
+
+export const inject = { config: true };
+export const apply = applyBalloonClient;

@@ -2,7 +2,6 @@ import path from 'node:path';
 import { Context } from 'cordis';
 import type { ClientChannel } from 'ssh2';
 import { Client } from 'ssh2';
-import { config } from '../config';
 import { fs } from '../utils';
 
 export interface InteractiveShell {
@@ -24,8 +23,8 @@ interface OpenShellOptions {
 
 const clients = new Set<Client>();
 
-export async function openSshShell(options: OpenShellOptions): Promise<InteractiveShell> {
-    if (!config.customKeyfile) throw new Error('customKeyfile is required for WebSSH');
+export async function openSshShell(ctx: Context, options: OpenShellOptions): Promise<InteractiveShell> {
+    if (!ctx.config.config.customKeyfile) throw new Error('customKeyfile is required for WebSSH');
     const client = new Client();
     clients.add(client);
     let channel: ClientChannel | null = null;
@@ -83,8 +82,8 @@ export async function openSshShell(options: OpenShellOptions): Promise<Interacti
             client.connect({
                 host: options.host,
                 port: 22,
-                username: config.ssh.username,
-                privateKey: fs.readFileSync(path.resolve(process.cwd(), config.customKeyfile)),
+                username: ctx.config.config.ssh.username,
+                privateKey: fs.readFileSync(path.resolve(process.cwd(), ctx.config.config.customKeyfile)),
                 readyTimeout: 10_000,
                 hostHash: 'sha256',
                 hostVerifier: (value) => {
@@ -116,10 +115,13 @@ export async function openSshShell(options: OpenShellOptions): Promise<Interacti
     };
 }
 
-export async function apply(ctx: Context) {
-    if (!config.ssh.enabled) return;
+async function applySshService(ctx: Context) {
+    if (!ctx.config.config.ssh.enabled) return;
     ctx.effect(() => () => {
         for (const client of clients) client.destroy();
         clients.clear();
     });
 }
+
+export const inject = { config: true };
+export const apply = applySshService;

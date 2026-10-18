@@ -4,7 +4,6 @@ import { Context } from 'cordis';
 import {
     BadRequestError, ForbiddenError, Handler, ValidationError,
 } from '@hydrooj/framework';
-import { config } from '../config';
 import { fs, Logger } from '../utils';
 import { AuthHandler } from './misc';
 import {
@@ -64,7 +63,7 @@ async function getClient(ctx: Context, id: string, service: 'printer' | 'balloon
 }
 
 async function syncConfiguredClients(ctx: Context) {
-    const clients = (config.clients || []).filter((client) => client.type !== 'webhook');
+    const clients = (ctx.config.config.clients || []).filter((client) => client.type !== 'webhook');
     const tokens = new Set<string>();
     const names = new Set<string>();
     for (const client of clients) {
@@ -364,7 +363,7 @@ class ClientBalloonLeaseHandler extends Handler {
     }
 }
 
-export async function apply(ctx: Context) {
+async function applyClientHandler(ctx: Context) {
     await syncConfiguredClients(ctx);
     ctx.Route('client_control', '/client', ClientControlHandler);
     ctx.Route('client_print_fetch', '/client/:cid/print', ClientPrintConnectHandler);
@@ -374,3 +373,6 @@ export async function apply(ctx: Context) {
     ctx.Route('client_balloon_done', '/client/:cid/doneballoon/:bid', ClientBalloonDoneHandler);
     ctx.Route('client_balloon_lease', '/client/:cid/leaseballoon/:bid', ClientBalloonLeaseHandler);
 }
+
+export const inject = { config: true };
+export const apply = applyClientHandler;

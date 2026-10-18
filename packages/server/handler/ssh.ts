@@ -3,7 +3,6 @@ import { Context } from 'cordis';
 import {
     BadRequestError, ConnectionHandler, ForbiddenError,
 } from '@hydrooj/framework';
-import { config } from '../config';
 import { InteractiveShell, openSshShell } from '../service/ssh';
 import { AuthHandler } from './misc';
 
@@ -38,7 +37,7 @@ const consumeTicket = (token: unknown) => {
 
 class WebSshTicketHandler extends AuthHandler {
     async post({ monitorId }) {
-        if (!config.ssh.enabled) throw new ForbiddenError('WebSSH is disabled');
+        if (!this.ctx.config.config.ssh.enabled) throw new ForbiddenError('WebSSH is disabled');
         if (!monitorId || typeof monitorId !== 'string') throw new BadRequestError('Machine is required');
         const monitor = await this.ctx.db.monitor.findOne({ _id: monitorId });
         if (!monitor?.ip) throw new BadRequestError('Machine has not reported an IP address');
@@ -79,7 +78,7 @@ export class WebSshConnectionHandler extends ConnectionHandler<Context> {
             this.opening = true;
             this.controller = new AbortController();
             try {
-                this.shell = await openSshShell({
+                this.shell = await openSshShell(this.ctx, {
                     host: ticket.host,
                     fingerprint: ticket.fingerprint,
                     cols: dimension(payload.cols, 120, 500),
@@ -143,8 +142,11 @@ export class WebSshConnectionHandler extends ConnectionHandler<Context> {
     }
 }
 
-export async function apply(ctx: Context) {
-    if (!config.ssh.enabled) return;
+async function applySshHandler(ctx: Context) {
+    if (!ctx.config.config.ssh.enabled) return;
     ctx.Route('webssh_ticket', '/ssh/ticket', WebSshTicketHandler);
     ctx.Connection('webssh', '/ssh/ws', WebSshConnectionHandler);
 }
+
+export const inject = { config: true };
+export const apply = applySshHandler;

@@ -4,11 +4,11 @@ import {
     ForbiddenError, HydroError, NotFoundError, UserFacingError, WebService,
 } from '@hydrooj/framework';
 import { errorMessage } from '@hydrooj/utils';
-import { config } from '../config';
 import { randomstring } from '../utils';
 export * from '@hydrooj/framework/decorators';
 
-export async function apply(pluginContext: Context) {
+async function applyServerService(pluginContext: Context) {
+    const { config } = pluginContext.config;
     pluginContext.plugin(WebService, {
         host: '0.0.0.0',
         port: config.port,
@@ -91,3 +91,6 @@ export async function apply(pluginContext: Context) {
         });
     });
 }
+
+export const inject = { config: true };
+export const apply = applyServerService;

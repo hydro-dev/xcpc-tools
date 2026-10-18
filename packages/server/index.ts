@@ -55,21 +55,15 @@ async function boot() {
         livenessCheck(ctx, configPath); // every entry ACTIVE or exit(1)
     } else {
         // builtin path: identical wiring, but awaited this time — "started"
-        // is only logged after the required services are actually active
-        // (config.ts may throw 'no-config' after writing a template; that
-        // is the existing first-run UX and must stay non-fatal)
-        let config: any = null;
-        try {
-            config = require('./config').config;
-        } catch (e: any) {
-            if (e.message !== 'no-config') throw e;
-        }
-        if (!config) return;
+        // is only logged after the required services are actually active.
+        // ConfigService writes a template and returns not-loaded on the very
+        // first run (existing first-run UX, stays non-fatal).
         if (isClient) {
             await ctx.plugin(BUILTINS.client!);
         } else {
-            // applyServer registers DBService itself and resolves only after
-            // the http server is listening (see host/builtin.ts)
+            // applyServer registers ConfigService + DBService itself and
+            // resolves only after the http server is listening (see
+            // host/builtin.ts)
             await ctx.plugin(BUILTINS.core!);
         }
     }

@@ -1,6 +1,5 @@
 import { Context } from 'cordis';
 import superagent from 'superagent';
-import { config } from '../config';
 import type { BalloonDoc, BalloonNotificationSource } from '../interface';
 import { getBalloonName, Logger, sleep } from '../utils';
 
@@ -204,8 +203,8 @@ function createNotifier(client: NotifierClient): TextNotifier {
     return new NotifierClass(client.token, client.endpoint, client.chatId);
 }
 
-export async function apply(ctx: Context) {
-    const clients = (config.clients || []).filter((client) => client.type === 'webhook') as NotifierClient[];
+async function applyNotifier(ctx: Context) {
+    const clients = (ctx.config.config.clients || []).filter((client) => client.type === 'webhook') as NotifierClient[];
     const enabledNotifierIds = clients.filter((client) => client.enabled !== false).map((client) => client.id);
     notifierStatuses.clear();
     for (const client of clients) setConfiguredNotifierStatus(client);
@@ -321,3 +320,6 @@ export async function apply(ctx: Context) {
         await ctx.parallel('notifier/balloonTask', interrupted, { name: 'Server restart' });
     }
 }
+
+export const inject = { config: true };
+export const apply = applyNotifier;

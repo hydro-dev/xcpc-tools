@@ -1,6 +1,5 @@
 import { Context } from 'cordis';
 import { BadRequestError } from '@hydrooj/framework';
-import { config } from '../config';
 import { executeOnHost } from '../utils';
 import { AuthHandler } from './misc';
 import { dispatchPendingProbeCommands, getActiveProbeMacs } from './monitor';
@@ -91,7 +90,7 @@ class CommandsHandler extends AuthHandler {
         const result = await Promise.allSettled(
             allOnline
                 .filter((monitor) => selected.has(monitor.mac))
-                .map((monitor) => executeOnHost(monitor.ip, command, t, config.customKeyfile)),
+                .map((monitor) => executeOnHost(monitor.ip, command, t, this.ctx.config.config.customKeyfile)),
         );
         return {
             success: result.filter((i) => i.status === 'fulfilled').length,
@@ -101,6 +100,9 @@ class CommandsHandler extends AuthHandler {
     }
 }
 
-export async function apply(ctx: Context) {
+async function applyCommandsHandler(ctx: Context) {
     ctx.Route('commands', '/commands', CommandsHandler);
 }
+
+export const inject = { config: true };
+export const apply = applyCommandsHandler;
