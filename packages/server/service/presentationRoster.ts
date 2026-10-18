@@ -59,11 +59,12 @@ interface ImportPreviewResult extends ImportPreview {
     teams: PresentationTeam[];
 }
 
+import { Context, Service } from 'cordis';
+
 const rosterPath = path.resolve(process.cwd(), 'data/presentation-teams.json');
 export const avatarDirectory = path.resolve(process.cwd(), 'data/presentation-avatars');
 const maxTeams = 20_000;
 const maxFieldLength = 2_048;
-let writeLock = Promise.resolve();
 
 const emptyDocument = (): PresentationRosterDocument => ({
     revision: '0', updatedAt: 0, source: 'empty', sourceContestId: '', teams: [],
@@ -98,29 +99,43 @@ const readInitialDocument = (): PresentationRosterDocument => {
     }
 };
 
-let currentDocument = readInitialDocument();
-let teamBySeat = new Map(currentDocument.teams.map((team) => [team.seat, team]));
-let schoolCount = new Set(currentDocument.teams.map((team) => team.school || team.organizationId).filter(Boolean)).size;
+export class RosterService extends Service {
+    currentDocument = readInitialDocument();
+    teamBySeat = new Map(this.currentDocument.teams.map((team) => [team.seat, team]));
+    schoolCount = new Set(this.currentDocument.teams.map((team) => team.school || team.organizationId).filter(Boolean)).size;
+    writeLock: Promise<unknown> = Promise.resolve();
 
-const setCurrentDocument = (document: PresentationRosterDocument) => {
-    currentDocument = document;
-    teamBySeat = new Map(document.teams.map((team) => [team.seat, team]));
-    schoolCount = new Set(document.teams.map((team) => team.school || team.organizationId).filter(Boolean)).size;
-};
+    constructor(ctx: Context) {
+        super(ctx, 'roster');
+    }
+
+    setCurrentDocument(document: PresentationRosterDocument) {
+        this.currentDocument = document;
+        this.teamBySeat = new Map(document.teams.map((team) => [team.seat, team]));
+        this.schoolCount = new Set(document.teams.map((team) => team.school || team.organizationId).filter(Boolean)).size;
+    }
+}
+
+declare module 'cordis' {
+    interface Context {
+        roster: RosterService;
+    }
+}
 
 const nextRevision = (teams: PresentationTeam[]) => createHash('sha256')
     .update(`${Date.now()}\0${JSON.stringify(teams)}`)
     .digest('hex')
     .slice(0, 20);
 
-const saveDocument = async (
+export const saveDocument = async (
+    roster: RosterService,
     teams: PresentationTeam[],
     source: PresentationRosterDocument['source'],
     sourceContestId: string,
     expectedRevision?: string,
 ) => {
-    const operation = writeLock.then(async () => {
-        const current = currentDocument;
+    const operation = roster.writeLock.then(async () => {
+        const current = roster.currentDocument;
         if (expectedRevision !== undefined && current.revision !== expectedRevision) {
             throw new Error('Presentation roster changed after preview; preview the file again');
         }
@@ -141,11 +156,11 @@ const saveDocument = async (
         const temporary = `${rosterPath}.${process.pid}.${Date.now()}.tmp`;
         fs.writeJsonSync(temporary, document, { spaces: 2 });
         await fs.move(temporary, rosterPath, { overwrite: true });
-        setCurrentDocument(document);
+        roster.setCurrentDocument(document);
         return document;
     });
-    writeLock = operation.then(() => undefined, () => undefined);
-    return operation;
+    roster.writeLock = operation.then(() => undefined, () => undefined);
+    return operation as Promise<PresentationRosterDocument>;
 };
 
 const pick = (team: any, ...keys: string[]) => {
@@ -344,12 +359,14 @@ export const parseImport = (content: unknown, format: unknown, mapping?: ImportM
     return mapping ? applyImportMapping(parsed.rows, mapping) : parsed.rows;
 };
 
-export const getPresentationRoster = () => currentDocument;
-export const getPresentationRosterStats = () => ({ teams: currentDocument.teams.length, schools: schoolCount });
+export const getPresentationRoster = (roster: RosterService) => roster.currentDocument;
+export const getPresentationRosterStats = (roster: RosterService) => (
+    { teams: roster.currentDocument.teams.length, schools: roster.schoolCount }
+);
 
-export const getPresentationTeamBySeat = (seat: unknown) => {
+export const getPresentationTeamBySeat = (roster: RosterService, seat: unknown) => {
     const normalized = normalizeSeat(seat);
-    return teamBySeat.get(normalized) || null;
+    return roster.teamBySeat.get(normalized) || null;
 };
 
 const previewImportAgainst = (
@@ -380,12 +397,13 @@ const previewImportAgainst = (
 };
 
 export const previewImport = (
+    roster: RosterService,
     content: unknown,
     format: unknown,
     mode: unknown,
     mapping?: ImportMapping,
 ): ImportPreview => {
-    const preview = previewImportAgainst(currentDocument, content, format, mode, mapping);
+    const preview = previewImportAgainst(roster.currentDocument, content, format, mode, mapping);
     return {
         revision: preview.revision,
         errors: preview.errors,
@@ -395,13 +413,14 @@ export const previewImport = (
 };
 
 export const commitImport = async (
+    roster: RosterService,
     content: unknown,
     format: unknown,
     mode: unknown,
     revision: unknown,
     mapping?: ImportMapping,
 ) => {
-    const current = currentDocument;
+    const current = roster.currentDocument;
     const preview = previewImportAgainst(current, content, format, mode, mapping);
     if (preview.errors.length) throw new Error(preview.errors[0]);
     let teams = preview.teams;
@@ -412,10 +431,10 @@ export const commitImport = async (
         const errors = validateTeams(teams);
         if (errors.length) throw new Error(errors[0]);
     }
-    return saveDocument(teams, 'upload', '', text(revision, 128));
+    return saveDocument(roster, teams, 'upload', '', text(revision, 128));
 };
 
-export const replaceFromOj = async (teams: any[], contestId: unknown) => {
+export const replaceFromOj = async (roster: RosterService, teams: any[], contestId: unknown) => {
     const normalized = teams
         .filter((team) => !team.hidden)
         .map((team) => normalizePresentationTeam(team, 'oj', text(contestId, 128)));
@@ -423,7 +442,7 @@ export const replaceFromOj = async (teams: any[], contestId: unknown) => {
     const assigned = normalized.filter((team) => team.seat);
     const errors = validateTeams(assigned);
     if (errors.length) throw new Error(errors[0]);
-    const document = await saveDocument(assigned, 'oj', text(contestId, 128));
+    const document = await saveDocument(roster, assigned, 'oj', text(contestId, 128));
     return { document, skipped };
 };
 
@@ -457,8 +476,8 @@ const downloadAvatar = async (school: string) => {
     return `/presentation-assets/${filename}`;
 };
 
-export const syncRegistryAvatars = async () => {
-    const current = currentDocument;
+export const syncRegistryAvatars = async (roster: RosterService) => {
+    const current = roster.currentDocument;
     const schools = [...new Set(current.teams.map((team) => safeRegistrySchool(team.school)).filter(Boolean))];
     const logos = new Map<string, string>();
     const failures: Array<{ school: string; reason: string }> = [];
@@ -480,7 +499,7 @@ export const syncRegistryAvatars = async () => {
         logos.has(team.school) ? { ...team, logo: logos.get(team.school)! } : team
     ));
     const document = logos.size
-        ? await saveDocument(teams, current.source, current.sourceContestId, current.revision)
+        ? await saveDocument(roster, teams, current.source, current.sourceContestId, current.revision)
         : current;
     return {
         document,
@@ -496,8 +515,8 @@ const csvCell = (value: unknown) => {
     return `"${safe.replace(/"/g, '""')}"`;
 };
 
-export const buildExport = (monitors: any[], format: unknown) => {
-    const roster = currentDocument;
+export const buildExport = (roster: RosterService, monitors: any[], format: unknown) => {
+    const current = roster.currentDocument;
     const now = Date.now();
     const monitorBySeat = new Map<string, any[]>();
     for (const monitor of monitors.filter((item) => Number(item.updateAt) > now - 120_000)) {
@@ -508,7 +527,7 @@ export const buildExport = (monitors: any[], format: unknown) => {
     }
     let matched = 0;
     let ambiguous = 0;
-    const rows = roster.teams.map((team) => {
+    const rows = current.teams.map((team) => {
         const candidates = monitorBySeat.get(team.seat) || [];
         if (candidates.length === 1) matched++;
         else if (candidates.length > 1) ambiguous++;

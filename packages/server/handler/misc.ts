@@ -19,15 +19,15 @@ import {
     normalizeSeat,
     previewImport,
     replaceFromOj,
+    RosterService,
     syncRegistryAvatars,
 } from '../service/presentationRoster';
 import {
-    createMetricsRegistry, decodeBinary, fs, randomstring, StaticHTML,
+    decodeBinary, fs, StaticHTML,
 } from '../utils';
 import { CLIENT_ONLINE_WINDOW } from './printRouting';
 
 const buf = decodeBinary(StaticFrontend, 'static.frontend');
-const PRESENTATION_ONLINE_WINDOW = 120_000;
 
 declare module 'cordis' {
     interface Context {
@@ -175,7 +175,7 @@ const contestOverview = async (ctx: Context) => {
     const source = ctx.fetcher?.contest;
     const hasContest = Boolean(ctx.config.config.type !== 'server' && source?.id && source.id !== 'server-mode');
     const connected = Boolean(hasContest && ojConnected(ctx));
-    const roster = getPresentationRoster();
+    const roster = getPresentationRoster(ctx.roster);
     const [monitors, serviceClients] = await Promise.all([
         ctx.db.monitor.find({}),
         ctx.db.client.find({}).sort({ createAt: 1 }),
@@ -197,7 +197,7 @@ const contestOverview = async (ctx: Context) => {
     }
     const freezeAt = toTimestamp(info.freeze_time ?? info.lockAt ?? info.freezeAt ?? info.scoreboard_freeze_time);
     const ojTeams = hasContest ? (await ctx.db.teams.find({})).filter((team) => !team.hidden) : [];
-    const rosterStats = getPresentationRosterStats();
+    const rosterStats = getPresentationRosterStats(ctx.roster);
     const clientOverview = serviceClients.map((client) => {
         const printers = Array.isArray(client.printers) ? client.printers : [];
         const printersInfo = Array.isArray(client.printersInfo) ? client.printersInfo : [];
@@ -245,7 +245,7 @@ const contestOverview = async (ctx: Context) => {
         },
         clients: {
             services: clientOverview,
-            webhooks: getNotifierStatuses(),
+            webhooks: getNotifierStatuses(ctx.notifierStatus),
         },
         serverTime: now,
     };
@@ -278,10 +278,10 @@ class PresentationHandler extends Handler {
         this.response.addHeader('Cache-Control', 'no-store');
         const source = this.ctx.fetcher?.contest || { name: 'XCPC Tools', id: 'server-mode' };
         const info = source.info || {};
-        const roster = getPresentationRoster();
-        const rosterStats = getPresentationRosterStats();
+        const roster = getPresentationRoster(this.ctx.roster);
+        const rosterStats = getPresentationRosterStats(this.ctx.roster);
         const seat = normalizeSeat(this.request.query?.seat);
-        const matched = getPresentationTeamBySeat(seat);
+        const matched = getPresentationTeamBySeat(this.ctx.roster, seat);
         const clientIp = String(this.request.ip || '').replace(/^::ffff:/, '').slice(0, 64);
         const startAt = toTimestamp(info.start_time ?? info.beginAt ?? info.startAt ?? info.start_at ?? info.begin_time);
         let endAt = toTimestamp(info.end_time ?? info.endAt ?? info.end_at ?? info.endTime);
@@ -331,7 +331,7 @@ class PresentationTeamsHandler extends AuthHandler {
         const overview = await contestOverview(this.ctx);
         this.response.addHeader('Cache-Control', 'no-store');
         this.response.body = {
-            ...getPresentationRoster(),
+            ...getPresentationRoster(this.ctx.roster),
             ojAvailable: this.ctx.config.config.type !== 'server' && Boolean(overview.contest),
             ojConnected: overview.connected,
             contest: overview.contest,
@@ -345,7 +345,7 @@ class PresentationTeamsHandler extends AuthHandler {
             await this.ctx.fetcher.teamInfo();
             const teams = await this.ctx.db.teams.find({});
             if (!teams.some((team) => !team.hidden)) throw new Error('The OJ team list is empty');
-            const { document, skipped } = await replaceFromOj(teams, overview.contest?.id || '');
+            const { document, skipped } = await replaceFromOj(this.ctx.roster, teams, overview.contest?.id || '');
             this.response.body = { ...document, skipped };
         } catch (error) {
             asBadRequest(error);
@@ -384,7 +384,7 @@ class PresentationTeamsHandler extends AuthHandler {
 
     async postSyncAvatars() {
         try {
-            this.response.body = await syncRegistryAvatars();
+            this.response.body = await syncRegistryAvatars(this.ctx.roster);
         } catch (error) {
             asBadRequest(error);
         }
@@ -392,7 +392,7 @@ class PresentationTeamsHandler extends AuthHandler {
 
     async postExport(params) {
         const monitors = await this.ctx.db.monitor.find({});
-        const result = buildExport(monitors, params.format);
+        const result = buildExport(this.ctx.roster, monitors, params.format);
         this.response.type = result.type;
         this.response.disposition = `attachment; filename="presentation-teams.${result.extension}"`;
         this.response.addHeader('X-Presentation-Total', String(result.summary.total));
@@ -404,7 +404,7 @@ class PresentationTeamsHandler extends AuthHandler {
 
     async postExportPreview() {
         const monitors = await this.ctx.db.monitor.find({});
-        this.response.body = buildExport(monitors, 'json').summary;
+        this.response.body = buildExport(this.ctx.roster, monitors, 'json').summary;
     }
 }
 
@@ -499,21 +499,6 @@ class VersionHandler extends Handler {
 }
 
 async function applyMiscHandler(ctx: Context) {
-    // Block 4 (singleton collection): the presentation connection tracker and
-    // the metrics registry used to be module-level mutable state; they now
-    // live on the plugin context.
-    const presentationConnections = new Map<string, number>();
-    ctx.provide('presentation', {
-        touch: (device: string, at: number) => presentationConnections.set(device, at),
-        connectedDevices: (now: number) => {
-            for (const [device, lastConnectedAt] of presentationConnections) {
-                if (lastConnectedAt <= now - PRESENTATION_ONLINE_WINDOW) presentationConnections.delete(device);
-            }
-            return presentationConnections.size;
-        },
-    });
-    createMetricsRegistry(ctx); // provides ctx.metrics
-    ctx.provide('misc', { randomHash: randomstring(8).toLowerCase() });
     ctx.Route('home', '/', HomeHandler);
     ctx.Route('presentation', '/presentation', PresentationHandler);
     ctx.Route('overview', '/overview', OverviewHandler);
@@ -525,5 +510,5 @@ async function applyMiscHandler(ctx: Context) {
     ctx.Route('version', '/version', VersionHandler);
 }
 
-export const inject = { config: true };
+export const inject = { config: true, roster: true, notifierStatus: true, presentation: true, misc: true, metrics: true, fetcher: true, dbservice: true };
 export const apply = applyMiscHandler;

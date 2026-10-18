@@ -104,5 +104,5 @@ async function applyCommandsHandler(ctx: Context) {
     ctx.Route('commands', '/commands', CommandsHandler);
 }
 
-export const inject = { config: true };
+export const inject = { config: true, dbservice: true };
 export const apply = applyCommandsHandler;

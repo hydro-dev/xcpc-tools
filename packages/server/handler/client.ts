@@ -374,5 +374,5 @@ async function applyClientHandler(ctx: Context) {
     ctx.Route('client_balloon_lease', '/client/:cid/leaseballoon/:bid', ClientBalloonLeaseHandler);
 }
 
-export const inject = { config: true };
+export const inject = { config: true, dbservice: true, fetcher: true };
 export const apply = applyClientHandler;

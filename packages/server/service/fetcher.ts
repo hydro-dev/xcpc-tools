@@ -25,7 +25,7 @@ export interface IBasicFetcher {
 class BasicFetcher extends Service implements IBasicFetcher {
     // cordis rc.11: accessing ctx.interval inside [Service.init] requires the
     // dependency to be declared (beta.5 tolerated undeclared access)
-    static inject = { timer: true, config: true };
+    static inject = { timer: true, config: true, dbservice: true };
 
     contest: any;
     get config() { return this.ctx.config.config; }
@@ -415,5 +415,5 @@ async function applyFetcher(ctx: Context) {
     ctx.plugin(fetcherList[config.type]);
 }
 
-export const inject = { config: true };
+export const inject = { config: true, timer: true, dbservice: true };
 export const apply = applyFetcher;

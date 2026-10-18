@@ -29,6 +29,7 @@ export async function applyServer(ctx: Context) {
         ctx.inject(['server', 'dbservice', 'fetcher'], async (c) => {
             await c.plugin(require('../service/ssh'));
             await c.plugin(require('../service/notifier'));
+            await c.plugin(require('../handler/miscBase'));
             await Promise.all([
                 c.plugin(require('../handler/misc')),
                 c.plugin(require('../handler/printer')),

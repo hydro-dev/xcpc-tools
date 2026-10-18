@@ -148,5 +148,5 @@ async function applySshHandler(ctx: Context) {
     ctx.Connection('webssh', '/ssh/ws', WebSshConnectionHandler);
 }
 
-export const inject = { config: true };
+export const inject = { config: true, dbservice: true };
 export const apply = applySshHandler;

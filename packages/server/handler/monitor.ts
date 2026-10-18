@@ -348,5 +348,5 @@ async function applyMonitorHandler(ctx: Context) {
     ctx.Connection('machine_probe', '/probe', MachineProbeConnectionHandler);
 }
 
-export const inject = { config: true };
+export const inject = { config: true, dbservice: true };
 export const apply = applyMonitorHandler;

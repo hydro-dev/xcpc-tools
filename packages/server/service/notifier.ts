@@ -1,4 +1,4 @@
-import { Context } from 'cordis';
+import { Context, Service } from 'cordis';
 import superagent from 'superagent';
 import type { BalloonDoc, BalloonNotificationSource } from '../interface';
 import { getBalloonName, Logger, sleep } from '../utils';
@@ -34,7 +34,45 @@ interface TextNotifier {
 }
 
 const requestTimeout = { response: 5_000, deadline: 10_000 };
-const notifierStatuses = new Map<string, NotifierStatus>();
+
+export class NotifierService extends Service {
+    statuses = new Map<string, NotifierStatus>();
+
+    constructor(ctx: Context) {
+        super(ctx, 'notifierStatus');
+    }
+
+    get(): NotifierStatus[] {
+        return Array.from(this.statuses.values())
+            .map((status) => ({ ...status }))
+            .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    }
+
+    set(client: NotifierClient) {
+        const { id } = client;
+        this.statuses.set(id, {
+            id,
+            name: String(client.name || id),
+            subType: String(client.subType || 'unknown'),
+            enabled: client.enabled !== false,
+            loaded: false,
+            lastAttemptAt: 0,
+            lastSuccessAt: 0,
+            lastError: '',
+        });
+    }
+
+    update(id: string, values: Partial<NotifierStatus>) {
+        const status = this.statuses.get(id);
+        if (status) Object.assign(status, values);
+    }
+}
+
+declare module 'cordis' {
+    interface Context {
+        notifierStatus: NotifierService;
+    }
+}
 
 function sanitizeNotifierError(error: unknown, client: NotifierClient) {
     let message = error instanceof Error ? error.message : String(error ?? 'Unknown notifier error');
@@ -47,29 +85,16 @@ function sanitizeNotifierError(error: unknown, client: NotifierClient) {
         .slice(0, 500);
 }
 
-function setConfiguredNotifierStatus(client: NotifierClient) {
-    const { id } = client;
-    notifierStatuses.set(id, {
-        id,
-        name: String(client.name || id),
-        subType: String(client.subType || 'unknown'),
-        enabled: client.enabled !== false,
-        loaded: false,
-        lastAttemptAt: 0,
-        lastSuccessAt: 0,
-        lastError: '',
-    });
+function setConfiguredNotifierStatus(notifierStatus: NotifierService, client: NotifierClient) {
+    notifierStatus.set(client);
 }
 
-export function getNotifierStatuses(): NotifierStatus[] {
-    return Array.from(notifierStatuses.values())
-        .map((status) => ({ ...status }))
-        .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+export function getNotifierStatuses(notifierStatus: NotifierService): NotifierStatus[] {
+    return notifierStatus.get();
 }
 
-function updateNotifierStatus(id: string, values: Partial<NotifierStatus>) {
-    const status = notifierStatuses.get(id);
-    if (status) Object.assign(status, values);
+function updateNotifierStatus(notifierStatus: NotifierService, id: string, values: Partial<NotifierStatus>) {
+    notifierStatus.update(id, values);
 }
 
 function isNetworkError(error: any) {
@@ -204,10 +229,12 @@ function createNotifier(client: NotifierClient): TextNotifier {
 }
 
 async function applyNotifier(ctx: Context) {
+    await ctx.plugin(NotifierService);
+    const notifierStatus = ctx.get('notifierStatus');
     const clients = (ctx.config.config.clients || []).filter((client) => client.type === 'webhook') as NotifierClient[];
     const enabledNotifierIds = clients.filter((client) => client.enabled !== false).map((client) => client.id);
-    notifierStatuses.clear();
-    for (const client of clients) setConfiguredNotifierStatus(client);
+    notifierStatus.statuses.clear();
+    for (const client of clients) setConfiguredNotifierStatus(notifierStatus, client);
 
     const notifiers = new Map<string, { client: NotifierClient; notifier: TextNotifier }>();
     for (const client of clients) {
@@ -215,10 +242,10 @@ async function applyNotifier(ctx: Context) {
         try {
             if (!client.id || !client.name || !client.subType || !client.token) throw new Error('Missing notifier fields');
             notifiers.set(client.id, { client, notifier: createNotifier(client) });
-            updateNotifierStatus(client.id, { loaded: true });
+            updateNotifierStatus(notifierStatus, client.id, { loaded: true });
             logger.info(`Notifier ${client.subType}(${client.id}) loaded`);
         } catch (error) {
-            updateNotifierStatus(client.id, { lastError: sanitizeNotifierError(error, client) });
+            updateNotifierStatus(notifierStatus, client.id, { lastError: sanitizeNotifierError(error, client) });
             logger.error(`Failed to load notifier ${client.id || 'unknown'}`, error);
         }
     }
@@ -249,7 +276,7 @@ async function applyNotifier(ctx: Context) {
 
         const entries = Array.from(notifiers.entries()).filter(([id]) => !notifierSent[id]);
         const results = await Promise.allSettled(entries.map(async ([id, entry]) => {
-            updateNotifierStatus(id, { lastAttemptAt: Date.now() });
+            updateNotifierStatus(notifierStatus, id, { lastAttemptAt: Date.now() });
             const message = renderMessage(entry.client.balloonTemplate || '', balloon, source);
             try {
                 try {
@@ -257,12 +284,12 @@ async function applyNotifier(ctx: Context) {
                 } catch (error) {
                     if (!isNetworkError(error)) throw error;
                     await sleep(5_000);
-                    updateNotifierStatus(id, { lastAttemptAt: Date.now() });
+                    updateNotifierStatus(notifierStatus, id, { lastAttemptAt: Date.now() });
                     await entry.notifier.sendText(message);
                 }
-                updateNotifierStatus(id, { lastSuccessAt: Date.now(), lastError: '' });
+                updateNotifierStatus(notifierStatus, id, { lastSuccessAt: Date.now(), lastError: '' });
             } catch (error) {
-                updateNotifierStatus(id, { lastError: sanitizeNotifierError(error, entry.client) });
+                updateNotifierStatus(notifierStatus, id, { lastError: sanitizeNotifierError(error, entry.client) });
                 throw error;
             }
             return id;
@@ -321,5 +348,5 @@ async function applyNotifier(ctx: Context) {
     }
 }
 
-export const inject = { config: true };
+export const inject = { config: true, dbservice: true, fetcher: true };
 export const apply = applyNotifier;

@@ -214,5 +214,5 @@ async function applyPrinterHandler(ctx: Context) {
     logger.info(`Code Print Route: /print/${ctx.config.config.secretRoute}`);
 }
 
-export const inject = { config: true };
+export const inject = { config: true, dbservice: true };
 export const apply = applyPrinterHandler;
