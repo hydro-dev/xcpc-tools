@@ -11,6 +11,7 @@ import {
     setClientConnection, setPrinterStatus, updateClientTask,
 } from './status';
 import { PrintersService } from '../service/printers';
+import { exitWithError } from '../host/fail';
 
 let ctxPrinters;
 
@@ -267,8 +268,7 @@ async function applyPrinterClient(ctx) {
         try {
             ctxPrinters.initWinPrinter();
         } catch (e) {
-            logger.error(e);
-            process.exit(1);
+            exitWithError(['Failed to initialize the Windows printer backend:', e instanceof Error ? e.message : String(e)]);
         }
     }
     if (cfg.token && cfg.server && printers.length) await fetchTask(cfg);

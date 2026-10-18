@@ -1,5 +1,6 @@
 import net from 'node:net';
 import { Context } from 'cordis';
+import { exitWithError } from '../host/fail';
 import { Handler, WebService } from '@hydrooj/framework';
 // @ts-ignore
 import StaticFrontend from '../data/static.frontend';
@@ -60,8 +61,7 @@ async function applyLocalWeb(pluginContext: Context, params: LocalWebParams = {}
     try {
         await checkPortAvailable(host, port);
     } catch (error) {
-        logger.error(`Local Web cannot listen on ${host}:${port}`, error);
-        process.exit(1);
+        exitWithError([`Local Web cannot listen on ${host}:${port}`, error instanceof Error ? error.message : String(error)]);
     }
     pluginContext.plugin(WebService, {
         host,
