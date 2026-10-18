@@ -86,5 +86,5 @@ async function applyLocalWeb(pluginContext: Context, params: LocalWebParams = {}
     });
 }
 
-export const inject = { config: true, server: true };
+export const inject = { config: true };
 export const apply = applyLocalWeb;

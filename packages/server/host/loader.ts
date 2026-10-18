@@ -89,9 +89,12 @@ export async function startFromConfig(ctx: Context, configPath: string) {
 export function livenessCheck(ctx: Context, configPath: string): void {
     const problems: string[] = [];
     for (const entry of loaderEntries(ctx)) {
-        // skip the root include entry (the yml driver itself); child entries
-        // of nested includes are still visited via entries() recursion
-        if (entry.options.name === 'cordis:include') continue;
+        // include entries are structural (they expand into child entries):
+        // a healthy one owns no fiber state worth checking — its children are
+        // visited in this same iteration. But a FAILED include means the
+        // referenced yml itself could not be read/parsed/validated, which
+        // must abort startup, so only skip non-failed includes.
+        if (entry.options.name === 'cordis:include' && entry.fiber?.state !== FiberState.FAILED) continue;
         if (entry.disabled) continue;
         if (!entry.fiber) {
             problems.push(`${entry.id} (${entry.options.name}): failed to load module`);
