@@ -21,6 +21,7 @@ export async function applyServer(ctx: Context) {
     // dbservice is required by everything downstream; register it here so
     // the loader path (which has no separate DBService entry) works too
     await ctx.plugin(require('../service/db').default);
+    await ctx.plugin(require('../service/printers').PrintersService);
     await Promise.all([
         ctx.plugin(require('../service/server')),
         ctx.plugin(require('../service/fetcher')),

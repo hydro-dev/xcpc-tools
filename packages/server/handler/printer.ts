@@ -1,9 +1,9 @@
 import path from 'node:path';
 import { Context } from 'cordis';
 import { BadRequestError, Handler, ValidationError } from '@hydrooj/framework';
-import { ConvertCodeToPDF } from '../client/printer';
 import { fs, Logger } from '../utils';
 import { AuthHandler } from './misc';
+import { escapeText, toUtf8 } from '../client/printer';
 import {
     CLIENT_ONLINE_WINDOW,
     clientHasTargetPrinter,
@@ -107,7 +107,7 @@ class PrintAdminHandler extends AuthHandler {
         }
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/.pdf'));
         const content = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`));
-        const doc = await ConvertCodeToPDF(
+        const doc = await this.ctx.printers.convertCodeToPDF(
             content,
             code.lang,
             code.filename,
@@ -115,6 +115,8 @@ class PrintAdminHandler extends AuthHandler {
             code.location,
             code.createAt,
             params.color ?? true,
+            escapeText,
+            toUtf8,
         );
         this.response.type = 'application/pdf';
         this.response.disposition = 'attachment; filename="code.pdf"';
@@ -214,5 +216,5 @@ async function applyPrinterHandler(ctx: Context) {
     logger.info(`Code Print Route: /print/${ctx.config.config.secretRoute}`);
 }
 
-export const inject = { config: true, dbservice: true };
+export const inject = { config: true, dbservice: true, printers: true };
 export const apply = applyPrinterHandler;

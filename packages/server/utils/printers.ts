@@ -6,8 +6,6 @@ import { Logger } from './index';
 
 const logger = new Logger('printer');
 
-let winPrinter: WinPDFPrint;
-
 export interface Printer {
     printer: string;
     description?: string;
@@ -16,16 +14,15 @@ export interface Printer {
     connection?: string;
 }
 
-export function initWinPrinter() {
-    if (winPrinter) return;
+export function discoverSumatraPdf(): string {
     const execPath = [
         './SumatraPDF.exe',
         path.resolve(__dirname, 'SumatraPDF.exe'),
         path.resolve(process.cwd(), 'SumatraPDF.exe'),
-        path.resolve(process.env.ProgramFiles, 'SumatraPDF\\SumatraPDF.exe'),
-        path.resolve(process.env['ProgramFiles(x86)'], 'SumatraPDF\\SumatraPDF.exe'),
-        path.resolve(process.env.LOCALAPPDATA, 'SumatraPDF\\SumatraPDF.exe'),
-        path.resolve(process.env.APPDATA, 'SumatraPDF\\SumatraPDF.exe'),
+        path.resolve(process.env.ProgramFiles, 'SumatraPDF' + path.sep + 'SumatraPDF.exe'),
+        path.resolve(process.env['ProgramFiles(x86)'], 'SumatraPDF' + path.sep + 'SumatraPDF.exe'),
+        path.resolve(process.env.LOCALAPPDATA, 'SumatraPDF' + path.sep + 'SumatraPDF.exe'),
+        path.resolve(process.env.APPDATA, 'SumatraPDF' + path.sep + 'SumatraPDF.exe'),
     ];
     const sumatraPdfPath = execPath.find((p) => fs.existsSync(p));
     if (!sumatraPdfPath) {
@@ -33,9 +30,7 @@ export function initWinPrinter() {
         throw new Error('SumatraPDF not found, please install it on https://www.sumatrapdfreader.org/download-free-pdf-viewer, or direct download from https://www.sumatrapdfreader.org/dl/rel/3.1.2/SumatraPDF-3.1.2.zip');
     }
     logger.info(`SumatraPDF found at ${sumatraPdfPath}`);
-    winPrinter = new WinPDFPrint({
-        sumatraPdfPath,
-    });
+    return sumatraPdfPath;
 }
 
 export const windowsPrinterStatus = {
@@ -55,7 +50,7 @@ export async function getPrinters(raw = false): Promise<object[]> {
     return await unixgetPrinters();
 }
 
-export async function print(file: string, printer: string, startPage?: number, endPage?: number) {
+export async function print(winPrinter: WinPDFPrint, file: string, printer: string, startPage?: number, endPage?: number) {
     if (process.platform === 'win32') {
         return winPrinter.print({
             file,

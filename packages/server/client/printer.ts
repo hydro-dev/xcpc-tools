@@ -5,14 +5,14 @@ import * as iconv from 'iconv-lite';
 import { PDFDocument } from 'pdf-lib';
 import superagent from 'superagent';
 import {
-    fs, getPrinters, initWinPrinter, Logger, print, randomstring, sleep,
+    fs, getPrinters, Logger, print, randomstring, sleep,
 } from '../utils';
 import {
     setClientConnection, setPrinterStatus, updateClientTask,
 } from './status';
-import { createTypstCompiler, generateTypst } from './typst';
+import { PrintersService } from '../service/printers';
 
-let compiler;
+let ctxPrinters;
 
 let cfg: any = null;
 const post = (url: string) => superagent.post(new URL(url, cfg.server).toString()).set('Accept', 'application/json');
@@ -55,14 +55,14 @@ const mergePDFs = async (files: string[], output: string) => {
     return fs.writeFileSync(output, await pdf.save());
 };
 
-function toUtf8(code: Buffer) {
+export function toUtf8(code: Buffer) {
     const info = chardet.detect(code);
     logger.debug(`detected as ${info}`);
     if (!info) return code.toString('utf8');
     return iconv.decode(code, info).toString();
 }
 
-function escapeText(s: string) {
+export function escapeText(s: string) {
     let res = '';
     for (const c of Array.from(s)) {
         res += /^[\p{L}\p{M}\p{N}\p{P}\p{S}\r\n\t ]$/u.test(c)
@@ -74,28 +74,16 @@ function escapeText(s: string) {
     return res;
 }
 
-export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, location, createAt, codeColor = false) {
-    compiler ||= await createTypstCompiler();
-    const fakeFilename = randomstring(8); // cubercsl: do not trust filename from user
-    const typst = generateTypst(team, location, fakeFilename, filename, lang, createAt, codeColor);
-    compiler.addSource('/main.typst', typst);
-    compiler.addSource(`/${fakeFilename}`, escapeText(toUtf8(code)));
-    logger.info(`Convert ${filename} to PDF`);
-    try {
-        return await compiler.compile({
-            format: 'pdf',
-            mainFilePath: '/main.typst',
-        });
-    } catch (e) {
-        logger.error(e);
-        compiler = await createTypstCompiler();
-        throw e;
-    } finally {
-        compiler.addSource(`/${fakeFilename}`, '');
-    }
+export async function ConvertCodeToPDF(
+    printers: PrintersService,
+    code: Buffer, lang, filename, team, location, createAt, codeColor = false,
+) {
+    // Block 5: conversion runs on PrintersService so the compiler instance is
+    // shared with the server-side print handler via the context
+    return await printers.convertCodeToPDF(code, lang, filename, team, location, createAt, codeColor, escapeText, toUtf8);
 }
 
-export async function printFile(docs, targetPrinter = '') {
+export async function printFile(ctxPrinters, docs, targetPrinter = '') {
     let finalFile = null;
     const files = [];
     for (const doc of docs) {
@@ -104,7 +92,7 @@ export async function printFile(docs, targetPrinter = '') {
         } = doc;
         if (!code) throw new Error(`Print task ${tid}#${_id} has no source content`);
         updateClientTask('print', _id, `${location || 'Unknown seat'} · ${filename}`, 'converting', { printer: targetPrinter });
-        const pdf = await ConvertCodeToPDF(
+        const pdf = await ConvertCodeToPDF(ctxPrinters,
             Buffer.from(code, 'base64'),
             lang,
             filename,
@@ -140,7 +128,7 @@ export async function printFile(docs, targetPrinter = '') {
             for (const doc of docs) {
                 updateClientTask('print', doc._id, `${doc.location || 'Unknown seat'} · ${doc.filename}`, 'printing', { printer: randomP.printer });
             }
-            await print(finalFile, randomP.printer, 1, files.length > 1 ? undefined : cfg.printPageMax);
+            await print(ctxPrinters.winPrint, finalFile, randomP.printer, 1, files.length > 1 ? undefined : cfg.printPageMax);
             return randomP.printer;
         }
         logger.info(`No idle ${targetPrinter || 'enabled'} printer found, sleeping...`);
@@ -216,7 +204,7 @@ async function fetchTask(c) {
             logger.info(`Print task ${tasks.map((t) => `${t.tid}#${t._id}`).join(', ')}...`);
             let printer = null;
             try {
-                printer = await printFile(tasks, targetPrinter);
+                printer = await printFile(c.printers, tasks, targetPrinter);
                 if (!printer) throw new Error('No Printer Configured');
             } catch (e) {
                 for (const doc of tasks) {
@@ -273,11 +261,11 @@ async function fetchTask(c) {
 
 async function applyPrinterClient(ctx) {
     cfg = ctx.config.config;
-    compiler = await createTypstCompiler();
+    ctxPrinters = ctx.printers;
     const printers = configuredPrinters();
     if (process.platform === 'win32') {
         try {
-            initWinPrinter();
+            ctxPrinters.initWinPrinter();
         } catch (e) {
             logger.error(e);
             process.exit(1);
@@ -287,5 +275,5 @@ async function applyPrinterClient(ctx) {
     else logger.error('Config not found, please check the config.yaml');
 }
 
-export const inject = { config: true };
+export const inject = { config: true, printers: true };
 export const apply = applyPrinterClient;
