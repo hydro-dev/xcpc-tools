@@ -1,77 +1,41 @@
 import os from 'node:os';
 import path from 'node:path';
-import LoggerService from '@cordisjs/plugin-logger';
+import ConsoleExporter from '@cordisjs/plugin-logger-console';
 import { TimerService } from '@cordisjs/plugin-timer';
+import { httpServer } from '@hydrooj/framework';
 import { Context } from 'cordis';
-import DBService from './service/db';
-import { fs, Logger } from './utils';
+import { BUILTINS } from './host/builtin';
+import { bindLogger, exitWithError } from './host/fail';
+import { livenessCheck, startFromConfig } from './host/loader';
+import { prevalidateYml, resolveConfigPath } from './host/probe';
+import { fs } from './utils';
 
-const logger = new Logger('tools');
-
-process.on('unhandledRejection', (e) => { logger.error(e); });
-process.on('uncaughtException', (e) => { logger.error(e); });
 Error.stackTraceLimit = 50;
-const app = new Context();
+const ctx = new Context();
 const tmpdir = path.resolve(os.tmpdir(), 'xcpc-tools');
 fs.ensureDirSync(tmpdir);
 
-let config;
-try {
-    config = require('./config').config;
-} catch (e) {
-    if (e.message !== 'no-config') throw e;
-}
+// rc.11: the app logger is built into the context (no plugin-logger service
+// to wait for), so these handlers can be registered up front.
+process.on('unhandledRejection', (e) => { ctx.logger('app').error(e); });
+process.on('uncaughtException', (e) => { ctx.logger('app').error(e); });
 
-async function applyServer(ctx: Context) {
-    await Promise.all([
-        ctx.plugin(require('./service/server')),
-        ctx.plugin(require('./service/fetcher')),
-    ]);
-    await ctx.inject(['server', 'dbservice', 'fetcher'], async (c) => {
-        await c.plugin(require('./service/ssh'));
-        await c.plugin(require('./service/notifier'));
-        await Promise.all([
-            c.plugin(require('./handler/misc')),
-            c.plugin(require('./handler/printer')),
-            c.plugin(require('./handler/monitor')),
-            c.plugin(require('./handler/client')),
-            c.plugin(require('./handler/balloon')),
-            c.plugin(require('./handler/commands')),
-            c.plugin(require('./handler/ssh')),
-        ]);
-        c.server.listen();
-    });
-}
+// The framework's WebService.listen() only resolves its promise on success —
+// a port conflict (EADDRINUSE) surfaces as an 'error' event on the module
+// level httpServer and would otherwise hang the boot forever. Register the
+// guard BEFORE any plugin can call listen().
+httpServer.on('error', (error: NodeJS.ErrnoException) => {
+    exitWithError(`http server error: ${error.code ?? error.message}`);
+});
 
-async function applyClient(ctx: Context) {
-    const localWeb = config.localWeb || {};
-    if (localWeb.enabled !== false) {
-        await ctx.plugin(require('./client/localWeb'), {
-            host: localWeb.host || '127.0.0.1',
-            port: localWeb.port || 5284,
-        });
-    }
-    if (config.printers?.length) await ctx.plugin(require('./client/printer'));
-    if (config.balloon) await ctx.plugin(require('./client/balloon'));
-}
-
-async function apply(ctx) {
-    if (process.argv.includes('--client')) {
-        await applyClient(ctx);
-    } else {
-        ctx.plugin(DBService);
-        ctx.inject(['dbservice'], (c) => {
-            applyServer(c);
-        });
-    }
-    logger.success('Tools started');
-    process.send?.('ready');
-    await ctx.parallel('app/ready');
-}
-
-app.plugin(TimerService);
-app.plugin(LoggerService, {
-    console: {
+// Boot order (rev.5 §2.0b/c):
+//   1. services (timer, console logger exporter)
+//   2. plugins   — loader path (cordis.yml) with prevalidation + liveness
+//                 check, or the builtin path with awaited fibers
+//   3. only then: "Tools started" log + 'ready' message + app/ready notify
+async function boot() {
+    ctx.plugin(TimerService);
+    await ctx.plugin(ConsoleExporter, {
         showDiff: false,
         showTime: 'dd hh:mm:ss',
         label: {
@@ -80,7 +44,44 @@ app.plugin(LoggerService, {
             margin: 1,
         },
         levels: { default: process.env.DEV ? 3 : 2 },
-    },
-});
+    } as any);
+    bindLogger(ctx);
+    const { configPath } = resolveConfigPath();
+    const isClient = process.argv.includes('--client');
+    if (configPath) {
+        // loader path: explicit opt-in via cordis.yml
+        prevalidateYml(configPath); // layer 1: fast-fail, exit(1) on bad yml
+        await startFromConfig(ctx, configPath); // layer 2 gate:
+        livenessCheck(ctx, configPath); // every entry ACTIVE or exit(1)
+    } else {
+        // builtin path: identical wiring, but awaited this time — "started"
+        // is only logged after the required services are actually active
+        // (config.ts may throw 'no-config' after writing a template; that
+        // is the existing first-run UX and must stay non-fatal)
+        let config: any = null;
+        try {
+            config = require('./config').config;
+        } catch (e: any) {
+            if (e.message !== 'no-config') throw e;
+        }
+        if (!config) return;
+        if (isClient) {
+            await ctx.plugin(BUILTINS.client!);
+        } else {
+            // applyServer registers DBService itself and resolves only after
+            // the http server is listening (see host/builtin.ts)
+            await ctx.plugin(BUILTINS.core!);
+        }
+    }
+    // The httpServer 'error' guard was registered before boot (see top of
+    // file): a port conflict must exit(1) instead of hanging inside listen().
+    ctx.logger('app').info('Tools started');
+    process.send?.('ready');
+    // notification semantics only — no listener exists today; external
+    // plugins may use it later. Not a readiness barrier.
+    await ctx.parallel('app/ready');
+}
 
-if (config) app.inject(['logger', 'timer'], (ctx) => apply(ctx));
+boot().catch((error) => {
+    exitWithError(error instanceof Error ? error.stack || error.message : String(error));
+});

@@ -46,6 +46,10 @@ export interface IBasicFetcher {
     setPrintDone(pid: string): Promise<void>
 }
 class BasicFetcher extends Service implements IBasicFetcher {
+    // cordis rc.11: accessing ctx.interval inside [Service.init] requires the
+    // dependency to be declared (beta.5 tolerated undeclared access)
+    static inject = { timer: true };
+
     contest: any;
     lastSuccessAt = 0;
     lastErrorAt = 0;

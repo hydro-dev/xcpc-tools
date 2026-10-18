@@ -3,13 +3,9 @@ declare module 'cordis' {
         params: any;
         fetcher: any;
     }
-    interface Events {
-        'app/started': () => void
-        'app/ready': () => VoidReturn
-        'app/exit': () => VoidReturn
-        'notifier/balloonTask': (balloons: BalloonDoc[], source: BalloonNotificationSource) => VoidReturn
-    }
 }
+// NOTE: cordis event declarations ('app/*', 'notifier/balloonTask') live in
+// interface.d.ts - see the comment there for why.
 
 export type VoidReturn = Promise<any> | any;
 
