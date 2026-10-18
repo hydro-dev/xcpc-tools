@@ -1,0 +1,33 @@
+# xcpc-tools plugin configuration (cordis.yml)
+#
+# Presence of this file opts the process into loader mode: entries below are
+# loaded through @cordisjs/plugin-loader instead of the builtin wiring.
+# Remove the file (or pass --no-config) to boot the builtin way.
+#
+# Entry fields:
+#   id      optional, stable identifier used in logs and error reports
+#   name    plugin reference — `xcpc:` builtins, `./relative/path.js` files
+#           (relative to THIS file's directory), or bare package names (dev
+#           installs only — not usable from the single-file bundle)
+#   config  object passed to the plugin
+#   inject  service names that must be active before the plugin starts
+#
+# Any failed entry aborts startup with exit code 1 and the config path.
+
+# Standard server setup (equivalent to the builtin boot):
+# - id: core
+#   name: xcpc:core
+
+# Standard client setup:
+# - id: client
+#   name: xcpc:client
+
+# A local plugin placed next to this file:
+# - id: my-plugin
+#   name: ./plugins/my-plugin.js
+
+# A plugin that only starts once the http server is up:
+# - id: late-plugin
+#   name: ./plugins/late.js
+#   inject:
+#     server: true
