@@ -75,8 +75,24 @@ class BasicFetcher extends Service implements IBasicFetcher {
                 this.lastErrorAt = Date.now();
                 this.lastError = error instanceof Error ? error.message : String(error);
                 this.logger.error(error);
+            } finally {
+                this.emitStatus();
             }
         }, 15000);
+    }
+
+    /** Block 6 (fetcher event-ification): broadcast the current source
+     *  health so consumers (overview / presentation) can cache it instead
+     *  of reaching into the service on every request. */
+    emitStatus() {
+        this.ctx.emit('fetcher/status', {
+            connected: this.config.type !== 'server'
+                && this.sourceSuccessAt > Date.now() - 45_000
+                && this.sourceSuccessAt >= this.sourceErrorAt,
+            sourceSuccessAt: this.sourceSuccessAt,
+            sourceErrorAt: this.sourceErrorAt,
+            sourceError: this.sourceError,
+        });
     }
 
     async cron() {

@@ -23,5 +23,15 @@ export async function apply(ctx: Context) {
         },
     });
     ctx.provide('misc', { randomHash: randomstring(8).toLowerCase() });
+    // Block 6 (fetcher event-ification): subscribe to the fetcher/status
+    // event and keep a local cache so request handlers never reach into the
+    // fetcher service directly
+    ctx.provide('fetcherStatus', {
+        connected: false,
+        sourceSuccessAt: 0,
+        sourceErrorAt: 0,
+        sourceError: '',
+    });
+    ctx.on('fetcher/status', (status) => Object.assign(ctx.get('fetcherStatus'), status));
     createMetricsRegistry(ctx); // provides ctx.metrics
 }

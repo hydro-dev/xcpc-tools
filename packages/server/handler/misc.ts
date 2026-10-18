@@ -36,6 +36,13 @@ declare module 'cordis' {
             connectedDevices(now: number): number;
         };
         misc: { randomHash: string };
+        /** Block 6: cache of the last 'fetcher/status' event (see service/fetcher.ts) */
+        fetcherStatus: {
+            connected: boolean;
+            sourceSuccessAt: number;
+            sourceErrorAt: number;
+            sourceError: string;
+        };
     }
 }
 
@@ -168,8 +175,8 @@ const toTimestamp = (value: unknown): number | null => {
 };
 
 const ojConnected = (ctx: Context) => ctx.config.config.type !== 'server'
-    && Number(ctx.fetcher?.sourceSuccessAt || 0) > Date.now() - 45_000
-    && Number(ctx.fetcher?.sourceSuccessAt || 0) >= Number(ctx.fetcher?.sourceErrorAt || 0);
+    && Number(ctx.fetcherStatus.sourceSuccessAt || 0) > Date.now() - 45_000
+    && Number(ctx.fetcherStatus.sourceSuccessAt || 0) >= Number(ctx.fetcherStatus.sourceErrorAt || 0);
 
 const contestOverview = async (ctx: Context) => {
     const source = ctx.fetcher?.contest;
@@ -221,7 +228,7 @@ const contestOverview = async (ctx: Context) => {
     return {
         mode: ctx.config.config.type,
         connected,
-        connectionError: connected ? '' : String(ctx.fetcher?.sourceError || '').slice(0, 240),
+        connectionError: connected ? '' : String(ctx.fetcherStatus.sourceError || '').slice(0, 240),
         contest: hasContest ? {
             id: String(source.id),
             name: String(source.name || info.name || info.title || ''),
@@ -510,5 +517,5 @@ async function applyMiscHandler(ctx: Context) {
     ctx.Route('version', '/version', VersionHandler);
 }
 
-export const inject = { config: true, roster: true, notifierStatus: true, presentation: true, misc: true, metrics: true, fetcher: true, dbservice: true };
+export const inject = { config: true, roster: true, notifierStatus: true, presentation: true, misc: true, metrics: true, fetcherStatus: true, dbservice: true };
 export const apply = applyMiscHandler;
