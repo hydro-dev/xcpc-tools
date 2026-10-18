@@ -7,15 +7,9 @@ declare module 'cordis' {
     interface Context {
         metrics: Registry;
     }
-    interface Events {
-        'print/newTask': (count: number) => void;
-        'print/sendTask': (client: string) => void;
-        'print/doneTask': (client: string, printer: string) => void;
-        'balloon/newTask': (count: number) => void;
-        'balloon/sendTask': (client: string, count: number) => void;
-        'balloon/doneTask': (client: string, count: number) => void;
-    }
 }
+// NOTE: print/balloon event declarations live in utils/events.d.ts - see the
+// comment in packages/server/interface.d.ts for why.
 
 export function createMetricsRegistry(ctx: Context) {
     const registry = new Registry();

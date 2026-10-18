@@ -9,6 +9,7 @@
         "composite": true,
         "strictBindCallApply": true,
         "resolveJsonModule": true,
+        "skipLibCheck": true,
         "experimentalDecorators": true,
         "incremental": true,
     },
