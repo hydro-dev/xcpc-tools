@@ -36,7 +36,6 @@ declare module 'cordis' {
             connectedDevices(now: number): number;
         };
         misc: { randomHash: string };
-        /** Block 6: cache of the last 'fetcher/status' event (see service/fetcher.ts) */
         fetcherStatus: {
             connected: boolean;
             sourceSuccessAt: number;

@@ -23,8 +23,6 @@ export interface IBasicFetcher {
     setPrintDone(pid: string): Promise<void>
 }
 class BasicFetcher extends Service implements IBasicFetcher {
-    // cordis rc.11: accessing ctx.interval inside [Service.init] requires the
-    // dependency to be declared (beta.5 tolerated undeclared access)
     static inject = { timer: true, config: true, dbservice: true };
 
     contest: any;
@@ -81,9 +79,6 @@ class BasicFetcher extends Service implements IBasicFetcher {
         }, 15000);
     }
 
-    /** Block 6 (fetcher event-ification): broadcast the current source
-     *  health so consumers (overview / presentation) can cache it instead
-     *  of reaching into the service on every request. */
     emitStatus() {
         this.ctx.emit('fetcher/status', {
             connected: this.config.type !== 'server'

@@ -4,7 +4,6 @@ import * as yaml from 'js-yaml';
 import { exitWithError } from './fail';
 
 export interface ProbeResult {
-    /** absolute path of the located config file, or null for builtin boot */
     configPath: string | null;
 }
 
@@ -33,30 +32,18 @@ function packageRoot(start: string): string | null {
     }
 }
 
-/**
- * Probe chain (rev.4): cwd → execPath dir (only when not plain node, i.e.
- * pkg/SEA bundles) → bundle dir → package root. First hit wins; a corrupted
- * hit is fatal (handled by prevalidate) instead of falling through.
- * `--config` / XCPC_CONFIG are intentionally NOT supported (rev.4 boundary ②).
- */
 export function resolveConfigPath(): ProbeResult {
     if (process.argv.includes('--no-config')) return { configPath: null };
-    // 1. current working directory
     const fromCwd = lookAround(process.cwd());
     if (fromCwd) return { configPath: fromCwd };
-    // 2. directory of the running executable, but only for packaged binaries
-    //    (pkg / SEA set execPath to the binary itself; plain `node` would probe
-    //    the node installation dir, which is never a config location)
     const execDir = path.dirname(process.execPath);
     const execIsNode = path.basename(process.execPath).replace('.exe', '').toLowerCase() === 'node';
     if (!execIsNode) {
         const fromExec = lookAround(execDir);
         if (fromExec) return { configPath: fromExec };
     }
-    // 3. directory of the bundle entry (index.ts in dev, dist/xcpc-tools.js in prod)
     const fromBundle = lookAround(__dirname);
     if (fromBundle) return { configPath: fromBundle };
-    // 4. package root
     const root = packageRoot(__dirname);
     if (root) {
         const fromRoot = lookAround(root);
@@ -65,11 +52,6 @@ export function resolveConfigPath(): ProbeResult {
     return { configPath: null };
 }
 
-/**
- * Host-side prevalidation (rev.5 §liveness layer 1): fast-fail with a friendly
- * message before the loader is even started. Deeper failures (missing plugin
- * files, apply errors, unmet injects) are caught by the liveness check.
- */
 export function prevalidateYml(configPath: string): void {
     let content: string;
     try {
@@ -90,10 +72,6 @@ export function prevalidateYml(configPath: string): void {
     validateEntries(configPath, data);
 }
 
-// A leaf entry needs a "name". Groups are NOT supported by this host: the
-// loader would need the @cordisjs/plugin-group wiring and the repo has no
-// consumer for nested grouping, so reject with a readable message instead of
-// letting the loader crash on `undefined.startsWith` (review §3.4).
 function validateEntries(configPath: string, entries: any[], prefix = ''): void {
     for (const [index, entry] of entries.entries()) {
         const where = `${configPath}: entry #${index + 1}${prefix}`;

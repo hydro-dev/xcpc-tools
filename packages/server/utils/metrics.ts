@@ -8,8 +8,6 @@ declare module 'cordis' {
         metrics: Registry;
     }
 }
-// NOTE: print/balloon event declarations live in utils/events.d.ts - see the
-// comment in packages/server/interface.d.ts for why.
 
 export function createMetricsRegistry(ctx: Context) {
     const registry = new Registry();

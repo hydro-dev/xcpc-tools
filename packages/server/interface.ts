@@ -4,8 +4,6 @@ declare module 'cordis' {
         fetcher: any;
     }
 }
-// NOTE: cordis event declarations ('app/*', 'notifier/balloonTask') live in
-// interface.d.ts - see the comment there for why.
 
 export type VoidReturn = Promise<any> | any;
 

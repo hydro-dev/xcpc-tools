@@ -7,19 +7,6 @@ import {
     fs, getPrinters, randomstring, yaml,
 } from '../utils';
 
-// ---------------------------------------------------------------------------
-// ConfigService (rev.4 block 3): the business configuration used to be an
-// eagerly-executed module (import side effects: template writing, schema
-// validation, arena-layout loading). It is now a cordis service so loading
-// happens at a defined point of the boot sequence — after the logger is up,
-// before any consumer plugin — and consumers read it from their context
-// (ctx.config.config.<field>) instead of a module singleton.
-//
-// cordis.yml (loader mode) only decides which plugins load; the business
-// configuration still lives in config.server.yaml / config.client.yaml in the
-// working directory, exactly as before.
-// ---------------------------------------------------------------------------
-
 const balloonTemplateDefault = `\
 #align center
 
@@ -162,10 +149,8 @@ const clientSchema = Schema.object({
 export class ConfigService extends Service {
     readonly isClient = process.argv.includes('--client');
     readonly configPath = path.resolve(process.cwd(), `config.${this.isClient ? 'client' : 'server'}.yaml`);
-    /** false when no config existed: a template was written, nothing loaded */
     loaded = false;
     firstRun = false;
-    /** parsed configuration object (same shape the old config.ts module exported) */
     config: any = {};
     arenaLayouts: unknown[] = [];
     readonly version = packageVersion;
@@ -200,8 +185,6 @@ export class ConfigService extends Service {
         if (!this.isClient) logger.info(`Server View User Info: admin / ${this.config.viewPass}`);
     }
 
-    /** Write a fresh template (first run only). Non-fatal by design: the
-     *  process exits cleanly afterwards and the user fills the file in. */
     async writeTemplate() {
         await new Promise<void>((resolve) => (async () => {
             const serverConfigDefault = `\
@@ -264,16 +247,10 @@ monitor:
         this.ctx.logger('init').error('Config file generated, please fill in the config.yaml');
     }
 
-    /** Persist the current configuration back to the yaml file. */
     save() {
         fs.writeFileSync(this.configPath, yaml.dump(this.config));
     }
 
-    /**
-     * Store an OJ credential obtained at runtime (fetcher login). The value
-     * lives in memory only — save() must never be fed credentials, and no
-     * code path persists the token to disk (rev.4 boundary ③).
-     */
     setCredential(token: string) {
         this.config.token = token;
     }

@@ -15,24 +15,13 @@ const ctx = new Context();
 const tmpdir = path.resolve(os.tmpdir(), 'xcpc-tools');
 fs.ensureDirSync(tmpdir);
 
-// rc.11: the app logger is built into the context (no plugin-logger service
-// to wait for), so these handlers can be registered up front.
 process.on('unhandledRejection', (e) => { ctx.logger('app').error(e); });
 process.on('uncaughtException', (e) => { ctx.logger('app').error(e); });
 
-// The framework's WebService.listen() only resolves its promise on success —
-// a port conflict (EADDRINUSE) surfaces as an 'error' event on the module
-// level httpServer and would otherwise hang the boot forever. Register the
-// guard BEFORE any plugin can call listen().
 httpServer.on('error', (error: NodeJS.ErrnoException) => {
     exitWithError(`http server error: ${error.code ?? error.message}`);
 });
 
-// Boot order (rev.5 §2.0b/c):
-//   1. services (timer, console logger exporter)
-//   2. plugins   — loader path (cordis.yml) with prevalidation + liveness
-//                 check, or the builtin path with awaited fibers
-//   3. only then: "Tools started" log + 'ready' message + app/ready notify
 async function boot() {
     ctx.plugin(TimerService);
     await ctx.plugin(ConsoleExporter, {
@@ -49,30 +38,18 @@ async function boot() {
     const { configPath } = resolveConfigPath();
     const isClient = process.argv.includes('--client');
     if (configPath) {
-        // loader path: explicit opt-in via cordis.yml
-        prevalidateYml(configPath); // layer 1: fast-fail, exit(1) on bad yml
-        await startFromConfig(ctx, configPath); // layer 2 gate:
-        livenessCheck(ctx, configPath); // every entry ACTIVE or exit(1)
+        prevalidateYml(configPath);
+        await startFromConfig(ctx, configPath);
+        livenessCheck(ctx, configPath);
     } else {
-        // builtin path: identical wiring, but awaited this time — "started"
-        // is only logged after the required services are actually active.
-        // ConfigService writes a template and returns not-loaded on the very
-        // first run (existing first-run UX, stays non-fatal).
         if (isClient) {
             await ctx.plugin(BUILTINS.client!);
         } else {
-            // applyServer registers ConfigService + DBService itself and
-            // resolves only after the http server is listening (see
-            // host/builtin.ts)
             await ctx.plugin(BUILTINS.core!);
         }
     }
-    // The httpServer 'error' guard was registered before boot (see top of
-    // file): a port conflict must exit(1) instead of hanging inside listen().
     ctx.logger('app').info('Tools started');
     process.send?.('ready');
-    // notification semantics only — no listener exists today; external
-    // plugins may use it later. Not a readiness barrier.
     await ctx.parallel('app/ready');
 }
 

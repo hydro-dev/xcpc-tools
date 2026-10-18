@@ -79,8 +79,6 @@ export async function ConvertCodeToPDF(
     printers: PrintersService,
     code: Buffer, lang, filename, team, location, createAt, codeColor = false,
 ) {
-    // Block 5: conversion runs on PrintersService so the compiler instance is
-    // shared with the server-side print handler via the context
     return await printers.convertCodeToPDF(code, lang, filename, team, location, createAt, codeColor, escapeText, toUtf8);
 }
 

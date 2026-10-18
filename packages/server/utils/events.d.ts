@@ -1,5 +1,3 @@
-// See packages/server/interface.d.ts for why cordis event augmentations live
-// in declaration files (framework 0.2.6 vs cordis >= rc type conflict).
 import 'cordis';
 
 declare module 'cordis' {
