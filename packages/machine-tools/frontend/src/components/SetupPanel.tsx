@@ -16,11 +16,14 @@ import type {
 } from '../types';
 import { runPrivileged, writePrivilegedFile } from '../utils/privileged';
 import { testProbeReport } from '../utils/probe';
+import type { QuickConfig } from '../utils/quickConfig';
+import { stopCameraScan } from '../utils/quickConfigRuntime';
 import {
     collectMachineSnapshot, deriveServerEndpoints, HEARTBEAT_CONFIG_PATH, HEARTBEAT_TIMER_UNIT,
     heartbeatVersionUrl, MACHINE_TOOLS_ENV_PATH, SEAT_CONFIG_PATH, shellQuote, systemdUnitExists,
 } from '../utils/system';
 import { MachineInfo } from './MachineInfo';
+import { QuickConfigModal } from './QuickConfigModal';
 import { VideoDebug, VideoQuickControls } from './VideoDebug';
 
 interface SetupPanelProps {
@@ -120,6 +123,7 @@ export function SetupPanel({
     const [finishMode, setFinishMode] = useState<'normal' | 'force' | null>(null);
     const [machineOpened, machineControls] = useDisclosure(false);
     const [videoOpened, videoControls] = useDisclosure(false);
+    const [quickOpened, quickControls] = useDisclosure(false);
 
     const cleanSeat = seat.trim();
     const useProbe = probeServiceState !== 'not-found' && probeServiceState !== 'unknown';
@@ -334,6 +338,41 @@ export function SetupPanel({
         }
     };
 
+    const applyQuickConfig = async (patch: QuickConfig) => {
+        let next = { ...config };
+        if (patch.seat) {
+            await writePrivilegedFile(SEAT_CONFIG_PATH, `${JSON.stringify({ seat: patch.seat })}\n`);
+            await runPrivileged('/usr/bin/hostnamectl', ['set-hostname', patch.seat]).catch((error) => {
+                throw new Error(`座位文件已保存，但主机名更新失败：${error.message}`);
+            });
+            next = { ...next, seat: patch.seat };
+            setSeat(patch.seat);
+            onConfigChange(next);
+        }
+        if (patch.server) {
+            const resolved = deriveServerEndpoints(new URL('report', patch.server).toString());
+            const token = config.reportToken || '';
+            await writePrivilegedFile(
+                useProbe ? MACHINE_TOOLS_ENV_PATH : HEARTBEAT_CONFIG_PATH,
+                useProbe
+                    ? `PROBEURL=${shellQuote(resolved.probeUrl)}\nREPORTTOKEN=${shellQuote(token)}\n`
+                    : `HEARTBEATURL=${resolved.heartbeatUrl}\nREPORTTOKEN=${shellQuote(token)}\n`,
+            ).catch((error) => {
+                throw new Error(`${patch.seat ? '座位号已保存。' : ''}中心地址保存失败：${error.message}`);
+            });
+            next = { ...next, ...resolved, probeEnabled: useProbe };
+            setServerInput(resolved.heartbeatUrl);
+            setProbeTest(undefined);
+            onConfigChange(next);
+            await startReporter().catch((error) => {
+                throw new Error(`配置已保存，但上报服务启动失败：${error.message}`);
+            });
+        }
+        const machine = await collectMachineSnapshot().catch(() => undefined);
+        if (machine) onSnapshot(machine);
+        notifications.show({ color: 'blue', title: '快速配置已应用', message: '已保存提供的配置项，未提供的配置保持原值' });
+    };
+
     const finish = async (force: boolean) => {
         setSaving(true);
         setOperationError('');
@@ -353,7 +392,7 @@ export function SetupPanel({
                 color: 'blue', title: '设备配置完成', message: '程序将在 5 秒后关闭', autoClose: 5_000,
             });
             window.setTimeout(() => {
-                app.exit().catch(() => undefined);
+                stopCameraScan().then(() => app.exit()).catch(() => undefined);
             }, 5_000);
         } catch (error) {
             setOperationError((error as Error).message);
@@ -372,11 +411,19 @@ export function SetupPanel({
                         <Text fw={800}>Hydro Machine Tools</Text>
                     </Group>
                     <Group gap="sm" wrap="nowrap">
+                        <Button variant="light" disabled={saving} onClick={quickControls.open}>快速配置</Button>
                         <Button variant="default" loading={saving} onClick={() => setFinishMode('force')}>强制完成</Button>
                         <Button className="config-finish-button" loading={saving} onClick={() => setFinishMode('normal')}>完成设备配置</Button>
                     </Group>
                 </Group>
             </header>
+
+            {quickOpened && (
+                <QuickConfigModal
+                    onClose={quickControls.close}
+                    onApply={applyQuickConfig}
+                />
+            )}
 
             <div className="setup-layout">
                 <Paper className="section-panel identity-panel" radius="lg" p="xl">
