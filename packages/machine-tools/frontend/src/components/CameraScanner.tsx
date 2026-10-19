@@ -11,7 +11,7 @@ interface CameraScannerProps {
 export function CameraScanner({ onResult, onError }: CameraScannerProps) {
     const callbacks = useRef({ onResult, onError });
     callbacks.current = { onResult, onError };
-    const [status, setStatus] = useState('正在打开 Firefox 扫码页面…');
+    const [status, setStatus] = useState('正在使用默认浏览器打开扫码页面…');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -27,7 +27,7 @@ export function CameraScanner({ onResult, onError }: CameraScannerProps) {
             // Restoration finishes after this component may have unmounted.
             (message) => notifications.show({ color: 'red', title: '摄像头清理失败', message, autoClose: false }),
         ).then(() => {
-            if (!controller.signal.aborted) setStatus('请在 Firefox 中允许使用摄像头并扫描标签，识别后确认修改');
+            if (!controller.signal.aborted) setStatus('请在浏览器中允许使用摄像头并扫描标签，识别后确认修改');
         }).catch((reason) => fail(reason instanceof Error ? reason.message : String(reason)));
         return () => controller.abort();
     }, []);

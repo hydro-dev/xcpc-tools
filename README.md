@@ -111,7 +111,7 @@ monitor:
 
 Machine Tools 提供选手机本地配置页和赛前展示页。配置页根据服务器地址生成 `/report`、`/probe` 和 `/presentation` 地址，保存座位号、上报 Token 与 Probe 配置。
 
-Linux 镜像需要预装 Machine Tools、Python 3.8+、`python3-websockets`、Python Probe 和对应的 systemd unit。配置程序不会安装这些运行组件。
+Linux 镜像需要预装 Machine Tools、Python 3.8+、`python3-websockets`、Python Probe 和对应的 systemd unit。摄像头扫码还需要 `xdg-open` 和支持摄像头访问的系统默认浏览器。配置程序不会安装这些运行组件。
 
 ```bash
 hydro-machine-tools                 # 本机配置

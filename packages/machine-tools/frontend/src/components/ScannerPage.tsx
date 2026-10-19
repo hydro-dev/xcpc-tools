@@ -49,7 +49,7 @@ export default function ScannerPage({ session }: { session: string }) {
         };
         const start = async () => {
             started = true;
-            setStatus('请允许 Firefox 使用摄像头，然后将标签二维码对准镜头。');
+            setStatus('请允许浏览器使用摄像头，然后将标签二维码对准镜头。');
             try {
                 const { BrowserQRCodeReader } = await import('@zxing/browser');
                 if (ended) return;
