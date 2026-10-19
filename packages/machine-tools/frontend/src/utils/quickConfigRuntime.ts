@@ -1,7 +1,6 @@
 import { app, events, os } from '@neutralinojs/lib';
 import type { CameraMessage } from './cameraSession';
 import { CAMERA_EVENT, CAMERA_LEASE_MS } from './cameraSession';
-import { shellQuote } from './system';
 
 // Reopening waits for the previous page to release the camera and restore VLC.
 let previousScan = Promise.resolve();
@@ -60,7 +59,7 @@ export async function startCameraScan(
             try {
                 await launchDone;
                 if (connected) {
-                    // Never kill Firefox: the launch may have reused an existing process.
+                    // Never kill the browser: the launch may have reused an existing process.
                     let releaseTimeout: number | undefined;
                     const expired = new Promise<void>((resolve) => {
                         releaseTimeout = window.setTimeout(() => {
@@ -128,9 +127,6 @@ export async function startCameraScan(
             await previous;
             if (stopped) return;
             timeout = window.setTimeout(() => fail('扫码超时，请重新打开扫码'), 90_000);
-            const installed = await os.execCommand('command -v firefox');
-            if (installed.exitCode !== 0) throw new Error('镜像未安装 Firefox，无法打开扫码页面');
-            if (stopped) return;
             const token = window.NL_TOKEN || sessionStorage.getItem('NL_TOKEN');
             if (!token || !window.NL_PORT) throw new Error('无法获取扫码连接凭据，请重新打开配置工具');
             const url = new URL(`http://127.0.0.1:${window.NL_PORT}/`);
@@ -150,7 +146,7 @@ export async function startCameraScan(
             if (stopped) return;
             await events.on(CAMERA_EVENT, handleEvent);
             if (stopped) return;
-            await os.spawnProcess(`firefox --new-window ${shellQuote(url.href)}`);
+            await os.open(url.href);
             launched = true;
             resolveReady();
         } catch (error) {
