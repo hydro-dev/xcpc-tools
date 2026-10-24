@@ -1,13 +1,43 @@
 import {
-  Alert, Card, Center, Group, Pagination, Select, Skeleton, Stack, Text, TextInput, Title,
+  Alert, Button, Card, Center, Group, Pagination, Select, Skeleton, Stack, Text, TextInput, Title,
 } from '@mantine/core';
-import { IconAlertCircle, IconSearch } from '@tabler/icons-react';
-import { useQuery } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
+import { IconAlertCircle, IconPrinter, IconSearch } from '@tabler/icons-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { BallonColorChecker } from '../components/BalloonsModal';
 import { BalloonsTable } from '../components/BalloonsTable';
 import { PageHeader } from '../components/PageHeader';
 import { balloonQuery } from '../queries';
+
+function PrintTestButton() {
+  const queryClient = useQueryClient();
+  const [loading, setLoading] = React.useState(false);
+  const run = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/balloon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operation: 'test' }),
+      });
+      const res = await response.json();
+      if (!response.ok || res.error) throw new Error(res.error?.message || `Request failed with status ${response.status}`);
+      notifications.show({ title: 'Success', message: 'Test balloon queued for printing', color: 'green' });
+      await queryClient.invalidateQueries({ queryKey: ['balloons'] });
+    } catch (e) {
+      console.error(e);
+      notifications.show({ title: 'Error', message: 'Failed to queue test balloon', color: 'red' });
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Button size="xs" variant="default" leftSection={<IconPrinter size={15} />} loading={loading} onClick={run}>
+      Print test
+    </Button>
+  );
+}
 
 export default function Balloon() {
   const [search, setSearch] = React.useState('');
@@ -39,7 +69,12 @@ export default function Balloon() {
         description="Track solved problems and dispatch status."
         isFetching={query.isFetching && !query.isPending}
         updatedAt={query.dataUpdatedAt}
-        actions={<BallonColorChecker />}
+        actions={(
+          <Group gap="xs">
+            <PrintTestButton />
+            <BallonColorChecker />
+          </Group>
+        )}
       />
       {query.isError && !query.data && (
         <Alert color="red" mb="md" title="Unable to load balloon data" icon={<IconAlertCircle />}>

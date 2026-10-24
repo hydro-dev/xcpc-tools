@@ -11,6 +11,26 @@ class BalloonAdminHandler extends AuthHandler {
         this.response.body = { balloons };
     }
 
+    async postTest() {
+        const now = Date.now();
+        await this.ctx.db.balloon.insert({
+            balloonid: `test-${now}`,
+            time: String(now),
+            problem: 'TEST',
+            contestproblem: { rgb: '#4DABF7', color: null },
+            team: 'Print Test',
+            teamid: 'test',
+            location: 'TEST',
+            awards: '',
+            done: true,
+            total: {},
+            printDone: 0,
+            shouldPrint: true,
+        } as any);
+        await this.ctx.db.balloon.removeMany({ teamid: 'test', printDone: 1 }, { multi: true });
+        this.response.body = { success: true };
+    }
+
     async postReprint(params) {
         const balloon = await this.ctx.db.balloon.findOne({ balloonid: params.balloonid });
         if (!balloon) {
