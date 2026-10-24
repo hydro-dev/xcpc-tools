@@ -11,36 +11,9 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
-import mpegts from 'mpegts.js';
 import React, { useState } from 'react';
 import { formatWifiSignal } from '../utils';
-
-function VideoPlayer({ client, type = 'camera' }) {
-  const videoRef = React.useRef(null);
-  const needProxy = client && client[type].startsWith('proxy://');
-  const src = `${needProxy ? '/stream/' : 'http://'}${client.ip}${client[type].startsWith('proxy://') ? client[type].substring(8) : client[type]}`;
-  React.useEffect(() => {
-    if (videoRef.current) {
-      const player = mpegts.createPlayer({
-        type: 'mpegts',
-        isLive: true,
-        url: src,
-      });
-      player.attachMediaElement(videoRef.current);
-      player.load();
-      return () => {
-        player.destroy();
-      };
-    }
-    return () => { };
-  }, [src]);
-
-  return (
-    // Live camera and desktop streams do not provide a captions track.
-    // eslint-disable-next-line jsx-a11y/media-has-caption
-    <video src={src} ref={videoRef} autoPlay controls style={{ width: '100%' }} />
-  );
-}
+import VideoPlayer from './VideoPlayer';
 
 function TerminalPanel({ monitor }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);

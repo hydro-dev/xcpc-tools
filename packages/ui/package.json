@@ -22,6 +22,7 @@
         "@types/react-dom": "^18.3.7",
         "css-loader": "^6.11.0",
         "esbuild-loader": "^4.5.0",
+        "hls.js": "^1.7.3",
         "mantine-datatable": "^8.3.8",
         "mpegts.js": "^1.8.0",
         "postcss": "^8.5.22",
