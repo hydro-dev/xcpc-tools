@@ -95,10 +95,6 @@ export async function ConvertCodeToPDF(code: Buffer, lang, filename, team, locat
     }
 }
 
-const printerUsable = (printer: any) => (
-    config.printIgnorePrinterStatus || printer.status === 'idle'
-);
-
 export async function printFile(docs, targetPrinter = '') {
     let finalFile = null;
     const files = [];
@@ -136,7 +132,7 @@ export async function printFile(docs, targetPrinter = '') {
         const printers = printersInfo.filter((p) => (
             enabledPrinters.includes(p.printer)
             && (!targetPrinter || p.printer === targetPrinter)
-            && printerUsable(p)
+            && (config.printIgnorePrinterStatus || p.status === 'idle')
         ));
         if (printers.length) {
             const randomP = targetPrinter ? printers[0] : printers[Math.floor(Math.random() * printers.length)];
