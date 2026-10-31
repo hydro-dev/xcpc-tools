@@ -32,6 +32,14 @@ export interface PrintCodeDoc {
     targetPrinter?: string;
 }
 
+export type HardwareDeviceStatus = 'ok' | 'error' | 'unknown' | 'disabled';
+
+export interface HardwareStatus {
+    keyboard?: HardwareDeviceStatus;
+    mouse?: HardwareDeviceStatus;
+    camera?: HardwareDeviceStatus;
+}
+
 export interface MonitorDoc {
     _id: string;
     mac: string;
@@ -55,6 +63,7 @@ export interface MonitorDoc {
     desktop?: string;
     wifiSignal?: number;
     wifiBssid?: string;
+    hardware?: HardwareStatus;
     windowName?: string;
     windowExe?: string;
     windowCommand?: string;

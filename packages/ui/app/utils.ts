@@ -55,3 +55,31 @@ export const formatWifiSignal = (value: unknown) => {
   if (Number.isNaN(num)) return String(value);
   return `${Math.round(num)} dBm`;
 };
+
+export type HardwareDeviceStatus = 'ok' | 'error' | 'unknown' | 'disabled';
+
+export interface HardwareStatus {
+  keyboard?: HardwareDeviceStatus;
+  mouse?: HardwareDeviceStatus;
+  camera?: HardwareDeviceStatus;
+}
+
+export const hardwareDeviceLabels: Record<string, string> = {
+  keyboard: 'Keyboard',
+  mouse: 'Mouse',
+  camera: 'Camera',
+};
+
+export const getHardwareStatusColor = (status: HardwareDeviceStatus | undefined) => {
+  if (status === 'ok') return 'green';
+  if (status === 'error') return 'red';
+  if (status === 'disabled') return 'blue';
+  return 'gray';
+};
+
+export const getHardwareStatusText = (status: HardwareDeviceStatus | undefined) => {
+  if (status === 'ok') return 'OK';
+  if (status === 'error') return 'Error';
+  if (status === 'disabled') return 'Disabled';
+  return 'Unknown';
+};

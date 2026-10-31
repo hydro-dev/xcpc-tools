@@ -4,7 +4,8 @@ import fs from 'fs-extra';
 import {
     BadRequestError, ConnectionHandler, ForbiddenError, Handler,
 } from '@hydrooj/framework';
-import { config } from '../config';
+import { config, saveConfig } from '../config';
+import type { HardwareDeviceStatus } from '../interface';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
 
@@ -43,6 +44,15 @@ class MonitorAdminHandler extends AuthHandler {
         }
         this.response.body = { monitors: monitorDict };
         if (!nogroup) this.response.body.groups = groups;
+        this.response.body.cameraCheck = config.monitor.cameraCheck !== false;
+    }
+
+    async postUpdateCameraCheck(params) {
+        const { enabled } = params;
+        if (typeof enabled !== 'boolean') throw new BadRequestError('enabled must be a boolean');
+        config.monitor.cameraCheck = enabled;
+        saveConfig();
+        this.response.body = { success: true, cameraCheck: enabled };
     }
 
     async postUpdate(params) {
@@ -114,12 +124,31 @@ class MonitorAdminHandler extends AuthHandler {
 
 const escape = (str = '') => str.trim().replace(/"/g, '\\"').replace(/\r/g, '').replace(/\n/g, '\\n');
 
+const hardwareStatusFields = ['keyboard', 'mouse', 'camera'] as const;
+
+const sanitizeHardwareStatus = (hardware: any) => {
+    if (!hardware || typeof hardware !== 'object') return undefined;
+    const cameraCheckDisabled = config.monitor.cameraCheck === false;
+    const result: Record<string, HardwareDeviceStatus> = {};
+    for (const field of hardwareStatusFields) {
+        const value = hardware[field];
+        if (field === 'camera' && cameraCheckDisabled) {
+            result.camera = 'disabled';
+            continue;
+        }
+        if (value === 'ok' || value === 'error' || value === 'unknown') result[field] = value;
+        else if (field === 'camera' && value === 'disabled') result.camera = 'disabled';
+    }
+    return Object.keys(result).length ? result : undefined;
+};
+
 async function saveMonitorInfo(ctx: Context, monitor: any) {
     const {
         mac, version, uptime, seats, ip,
         protocol,
         os, kernel, cpu, cpuused, mem, memused, load,
         wifi_signal, wifi_bssid,
+        hardware,
         window_cmdline, window_exe, window_name,
     } = monitor;
     logger.debug('save monitor info %o', monitor);
@@ -131,6 +160,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
     const wifiSignalValue = hasWifiSignal ? Number.parseFloat(String(wifi_signal)) : Number.NaN;
     const normalizedBssid = typeof wifi_bssid === 'string' ? wifi_bssid.trim() : '';
     const shouldSetBssid = normalizedBssid && !/^not-?associated$/i.test(normalizedBssid);
+    const hardwareStatus = sanitizeHardwareStatus(hardware);
     const autoPayload: Record<string, string> = {};
     const templateValues = { ...monitor, hostname: seats };
     for (const field of ['name', 'group', 'camera', 'desktop'] as const) {
@@ -167,6 +197,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
         ...load && { load },
         ...(hasWifiSignal && !Number.isNaN(wifiSignalValue) && { wifiSignal: wifiSignalValue }),
         ...(shouldSetBssid && { wifiBssid: normalizedBssid.toUpperCase() }),
+        ...(hardwareStatus && { hardware: hardwareStatus }),
         ...(window_name !== undefined && { windowName: window_name }),
         ...(window_exe !== undefined && { windowExe: window_exe }),
         ...(window_cmdline !== undefined && { windowCommand: window_cmdline }),
@@ -175,6 +206,7 @@ async function saveMonitorInfo(ctx: Context, monitor: any) {
     const unsetPayload: Record<string, 1> = {};
     if (!hasWifiSignal || Number.isNaN(wifiSignalValue)) unsetPayload.wifiSignal = 1;
     if (!shouldSetBssid) unsetPayload.wifiBssid = 1;
+    if (!hardwareStatus) unsetPayload.hardware = 1;
     const updateDoc: Record<string, any> = { $set: setPayload };
     if (Object.keys(unsetPayload).length) updateDoc.$unset = unsetPayload;
     await ctx.db.monitor.updateOne({ mac }, updateDoc, { upsert: true });
@@ -238,6 +270,7 @@ class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
             load: probe.load,
             wifi_signal: probe.wifiSignal,
             wifi_bssid: probe.wifiBssid,
+            hardware: probe.hardware,
             window_name: probe.windowName,
             window_exe: probe.windowExe,
             window_cmdline: probe.windowCommand,
@@ -286,7 +319,12 @@ class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
         if (!payload || typeof payload !== 'object') throw new BadRequestError('Invalid probe message');
         if (payload.type === 'hello' || payload.type === 'report') {
             await this.saveProbe(payload.probe);
-            if (payload.type === 'hello') this.send({ type: 'welcome' });
+            if (payload.type === 'hello') {
+                this.send({
+                    type: 'welcome',
+                    cameraCheck: config.monitor.cameraCheck !== false,
+                });
+            }
             return;
         }
         if (payload.type === 'result') {
@@ -303,7 +341,11 @@ class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
 
 class MonitorReportHandler extends Handler {
     async get() {
-        this.response.body = 'Monitor server is running';
+        const expected = String(config.monitor.reportToken || '');
+        const token = String(this.request.query?.token || '');
+        if (expected && token && token !== expected) throw new ForbiddenError('Invalid report token');
+        this.response.type = 'application/json';
+        this.response.body = { cameraCheck: config.monitor.cameraCheck !== false };
     }
 
     async post(params) {
@@ -316,6 +358,14 @@ class MonitorReportHandler extends Handler {
         params.mac = String(params.mac).replace(/:/g, '').toUpperCase();
         if (!/^[0-9A-F]{12}$/.test(params.mac) || params.mac === '000000000000') throw new BadRequestError('Invalid MAC address');
         params.protocol = 'v1';
+        const { hardware_keyboard, hardware_mouse, hardware_camera } = params;
+        if (hardware_keyboard !== undefined || hardware_mouse !== undefined || hardware_camera !== undefined) {
+            params.hardware = {
+                ...(hardware_keyboard && { keyboard: hardware_keyboard }),
+                ...(hardware_mouse && { mouse: hardware_mouse }),
+                ...(hardware_camera && { camera: hardware_camera }),
+            };
+        }
         await saveMonitorInfo(this.ctx, params);
         this.response.body = 'Report accepted';
     }

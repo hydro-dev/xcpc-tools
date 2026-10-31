@@ -6,6 +6,14 @@ export interface NetworkInterfaceInfo {
     isDefault?: boolean;
 }
 
+export type HardwareDeviceStatus = 'ok' | 'error' | 'unknown' | 'disabled';
+
+export interface HardwareStatus {
+    keyboard?: HardwareDeviceStatus;
+    mouse?: HardwareDeviceStatus;
+    camera?: HardwareDeviceStatus;
+}
+
 export interface MachineSnapshot {
     mac: string;
     hostname: string;
@@ -26,6 +34,7 @@ export interface MachineSnapshot {
     displays?: string;
     wifiSignal?: number;
     wifiBssid?: string;
+    hardware?: HardwareStatus;
     windowName?: string;
     windowExe?: string;
     windowCommand?: string;

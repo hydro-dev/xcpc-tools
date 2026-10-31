@@ -46,6 +46,7 @@ interface MonitorRecord {
   load?: string;
   wifiSignal?: number;
   wifiBssid?: string;
+  hardware?: Record<string, string | undefined>;
   updateAt?: number;
   uptime?: number;
   version?: string;
@@ -100,18 +101,33 @@ const generateDistinctColors = (count: number): string[] => {
   return colors;
 };
 
-type ArenaViewMode = 'signal' | 'bssid' | 'status';
+type ArenaViewMode = 'signal' | 'bssid' | 'hardware';
 
 const viewModeOptions: { value: ArenaViewMode; label: string }[] = [
   { value: 'signal', label: 'Signal Quality' },
   { value: 'bssid', label: 'BSSID' },
-  { value: 'status', label: 'Online Status' },
+  { value: 'hardware', label: 'Hardware' },
 ];
 
 const getViewModeFromQuery = (params: URLSearchParams): ArenaViewMode => {
   const mode = params.get('mode');
-  if (mode === 'bssid' || mode === 'status' || mode === 'signal') return mode;
+  if (mode === 'bssid' || mode === 'hardware' || mode === 'signal') return mode;
   return 'signal';
+};
+
+const hardwareDeviceOrder = ['keyboard', 'mouse', 'camera'] as const;
+
+const hardwareDeviceLabels: Record<string, string> = {
+  keyboard: 'Keyboard',
+  mouse: 'Mouse',
+  camera: 'Camera',
+};
+
+const getHardwareStatusSummary = (monitor: MonitorRecord): string => {
+  const devices = hardwareDeviceOrder
+    .map((device) => `${hardwareDeviceLabels[device]}: ${monitor.hardware?.[device] || 'unknown'}`)
+    .join(', ');
+  return devices || 'No Data';
 };
 
 const defaultNormalize = (value: string): string => value.trim().toUpperCase();
@@ -317,15 +333,10 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
       return { color: theme.colors.gray[3], monitor: null, monitors: monitorsForSeat };
     }
     const online = !!monitor.updateAt && monitor.updateAt > Date.now() - ONLINE_THRESHOLD_MS;
-    const isErrmachine = !online;
-    if (isErrmachine) {
-      if (viewMode === 'status') {
-        return { color: theme.colors.red[6], monitor, monitors: monitorsForSeat };
-      }
+    // offline machines always render gray; their last-known hardware state
+    // is stale and must not be reported as errors
+    if (!online) {
       return { color: theme.colors.gray[5], monitor, monitors: monitorsForSeat };
-    }
-    if (viewMode === 'status') {
-      return { color: theme.colors.green[6], monitor, monitors: monitorsForSeat };
     }
     if (viewMode === 'bssid') {
       if (!monitor.wifiBssid) {
@@ -336,6 +347,30 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
         return { color, monitor, monitors: monitorsForSeat };
       }
       return { color: theme.colors.blue[3], monitor, monitors: monitorsForSeat };
+    }
+    if (viewMode === 'hardware') {
+      if (!monitor.hardware) {
+        return { color: theme.colors.blue[3], monitor, monitors: monitorsForSeat };
+      }
+      const statuses = hardwareDeviceOrder
+        .map((device) => monitor.hardware?.[device])
+        .filter((status) => status !== undefined);
+      const checked = statuses.filter((status) => status !== 'disabled');
+      if (checked.some((status) => status === 'error')) {
+        return { color: theme.colors.red[6], monitor, monitors: monitorsForSeat };
+      }
+      if (checked.length && checked.every((status) => status === 'ok')) {
+        return { color: theme.colors.green[6], monitor, monitors: monitorsForSeat };
+      }
+      if (!checked.length) {
+        return { color: theme.colors.blue[3], monitor, monitors: monitorsForSeat };
+      }
+      // unknown (or partial) -> yellow only when at least one device was
+      // positively detected; an all-unknown machine reports nothing useful
+      if (checked.some((status) => status === 'ok')) {
+        return { color: theme.colors.yellow[5], monitor, monitors: monitorsForSeat };
+      }
+      return { color: theme.colors.gray[5], monitor, monitors: monitorsForSeat };
     }
     const signal = monitor.wifiSignal ?? Number.NaN;
     return { color: getSignalColor(signal, theme.colors.yellow[4]), monitor, monitors: monitorsForSeat };
@@ -371,6 +406,9 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
             <Group gap={6}>
               <ThemeIcon size="sm" color="grape" variant="light"><IconRouter size={14} /></ThemeIcon>
               <Text size="sm">{monitor.wifiBssid ?? 'None'}</Text>
+            </Group>
+            <Group gap={6}>
+              <Text size="sm">{getHardwareStatusSummary(monitor)}</Text>
             </Group>
             {monitorsForSeat.length > 1 && (
               <Text size="sm" c="orange">
@@ -452,32 +490,44 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
   };
 
   const renderLegend = () => {
-    if (viewMode === 'status') {
+    if (viewMode === 'bssid') {
+      return <Text size="sm">Same color indicates the same BSSID. Offline hosts appear gray.</Text>;
+    }
+    if (viewMode === 'hardware') {
       return (
         <Group gap="sm">
           <Group gap={6}>
             <Box style={{
               width: 16, height: 16, backgroundColor: theme.colors.green[6], borderRadius: 3,
             }} />
-            <Text size="sm">Online</Text>
+            <Text size="sm">All OK</Text>
           </Group>
           <Group gap={6}>
             <Box style={{
               width: 16, height: 16, backgroundColor: theme.colors.red[6], borderRadius: 3,
             }} />
-            <Text size="sm">Offline</Text>
+            <Text size="sm">Device Error</Text>
           </Group>
           <Group gap={6}>
             <Box style={{
-              width: 16, height: 16, backgroundColor: theme.colors.gray[3], borderRadius: 3,
+              width: 16, height: 16, backgroundColor: theme.colors.yellow[5], borderRadius: 3,
             }} />
-            <Text size="sm">Unmatched</Text>
+            <Text size="sm">Partial</Text>
+          </Group>
+          <Group gap={6}>
+            <Box style={{
+              width: 16, height: 16, backgroundColor: theme.colors.gray[5], borderRadius: 3,
+            }} />
+            <Text size="sm">Offline/No Devices</Text>
+          </Group>
+          <Group gap={6}>
+            <Box style={{
+              width: 16, height: 16, backgroundColor: theme.colors.blue[3], borderRadius: 3,
+            }} />
+            <Text size="sm">No Data</Text>
           </Group>
         </Group>
       );
-    }
-    if (viewMode === 'bssid') {
-      return <Text size="sm">Same color indicates the same BSSID. Offline hosts appear gray.</Text>;
     }
     return (
       <Group gap="xs" align="center">
@@ -577,7 +627,9 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
   return (
     <Box
       pos="relative"
-      style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column' }}
+      style={{
+        display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column',
+      }}
     >
       <LoadingOverlay
         visible={Boolean(isLoading)}
