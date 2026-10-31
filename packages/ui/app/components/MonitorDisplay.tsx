@@ -1,12 +1,15 @@
+import './MonitorDisplay.css';
+
 import {
   Card, Center, Grid, Group, Stack, Table,
   Text, ThemeIcon, Title, Tooltip,
 } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import React from 'react';
-import { formatWifiSignal } from '../utils';
+import {
+  formatWifiSignal, getHardwareStatusColor, getHardwareStatusText, hardwareDeviceLabels,
+} from '../utils';
 import { MonitorInfoButton } from './MonitorInfo';
-import './MonitorDisplay.css';
 
 function getLastOnlineTime(updateAt: number | undefined): string {
   if (!updateAt) return '未知';
@@ -72,6 +75,29 @@ export const MonitorCards = React.memo(({ monitors, openMonitorInfo }: MonitorDi
               <Text size="sm">Wi-Fi BSSID: {m.wifiBssid}</Text>
             </Center>
           )}
+          { m.hardware && (
+            <Center>
+              <Group gap={6}>
+                {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
+                  const status = m.hardware[device];
+                  return (
+                    <Tooltip key={device} label={`${label}: ${getHardwareStatusText(status)}`}>
+                      <ThemeIcon
+                        radius="xl"
+                        size="sm"
+                        variant="light"
+                        color={getHardwareStatusColor(status)}
+                        role="img"
+                        aria-label={`${label} ${getHardwareStatusText(status)}`}
+                      >
+                        <Text size="xs" fw={700}>{label[0]}</Text>
+                      </ThemeIcon>
+                    </Tooltip>
+                  );
+                })}
+              </Group>
+            </Center>
+          )}
           <Group mt="md" justify="center">
             <MonitorInfoButton monitor={m} action={openMonitorInfo} />
           </Group>
@@ -86,6 +112,26 @@ interface MonitorRowProps {
   online: boolean;
   openMonitorInfo: (monitor: any, tab?: string) => void;
 }
+
+const HardwareStatusCells = ({ monitor }: { monitor: any }) => (
+  <>
+    {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
+      const status = monitor.hardware?.[device];
+      return (
+        <Tooltip key={device} label={`${label}: ${getHardwareStatusText(status)}`}>
+          <Text
+            size="sm"
+            fw={600}
+            c={getHardwareStatusColor(status)}
+            style={{ cursor: 'default' }}
+          >
+            {label[0]}
+          </Text>
+        </Tooltip>
+      );
+    })}
+  </>
+);
 
 const MonitorRow = React.memo(({ monitor, online, openMonitorInfo }: MonitorRowProps) => (
   <Table.Tr>
@@ -122,6 +168,11 @@ const MonitorRow = React.memo(({ monitor, online, openMonitorInfo }: MonitorRowP
     <Table.Td style={{ width: 110, minWidth: 110, whiteSpace: 'nowrap' }}>
       <Text size="sm">{formatWifiSignal(monitor.wifiSignal) || 'wired'}</Text>
     </Table.Td>
+    <Table.Td style={{ width: 90, minWidth: 90 }}>
+      <Group gap={6} wrap="nowrap">
+        <HardwareStatusCells monitor={monitor} />
+      </Group>
+    </Table.Td>
     <Table.Td style={{ width: 120, minWidth: 120, whiteSpace: 'nowrap' }}>
       <Stack gap={1}>
         <Text size="sm">{new Date((monitor.uptime || 0) * 1000).toISOString().substring(11, 19)}</Text>
@@ -135,7 +186,7 @@ const MonitorRow = React.memo(({ monitor, online, openMonitorInfo }: MonitorRowP
 ));
 
 export const MonitorTable = React.memo(({ monitors, openMonitorInfo }: MonitorDisplayProps) => (
-  <Table.ScrollContainer minWidth={1050}>
+  <Table.ScrollContainer minWidth={1150}>
     <Table horizontalSpacing="md" verticalSpacing="xs" striped highlightOnHover stickyHeader>
       <Table.Thead>
         <Table.Tr>
@@ -145,6 +196,7 @@ export const MonitorTable = React.memo(({ monitors, openMonitorInfo }: MonitorDi
           <Table.Th>Hostname</Table.Th>
           <Table.Th style={{ width: 170, minWidth: 170 }}>Network</Table.Th>
           <Table.Th style={{ width: 110, minWidth: 110, whiteSpace: 'nowrap' }}>Wi-Fi Signal</Table.Th>
+          <Table.Th style={{ width: 90, minWidth: 90 }}>Hardware</Table.Th>
           <Table.Th style={{ width: 120, minWidth: 120, whiteSpace: 'nowrap' }}>Runtime</Table.Th>
           <Table.Th className="monitor-table-actions-cell monitor-table-actions-header">Actions</Table.Th>
         </Table.Tr>

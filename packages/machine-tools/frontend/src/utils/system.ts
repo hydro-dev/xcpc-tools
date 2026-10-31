@@ -1,6 +1,6 @@
 import { computer, filesystem, os } from '@neutralinojs/lib';
 import type {
-    MachineSnapshot, MachineToolsConfig, NetworkInterfaceInfo, PresentationCacheDocument,
+    HardwareStatus, MachineSnapshot, MachineToolsConfig, NetworkInterfaceInfo, PresentationCacheDocument,
     ProbeServiceState,
 } from '../types';
 
@@ -251,6 +251,49 @@ async function getWifiInfo(device?: string) {
     };
 }
 
+async function getHardwareStatus(): Promise<HardwareStatus> {
+    // evdev capability bitmaps (kernel prints words most-significant first,
+    // last word covers codes [0,63]): keyboards report letters (KEY_A/Z,
+    // SPACE, ENTER), mice report BTN_LEFT/RIGHT plus REL_X/Y or REL_WHEEL;
+    // power buttons report neither
+    const detection = await os.execCommand(
+        "python3 - <<'PY'\n"
+        + 'import glob, os\n'
+        + 'def rb(p):\n'
+        + '    try:\n'
+        + '        return [int(w, 16) for w in open(p).read().split()]\n'
+        + '    except (OSError, ValueError):\n'
+        + '        return []\n'
+        + 'def hc(ws, c):\n'
+        + '    w, b = divmod(c, 64)\n'
+        + '    w = len(ws) - 1 - w\n'
+        + '    return w >= 0 and bool(ws[w] & (1 << b))\n'
+        + 'kb = 0\n'
+        + 'ms = 0\n'
+        + "for e in sorted(glob.glob('/sys/class/input/event*')):\n"
+        + "    base = os.path.join(e, 'device/capabilities')\n"
+        + "    ev = rb(os.path.join(base, 'ev'))\n"
+        + '    if not (ev and ev[-1] & 0x2):\n'
+        + '        continue\n'
+        + "    keys = rb(os.path.join(base, 'key'))\n"
+        + '    if any(hc(keys, c) for c in (30, 44, 57)):\n'
+        + '        kb += 1\n'
+        + '        continue\n'
+        + "    rel = rb(os.path.join(base, 'rel'))\n"
+        + '    if (hc(keys, 0x110) or hc(keys, 0x111)) and ((hc(rel, 0) and hc(rel, 1)) or hc(rel, 8)):\n'
+        + '        ms += 1\n'
+        + "print('%d %d' % (kb, ms))\n"
+        + 'PY',
+    ).catch(() => undefined);
+    const [keyboards, mice] = (detection?.stdOut || '').trim().split(/\s+/).map(Number);
+    const cameras = await filesystem.readDirectory('/sys/class/video4linux').catch(() => []);
+    return {
+        keyboard: keyboards ? 'ok' : 'unknown',
+        mouse: mice ? 'ok' : 'unknown',
+        camera: cameras.length ? 'ok' : 'unknown',
+    };
+}
+
 async function getActiveWindowInfo() {
     const sockets = await filesystem.readDirectory('/tmp/.X11-unix').catch(() => []);
     const displays = sockets.map((entry) => entry.entry.match(/^X([0-4])$/)?.[1]).filter(Boolean) as string[];
@@ -299,9 +342,10 @@ export async function collectMachineSnapshot(): Promise<MachineSnapshot> {
         readOptionalFile('/proc/cmdline'),
     ]);
     const primary = networks.find((network) => network.isDefault) || networks[0];
-    const [usage, wifi, activeWindow] = await Promise.all([
+    const [usage, wifi, hardware, activeWindow] = await Promise.all([
         getUsage(),
         getWifiInfo(primary?.dev),
+        getHardwareStatus(),
         getActiveWindowInfo(),
     ]);
     const totalMemory = Math.round(memory.physical.total / 1024);
@@ -324,6 +368,7 @@ export async function collectMachineSnapshot(): Promise<MachineSnapshot> {
         networks,
         ...usage,
         ...wifi,
+        hardware,
         ...activeWindow,
     };
 }

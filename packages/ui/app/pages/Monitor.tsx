@@ -1,5 +1,5 @@
 import {
-  Alert, Button, Card, Center, Group, Pagination, ScrollArea, SegmentedControl, Select, Skeleton, Stack, Tabs, Text, TextInput,
+  Alert, Button, Card, Center, Group, Pagination, ScrollArea, SegmentedControl, Select, Skeleton, Stack, Switch, Tabs, Text, TextInput,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
@@ -17,7 +17,7 @@ import { MonitorInfo } from '../components/MonitorInfo';
 import { PageHeader } from '../components/PageHeader';
 import { monitorQuery } from '../queries';
 
-const isArenaMode = (mode: string | null) => mode === 'signal' || mode === 'bssid' || mode === 'status';
+const isArenaMode = (mode: string | null) => mode === 'signal' || mode === 'bssid' || mode === 'hardware';
 
 export default function Monitor() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,6 +83,32 @@ export default function Monitor() {
     }
     setSearchParams(nextParams);
   }, [searchParams, setSearchParams]);
+
+  const [cameraCheckSaving, setCameraCheckSaving] = React.useState(false);
+  const cameraCheck = query.data?.cameraCheck !== false;
+  const toggleCameraCheck = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const enabled = event.currentTarget.checked;
+    setCameraCheckSaving(true);
+    try {
+      const response = await fetch('/monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operation: 'update_camera_check', enabled }),
+      });
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+      const res = await response.json();
+      if (res.error) {
+        notifications.show({ title: 'Error', message: res.error.message, color: 'red' });
+        return;
+      }
+      query.refetch();
+    } catch (e) {
+      console.error(e);
+      notifications.show({ title: 'Error', message: 'Failed to update camera check setting', color: 'red' });
+    } finally {
+      setCameraCheckSaving(false);
+    }
+  }, [query.refetch]);
 
   const cleanAll = React.useCallback(async () => {
     try {
@@ -185,6 +211,13 @@ export default function Monitor() {
                     { value: 'table', label: 'Table view' },
                     { value: 'arena', label: 'Arena view' },
                   ]}
+                />
+                <Switch
+                  size="xs"
+                  label="Camera check"
+                  checked={cameraCheck}
+                  disabled={cameraCheckSaving || query.isPending}
+                  onChange={toggleCameraCheck}
                 />
                 <AnsibleHostsModal monitors={monitorsArray} />
                 <MonitorBatchModal refresh={query.refetch} />

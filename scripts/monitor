@@ -28,6 +28,80 @@ if [ -n "$NETDEV" ] && [ -d "/sys/class/net/$NETDEV/wireless" ]; then
   fi
 fi
 
+# detect keyboard/mouse via evdev capability bitmaps (single-word ev + key/rel bitmaps), camera via video4linux
+# server can disable camera checking (venues without cameras) via GET $HEARTBEATURL {"cameraCheck":false}
+CAMERA_CHECK="true"
+if [ -n "$HEARTBEATURL" ]; then
+  CONFIG_URL="$HEARTBEATURL"
+  if [ -n "$REPORTTOKEN" ]; then
+    case "$CONFIG_URL" in
+      *\?*) CONFIG_URL="${CONFIG_URL}&token=${REPORTTOKEN}" ;;
+      *) CONFIG_URL="${CONFIG_URL}?token=${REPORTTOKEN}" ;;
+    esac
+  fi
+  CAMERA_CHECK="$(curl -sf "$CONFIG_URL" 2>/dev/null | grep -o '"cameraCheck":[a-z]*' | cut -d: -f2)"
+  test -z "$CAMERA_CHECK" && CAMERA_CHECK="true"
+fi
+HARDWARE_STATUS="$(python3 - "$CAMERA_CHECK" <<'PYEOF' 2>/dev/null
+import glob
+import os
+import sys
+
+
+camera_check = len(sys.argv) > 1 and sys.argv[1] != 'false'
+
+
+def read_bitmap(path):
+    try:
+        with open(path, encoding='ascii') as stream:
+            return [int(word, 16) for word in stream.read().split()]
+    except (OSError, ValueError):
+        return []
+
+
+def has_code(words, code):
+    # kernel prints capability bitmaps most-significant word first;
+    # the LAST word covers keycodes [0, 63]
+    word, bit = divmod(code, 64)
+    word = len(words) - 1 - word
+    return word >= 0 and bool(words[word] & (1 << bit))
+
+
+keyboards = 0
+mice = 0
+for entry in sorted(glob.glob('/sys/class/input/event*')):
+    base = os.path.join(entry, 'device/capabilities')
+    ev = read_bitmap(os.path.join(base, 'ev'))
+    ev_bits = ev[-1] if ev else 0  # ev is also MSB-first; single-word files unaffected
+    if not ev_bits & 0x2:  # EV_KEY
+        continue
+    keys = read_bitmap(os.path.join(base, 'key'))
+    # real keyboards report letters (KEY_A..KEY_Z, KEY_SPACE);
+    # consumer-control interfaces carry ESC/ENTER only, without letters
+    if any(has_code(keys, code) for code in (30, 44, 57)):  # A Z SPACE
+        keyboards += 1
+        continue
+    rel = read_bitmap(os.path.join(base, 'rel'))
+    # pointers report BTN_LEFT/BTN_RIGHT plus REL_X/Y or REL_WHEEL
+    if (has_code(keys, 0x110) or has_code(keys, 0x111)) and (
+        (has_code(rel, 0) and has_code(rel, 1)) or has_code(rel, 8)
+    ):
+        mice += 1
+status = {
+    'keyboard': 'ok' if keyboards else 'unknown',
+    'mouse': 'ok' if mice else 'unknown',
+}
+if not camera_check:
+    status['camera'] = 'disabled'
+else:
+    status['camera'] = 'ok' if glob.glob('/sys/class/video4linux/video*') else 'unknown'
+print(','.join('{}={}'.format(key, value) for key, value in sorted(status.items())))
+PYEOF
+)"
+KEYBOARD_STATUS="$(printf '%s' "$HARDWARE_STATUS" | sed -n 's/.*keyboard=\([a-z]*\).*/\1/p')"
+MOUSE_STATUS="$(printf '%s' "$HARDWARE_STATUS" | sed -n 's/.*mouse=\([a-z]*\).*/\1/p')"
+CAMERA_STATUS="$(printf '%s' "$HARDWARE_STATUS" | sed -n 's/.*camera=\([a-z]*\).*/\1/p')"
+
 test -z "$OS" && OS="$(cat /etc/issue.net | awk '{print $1}')"
 test -z "$OS" && OS="$(cat /etc/issue | awk '{print $1}')"
 test -z "$OS" && OS="$(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | sed 's/"//g')"
@@ -101,6 +175,9 @@ if [ -z "$HEARTBEATURL" ]; then
   echo "mem=$MEM"
   echo "memused=$MEMUSED"
   echo "load=$LOAD"
+  echo "hardware_keyboard=$KEYBOARD_STATUS"
+  echo "hardware_mouse=$MOUSE_STATUS"
+  echo "hardware_camera=$CAMERA_STATUS"
   echo "window_name=$WM_NAME"
   echo "window_exe=$WM_EXE"
   echo "window_cmdline=$WM_CMDLINE"
@@ -126,6 +203,9 @@ curl -s "$REPORT_URL" \
   --form-string "load=$LOAD" \
   --form-string "wifi_signal=$WIFI_SIGNAL" \
   --form-string "wifi_bssid=$WIFI_BSSID" \
+  --form-string "hardware_keyboard=$KEYBOARD_STATUS" \
+  --form-string "hardware_mouse=$MOUSE_STATUS" \
+  --form-string "hardware_camera=$CAMERA_STATUS" \
   --form-string "window_name=$WM_NAME" \
   --form-string "window_exe=$WM_EXE" \
   --form-string "window_cmdline=$WM_CMDLINE" \

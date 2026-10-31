@@ -12,7 +12,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import React, { useState } from 'react';
-import { formatWifiSignal } from '../utils';
+import {
+  formatWifiSignal, getHardwareStatusColor, getHardwareStatusText, hardwareDeviceLabels,
+} from '../utils';
 import VideoPlayer from './VideoPlayer';
 
 function TerminalPanel({ monitor }) {
@@ -229,6 +231,14 @@ export function MonitorInfo({
               <Text>Load: {monitor.load}</Text>
               <Text>Wi-Fi Signal: {wifiSignalText || 'No Data'}</Text>
               <Text>Wi-Fi BSSID: {monitor.wifiBssid || 'No Data'}</Text>
+              {Object.entries(hardwareDeviceLabels).map(([device, label]) => (
+                <Text
+                  key={device}
+                  c={getHardwareStatusColor(monitor.hardware?.[device])}
+                >
+                  {label}: {getHardwareStatusText(monitor.hardware?.[device])}
+                </Text>
+              ))}
               <Text>Camera Stream URL: {monitor.camera ?? 'No Camera'}</Text>
               <Text>Desktop Stream URL: {monitor.desktop ?? 'No Desktop'}</Text>
             </Grid.Col>

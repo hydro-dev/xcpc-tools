@@ -213,6 +213,63 @@ def wifi_info(name):
     return signal_value, bssid
 
 
+def hardware_status(camera_check=True):
+    status = {}
+
+    def read_bitmap(path):
+        # kernel capability bitmaps: whitespace-separated hex words printed in
+        # natural bit order, i.e. the MOST significant word comes FIRST and the
+        # LAST word covers codes [0, 63] (64-bit kernels, BITS_PER_LONG=64)
+        try:
+            words = [int(word, 16) for word in read_text(path).split()]
+        except ValueError:
+            return []
+        return words
+
+    def has_code(words, code):
+        word, bit = divmod(code, 64)
+        word = len(words) - 1 - word
+        return word >= 0 and bool(words[word] & (1 << bit))
+
+    keyboards = 0
+    mice = 0
+    try:
+        entries = sorted(os.listdir("/sys/class/input"))
+    except OSError:
+        entries = []
+    for entry in entries:
+        if not entry.startswith("event"):
+            continue
+        base = os.path.join("/sys/class/input", entry, "device/capabilities")
+        ev = read_bitmap(os.path.join(base, "ev"))
+        ev_bits = ev[-1] if ev else 0  # ev is also MSB-first; single-word files unaffected
+        if not ev_bits & 0x2:  # EV_KEY
+            continue
+        keys = read_bitmap(os.path.join(base, "key"))
+        # a real keyboard reports letter keys (KEY_A..KEY_Z, KEY_SPACE);
+        # power buttons and consumer-control interfaces (ESC/ENTER only, no
+        # letters) do not
+        is_keyboard = any(has_code(keys, code) for code in (30, 44, 57))  # A Z SPACE
+        if is_keyboard:
+            keyboards += 1
+            continue
+        # a pointer reports mouse buttons (BTN_LEFT/BTN_RIGHT 0x110/0x111)
+        is_pointer = has_code(keys, 0x110) or has_code(keys, 0x111)
+        rel = read_bitmap(os.path.join(base, "rel"))
+        has_rel_xy = has_code(rel, 0) and has_code(rel, 1)  # REL_X REL_Y
+        if is_pointer and (has_rel_xy or has_code(rel, 8)):  # or REL_WHEEL
+            mice += 1
+    status["keyboard"] = "ok" if keyboards else "unknown"
+    status["mouse"] = "ok" if mice else "unknown"
+    if not camera_check:
+        status["camera"] = "disabled"
+    else:
+        status["camera"] = (
+            "ok" if os.path.isdir("/sys/class/video4linux") and os.listdir("/sys/class/video4linux") else "unknown"
+        )
+    return status
+
+
 def active_window_info():
     try:
         displays = sorted(
@@ -302,6 +359,8 @@ def machine_snapshot(config):
     total_memory, memory_used = memory_info()
     wifi_signal, wifi_bssid = wifi_info(identity["name"])
     window_name, window_exe, window_command = active_window_info()
+    camera_check = config.get("cameraCheck", True)
+    hardware = hardware_status(camera_check)
     uname = os.uname()
     try:
         with open("/proc/uptime", encoding="ascii") as stream:
@@ -326,6 +385,7 @@ def machine_snapshot(config):
         "load": load,
         "wifiSignal": wifi_signal,
         "wifiBssid": wifi_bssid,
+        "hardware": hardware,
         "windowName": window_name,
         "windowExe": window_exe,
         "windowCommand": window_command,
@@ -562,6 +622,8 @@ async def connect(config, state, state_path):
                 message_type = message.get("type")
                 if message_type == "welcome":
                     log("info", "Connected to machine report server")
+                    if isinstance(message.get("cameraCheck"), bool):
+                        config["cameraCheck"] = message["cameraCheck"]
                     for result in list(state["outbox"].values()):
                         await send_json(result)
                     continue
