@@ -226,6 +226,7 @@ class DOMjudgeFetcher extends BasicFetcher {
             }
             const shouldPrint = this.contest.info.freeze_time ? (balloon.time * 1000) < this.contest.info.freeze_time || encourage : true;
             if (!shouldPrint && !balloon.done) await this.setBalloonDone(balloon.balloonid.toString());
+            const hasFirst = await this.ctx.db.balloon.findOne({ problem: balloon.problem, time: { $lt: (balloon.time * 1000).toFixed(0) }, team: { $ne: 'domjudge' } }); // skip import gen balloon for first of problem 
             const updated = await this.ctx.db.balloon.updateOne({ balloonid: balloon.balloonid.toString() }, {
                 $set: {
                     balloonid: balloon.balloonid.toString(),
@@ -240,8 +241,10 @@ class DOMjudgeFetcher extends BasicFetcher {
                     location: balloon.location,
                     affiliation: balloon.affiliation,
                     awards: balloon.awards || (
-                        this.contest.info.freeze_time && (balloon.time * 1000) > this.contest.info.freeze_time
-                            && encourage ? 'Encourage Balloon' : ''
+                        !hasFirst ? 'First of Problem' : (
+                            this.contest.info.freeze_time && (balloon.time * 1000) > this.contest.info.freeze_time
+                                && encourage ? 'Encourage Balloon' : ''
+                        )
                     ),
                     done: balloon.done,
                     total: totalDict,
