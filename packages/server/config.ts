@@ -44,7 +44,7 @@ if (!fs.existsSync(configPath)) {
     // eslint-disable-next-line no-promise-executor-return
     exit = new Promise((resolve) => (async () => {
         const serverConfigDefault = `\
-type: server # server | domjudge | hydro
+type: server # server | domjudge | hydro | ccs
 viewPass: ${randomstring(8)} # use admin / viewPass to login
 secretRoute: ${randomstring(12)}
 customKeyfile: 
@@ -169,6 +169,7 @@ const serverSchema = Schema.intersect([
             Schema.const('server'),
             Schema.const('domjudge'),
             Schema.const('hydro'),
+            Schema.const('ccs'),
         ] as const).description('server type').required(),
         port: Schema.number().default(5283),
         viewPass: Schema.string().default(randomstring(8)),
@@ -188,6 +189,7 @@ const serverSchema = Schema.intersect([
             type: Schema.union([
                 Schema.const('domjudge'),
                 Schema.const('hydro'),
+                Schema.const('ccs'),
             ] as const).required(),
             server: Schema.transform(String, (i) => (i.endsWith('/') ? i : `${i}/`)).role('url').required(),
             contestId: Schema.string(),

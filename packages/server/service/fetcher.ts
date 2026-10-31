@@ -14,8 +14,9 @@ const fetch = (url: string, type: 'get' | 'post' = 'get') => {
     const endpoint = new URL(url, config.server).toString();
     let req = superagent[type](endpoint)
         .set('Accept', 'application/json')
+        .set('User-Agent', 'Hydro/XCPC-Tools')
         .ok(() => true);
-    if (config.token) req = req.set('Authorization', config.token);
+    if (config.token) req = req.set('Authorization', config.token).set('Cookie', config.token);
     return new Proxy(req, {
         get(target, prop) {
             if (prop === 'then') {
@@ -53,6 +54,7 @@ class BasicFetcher extends Service implements IBasicFetcher {
     sourceSuccessAt = 0;
     sourceErrorAt = 0;
     sourceError = '';
+    lastTeamSyncAt = 0;
     logger = this.ctx.logger('fetcher');
 
     constructor(ctx: Context) {
@@ -101,7 +103,10 @@ class BasicFetcher extends Service implements IBasicFetcher {
         let first = false;
         try {
             first = await this.contestInfo();
-            if (first) await this.teamInfo();
+            if (first || Date.now() - this.lastTeamSyncAt > 5 * 60_000) {
+                await this.teamInfo();
+                this.lastTeamSyncAt = Date.now();
+            }
             this.sourceSuccessAt = Date.now();
             this.sourceError = '';
         } catch (error) {
@@ -181,7 +186,8 @@ class DOMjudgeFetcher extends BasicFetcher {
         ]);
         if (!Array.isArray(body)) throw new Error('DOMjudge returned an invalid team list');
         if (!body.length) {
-            await this.ctx.db.teams.remove({}, { multi: true });
+            // shortcut: OJ 空名单多为接口异常,清空会让气球同步全部跳过,保留本地名单
+            this.logger.warn('DOMjudge returned an empty team list, keeping local teams');
             return;
         }
         const teams = body;
@@ -286,7 +292,8 @@ class HydroFetcher extends BasicFetcher {
         const { body } = await fetch(`/d/${this.contest.domainId}/contest/${this.contest.id}/user`);
         const teams = extractHydroTeams(body);
         if (!teams.length) {
-            await this.ctx.db.teams.remove({}, { multi: true });
+            // shortcut: OJ 空名单多为接口异常,清空会让气球同步全部跳过,保留本地名单
+            this.logger.warn('Hydro returned an empty team list, keeping local teams');
             return;
         }
         await this.ctx.db.teams.remove({ id: { $nin: teams.map((team) => team._id) } }, { multi: true });
@@ -401,10 +408,120 @@ class HydroFetcher extends BasicFetcher {
     }
 }
 
+class CCSFetcher extends BasicFetcher {
+    async contestInfo() {
+        if (!config.contestId) throw new Error('Contest ID is required');
+        const { body: contest } = await fetch(`/api/contests/${config.contestId}`);
+        if (!contest || !contest.id) throw new Error(`Contest ${config.contestId} not found`);
+        let duration = contest.duration.split(':');
+        duration = parseInt(duration[0], 10) * 3600 + parseInt(duration[1], 10) * 60 + parseInt(duration[2], 10);
+        contest.end_time = new Date(contest.start_time).getTime() + duration * 1000;
+        let freeze = contest.scoreboard_freeze_duration.split(':');
+        freeze = parseInt(freeze[0], 10) * 3600 + parseInt(freeze[1], 10) * 60 + parseInt(freeze[2], 10);
+        contest.freeze_time = new Date(contest.end_time).getTime() - freeze * 1000;
+        const old = this?.contest?.id;
+        this.contest = { info: contest, id: contest.id, name: contest.name };
+        this.logger.info(`Connected to ${contest.name}(id=${contest.id})`);
+        return old !== this.contest.id;
+    }
+
+    async teamInfo() {
+        const { body: teams } = await fetch(`/api/contests/${this.contest.id}/teams`);
+        if (!teams || !teams.length) {
+            // shortcut: OJ 空名单多为接口异常,清空会让气球同步全部跳过,保留本地名单
+            this.logger.warn('CCS returned an empty team list, keeping local teams');
+            return;
+        }
+        await this.ctx.db.teams.remove({ id: { $nin: teams.map((t) => t.id) } }, { multi: true });
+        for (const team of teams) {
+            // if (!team.name.includes('\u003Cb\u003E')) continue;
+            await this.ctx.db.teams.update({ id: team.id }, {
+                $set: {
+                    ...team,
+                    id: team.id,
+                    name: team.name.trim(),
+                    affiliation: team.name.trim(),
+                },
+            }, { upsert: true });
+        }
+        this.logger.debug(`Found ${teams.length} teams`);
+    }
+
+    async balloonInfo(all) {
+        if (all) this.logger.info('Sync all balloons...');
+        const { body: problems } = await fetch(`/api/contests/${this.contest.id}/problems`);
+        if (!problems || !problems.length) return;
+        const problemDict = Object.fromEntries(problems.map((p) => [p.id, p]));
+        const teams = await this.ctx.db.teams.find({});
+        if (!teams || !teams.length) return;
+        const teamDict = Object.fromEntries(teams.map((t) => [t.id, t]));
+        const { body: judgements } = await fetch(`/api/contests/${this.contest.id}/judgements`);
+        if (!judgements || !judgements.length) return;
+        const judgeDict = Object.fromEntries(judgements.map((j) => [j.submission_id, j.judgement_type_id]));
+        let submissions: any[] = [];
+        const { body } = await fetch(`/api/contests/${this.contest.id}/submissions`);
+        if (!body || !body.length) return;
+        submissions = body.sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
+        const pending: BalloonDoc[] = [];
+        for (const submission of submissions) {
+            const judgement = judgeDict[submission.id];
+            const problem = problemDict[submission.problem_id];
+            if (!judgement || judgement !== 'AC' || !problem || !teamDict[submission.team_id]) continue;
+            submission.time = new Date(submission.time).getTime();
+            if (!this.contest.info.freeze_time || submission.time >= this.contest.info.freeze_time) continue;
+            const teamAlreadyBalloon = await this.ctx.db.balloon.findOne({ teamid: submission.team_id, problem: problem.label });
+            if (teamAlreadyBalloon) continue;
+            const teamTotal = await this.ctx.db.balloon.find({ teamid: submission.team_id, time: { $lt: submission.time } });
+            const totalDict = {};
+            for (const t of teamTotal) {
+                totalDict[t.problem] = t.contestproblem;
+            }
+            const problemTotal = await this.ctx.db.balloon.find({ problem: problem.label, time: { $lt: submission.time } });
+            const firstProblem = problemTotal.length < 1 ? 'First of Problem' : '';
+            const updated = await this.ctx.db.balloon.updateOne({ balloonid: submission.id.toString() }, {
+                $set: {
+                    balloonid: submission.id.toString(),
+                    time: submission.time,
+                    problem: problem.label,
+                    contestproblem: {
+                        id: problem.id,
+                        short_name: problem.label,
+                        name: problem.name,
+                        rgb: '#000000',
+                        color: '见现场',
+                    },
+                    team: teamDict[submission.team_id].name,
+                    teamid: submission.team_id,
+                    location: submission.team_id,
+                    affiliation: teamDict[submission.team_id].affiliation,
+                    awards: firstProblem,
+                    total: totalDict,
+                    shouldPrint: true,
+                    done: 0,
+                    printDone: 0,
+                },
+            }, { upsert: true, returnUpdatedDocs: true });
+            if (!updated.done) pending.push(updated);
+        }
+        await this.ctx.parallel('balloon/newTask', pending.length);
+        this.ctx.parallel('notifier/balloonTask', pending, { name: 'Contest sync' })
+            .catch((error) => this.logger.error(error));
+        this.logger.debug(`Found ${pending.length} balloons`);
+    }
+
+    async setBalloonDone(bid: string) {
+        await this.ctx.db.balloon.updateOne(
+            { balloonid: bid },
+            { $set: { done: 1 } },
+        );
+    }
+}
+
 const fetcherList = {
     server: BasicFetcher,
     domjudge: DOMjudgeFetcher,
     hydro: HydroFetcher,
+    ccs: CCSFetcher,
 };
 
 export async function apply(ctx: Context) {

@@ -28,6 +28,7 @@ const serverSchema = Schema.intersect([
             Schema.const('server'),
             Schema.const('domjudge'),
             Schema.const('hydro'),
+            Schema.const('ccs'),
         ] as const).description('server type').required(), // 服务类型
         port: Schema.number().default(5283), // 服务端口
         viewPass: Schema.string().default(String.random(8)), // UI登录密码，可通过 admin / {viewPass} 登录
@@ -56,6 +57,14 @@ const serverSchema = Schema.intersect([
             password: Schema.string(), // 赛事系统密码
             freezeEncourage: Schema.number().default(0), // 封榜后鼓励气球数（0 为不发放），需赛事系统配置封榜后仍生成气球
         }).description('Fetcher Config'), // token 与 username/password 二选一
+        Schema.object({
+            type: Schema.const('ccs').required(),
+            server: Schema.string().role('url').default('https://qoj.ac/'), // 任意 ICPC CCS Contest API 兼容地址，默认 QOJ
+            contestId: Schema.string().required(), // 赛事ID
+            token: Schema.string(), // 赛事系统 Token（如 Cookie）
+            username: Schema.string(),
+            password: Schema.string(),
+        }).description('CCS Fetcher Config'),
         Schema.object({
             type: Schema.const('server').required(),
         }).description('Server Mode Config'),
