@@ -156,6 +156,8 @@ body {
   isolation: isolate;
   color: #f5f5f5;
   background: #050505;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .presentation-page.presentation-cursor-idle,
