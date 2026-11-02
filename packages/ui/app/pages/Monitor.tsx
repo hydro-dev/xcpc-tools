@@ -17,7 +17,7 @@ import { MonitorInfo } from '../components/MonitorInfo';
 import { PageHeader } from '../components/PageHeader';
 import { monitorQuery } from '../queries';
 
-const isArenaMode = (mode: string | null) => mode === 'signal' || mode === 'bssid' || mode === 'hardware';
+const isArenaMode = (mode: string | null) => mode === 'signal' || mode === 'bssid' || mode === 'status' || mode === 'hardware';
 
 export default function Monitor() {
   const [searchParams, setSearchParams] = useSearchParams();
