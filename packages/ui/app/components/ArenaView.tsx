@@ -35,6 +35,7 @@ import type {
   ArenaLayoutDocument, ArenaLayoutSectionDocument, ArenaLayoutsResponse,
 } from '../arena/types';
 import { arenaLayoutsQuery } from '../queries';
+import { HardwareStatusCells } from './MonitorDisplay';
 import { ArenaLayoutEditor } from './ArenaLayoutEditor';
 
 interface MonitorRecord {
@@ -101,34 +102,20 @@ const generateDistinctColors = (count: number): string[] => {
   return colors;
 };
 
-type ArenaViewMode = 'signal' | 'bssid' | 'hardware';
+type ArenaViewMode = 'signal' | 'hardware';
 
 const viewModeOptions: { value: ArenaViewMode; label: string }[] = [
   { value: 'signal', label: 'Signal Quality' },
-  { value: 'bssid', label: 'BSSID' },
   { value: 'hardware', label: 'Hardware' },
 ];
 
 const getViewModeFromQuery = (params: URLSearchParams): ArenaViewMode => {
   const mode = params.get('mode');
-  if (mode === 'bssid' || mode === 'hardware' || mode === 'signal') return mode;
-  return 'signal';
+  if (mode === 'hardware' || mode === 'signal') return mode;
+  return 'signal'; // legacy 'bssid' and 'status' modes merged into signal
 };
 
 const hardwareDeviceOrder = ['keyboard', 'mouse', 'camera'] as const;
-
-const hardwareDeviceLabels: Record<string, string> = {
-  keyboard: 'Keyboard',
-  mouse: 'Mouse',
-  camera: 'Camera',
-};
-
-const getHardwareStatusSummary = (monitor: MonitorRecord): string => {
-  const devices = hardwareDeviceOrder
-    .map((device) => `${hardwareDeviceLabels[device]}: ${monitor.hardware?.[device] || 'unknown'}`)
-    .join(', ');
-  return devices || 'No Data';
-};
 
 const defaultNormalize = (value: string): string => value.trim().toUpperCase();
 
@@ -298,7 +285,8 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
   }, [definedSeatIds, layout, monitors, normalizeSeatId]);
 
   const bssidColorMap = React.useMemo(() => {
-    if (viewMode !== 'bssid') return new Map<string, string>();
+    // bssid group colors are always computed: in signal mode they show up
+    // as the corner ribbon on each seat instead of filling the seat
     const uniqueBssids = new Set<string>();
     for (const monitor of monitors) {
       if (monitor.wifiBssid && monitor.updateAt && monitor.updateAt > Date.now() - ONLINE_THRESHOLD_MS) {
@@ -322,7 +310,7 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
       map.set(bssid, color);
     });
     return map;
-  }, [monitors, viewMode]);
+  }, [monitors]);
 
   const unmatchedMonitors = overflow;
 
@@ -337,16 +325,6 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
     // is stale and must not be reported as errors
     if (!online) {
       return { color: theme.colors.gray[5], monitor, monitors: monitorsForSeat };
-    }
-    if (viewMode === 'bssid') {
-      if (!monitor.wifiBssid) {
-        return { color: theme.colors.blue[3], monitor, monitors: monitorsForSeat };
-      }
-      const color = bssidColorMap.get(monitor.wifiBssid);
-      if (color) {
-        return { color, monitor, monitors: monitorsForSeat };
-      }
-      return { color: theme.colors.blue[3], monitor, monitors: monitorsForSeat };
     }
     if (viewMode === 'hardware') {
       if (!monitor.hardware) {
@@ -376,6 +354,17 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
     return { color: getSignalColor(signal, theme.colors.yellow[4]), monitor, monitors: monitorsForSeat };
   };
 
+  // bssid group color for the corner ribbon; null when there is nothing to show
+  const getSeatBssidColor = (seatId: string): string | null => {
+    const monitorsForSeat = seatMap.get(normalizeSeatId(seatId)) ?? [];
+    const monitor = pickPrimaryMonitor(monitorsForSeat);
+    if (!monitor) return null;
+    const online = !!monitor.updateAt && monitor.updateAt > Date.now() - ONLINE_THRESHOLD_MS;
+    if (!online) return null;
+    if (!monitor.wifiBssid) return theme.colors.blue[3];
+    return bssidColorMap.get(monitor.wifiBssid) ?? theme.colors.blue[3];
+  };
+
   const renderSeatCard = (
     seatId: string,
     section: ArenaLayoutSectionDocument,
@@ -385,6 +374,7 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
     seatHeight: number,
   ) => {
     const { color, monitor, monitors: monitorsForSeat } = getSeatStatusColor(seatId);
+    const bssidColor = viewMode === 'signal' ? getSeatBssidColor(seatId) : null;
     const duplicatesCount = monitorsForSeat.length > 1 ? monitorsForSeat.length : null;
     const tooltipContent = (
       <Stack gap={4}>
@@ -407,8 +397,8 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
               <ThemeIcon size="sm" color="grape" variant="light"><IconRouter size={14} /></ThemeIcon>
               <Text size="sm">{monitor.wifiBssid ?? 'None'}</Text>
             </Group>
-            <Group gap={6}>
-              <Text size="sm">{getHardwareStatusSummary(monitor)}</Text>
+            <Group gap={6} wrap="nowrap">
+              {monitor.hardware ? <HardwareStatusCells monitor={monitor} /> : <Text size="sm">No hardware data</Text>}
             </Group>
             {monitorsForSeat.length > 1 && (
               <Text size="sm" c="orange">
@@ -474,6 +464,31 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
           >
             {seatId}
           </Text>
+          {bssidColor && (
+            <Tooltip
+              label={`BSSID: ${monitor?.wifiBssid ?? 'None'}`}
+              position="top"
+              withArrow
+            >
+              <Box
+                aria-label={`BSSID ribbon ${bssidColor}`}
+                style={{
+                  // CSS corner triangle in the top-right corner; drawn with
+                  // borders so it follows zoom, and inset so the card's
+                  // border-radius (radius="sm") does not clip it
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  width: 0,
+                  height: 0,
+                  borderTop: `${Math.max(8, seatHeight * 0.45)}px solid ${bssidColor}`,
+                  borderLeft: `${Math.max(8, seatHeight * 0.45)}px solid transparent`,
+                  filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.4))',
+                  pointerEvents: 'none',
+                }}
+              />
+            </Tooltip>
+          )}
           {duplicatesCount && (
             <Badge
               size="xs"
@@ -490,9 +505,6 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
   };
 
   const renderLegend = () => {
-    if (viewMode === 'bssid') {
-      return <Text size="sm">Same color indicates the same BSSID. Offline hosts appear gray.</Text>;
-    }
     if (viewMode === 'hardware') {
       return (
         <Group gap="sm">
@@ -530,7 +542,7 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
       );
     }
     return (
-      <Group gap="xs" align="center">
+      <Group gap="xs" align="center" wrap="wrap">
         <Text size="sm">Signal Strength</Text>
         <Text size="xs" c="dimmed">Poor</Text>
         <Box
@@ -542,6 +554,28 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
           }}
         />
         <Text size="xs" c="dimmed">Excellent</Text>
+        <Text size="xs" c="dimmed">·</Text>
+        <Box
+          style={{
+            position: 'relative',
+            width: 18,
+            height: 18,
+            backgroundColor: theme.colors.gray[4],
+            borderRadius: 3,
+            overflow: 'hidden',
+          }}
+        >
+          <Box style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 0,
+            height: 0,
+            borderTop: '7px solid hsl(200, 80%, 45%)',
+            borderLeft: '7px solid transparent',
+          }} />
+        </Box>
+        <Text size="xs" c="dimmed">Corner triangle = BSSID group</Text>
       </Group>
     );
   };
