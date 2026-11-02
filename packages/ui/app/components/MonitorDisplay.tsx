@@ -1,10 +1,9 @@
 import './MonitorDisplay.css';
 
 import {
-  Card, Center, Grid, Group, Stack, Table,
-  Text, ThemeIcon, Title, Tooltip,
+  Badge, Card, Center, Grid, Group, Stack, Table,
+  Text, Title, Tooltip,
 } from '@mantine/core';
-import { IconCheck, IconX } from '@tabler/icons-react';
 import React from 'react';
 import {
   formatWifiSignal, getHardwareStatusColor, getHardwareStatusText, hardwareDeviceLabels,
@@ -31,6 +30,29 @@ interface MonitorDisplayProps {
   openMonitorInfo: (monitor: any, tab?: string) => void;
 }
 
+export const HardwareStatusCells = ({ monitor }: { monitor: any }) => (
+  <>
+    {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
+      const status = monitor.hardware?.[device];
+      return (
+        <Tooltip key={device} label={`${label}: ${getHardwareStatusText(status)}`}>
+          <span
+            role="img"
+            aria-label={`${label} ${getHardwareStatusText(status)}`}
+            style={{
+              display: 'inline-block',
+              width: '0.55em',
+              height: '0.55em',
+              borderRadius: '50%',
+              background: `var(--mantine-color-${getHardwareStatusColor(status)}-filled)`,
+            }}
+          />
+        </Tooltip>
+      );
+    })}
+  </>
+);
+
 export const MonitorCards = React.memo(({ monitors, openMonitorInfo }: MonitorDisplayProps) => (
   <Grid>
     {monitors.map((m: any) => (
@@ -38,21 +60,18 @@ export const MonitorCards = React.memo(({ monitors, openMonitorInfo }: MonitorDi
         base: 12, xs: 6, md: 4, xl: 3,
       }}>
         <Card padding="md" radius="md" withBorder>
-          <Group justify="center">
-            <Title order={3}>
+          <Group justify="center" wrap="nowrap">
+            <Title order={3} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {m.name || 'No Name'}
             </Title>
-            <Tooltip label={isOnline(m) ? 'Online' : 'Offline'}>
-              <ThemeIcon
-                radius="xl"
-                size="sm"
-                color={isOnline(m) ? 'green' : 'red'}
-                role="img"
-                aria-label={isOnline(m) ? 'Online' : 'Offline'}
-              >
-                {isOnline(m) ? (<IconCheck />) : (<IconX />)}
-              </ThemeIcon>
-            </Tooltip>
+            <Badge
+              size="sm"
+              variant="light"
+              color={isOnline(m) ? 'green' : 'gray'}
+              style={{ flexShrink: 0 }}
+            >
+              {isOnline(m) ? 'Online' : 'Offline'}
+            </Badge>
           </Group>
           <Center>
             <Text c="dimmed">{m.ip}</Text>
@@ -78,23 +97,7 @@ export const MonitorCards = React.memo(({ monitors, openMonitorInfo }: MonitorDi
           { m.hardware && (
             <Center>
               <Group gap={6}>
-                {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
-                  const status = m.hardware[device];
-                  return (
-                    <Tooltip key={device} label={`${label}: ${getHardwareStatusText(status)}`}>
-                      <ThemeIcon
-                        radius="xl"
-                        size="sm"
-                        variant="light"
-                        color={getHardwareStatusColor(status)}
-                        role="img"
-                        aria-label={`${label} ${getHardwareStatusText(status)}`}
-                      >
-                        <Text size="xs" fw={700}>{label[0]}</Text>
-                      </ThemeIcon>
-                    </Tooltip>
-                  );
-                })}
+                <HardwareStatusCells monitor={m} />
               </Group>
             </Center>
           )}
@@ -113,45 +116,30 @@ interface MonitorRowProps {
   openMonitorInfo: (monitor: any, tab?: string) => void;
 }
 
-const HardwareStatusCells = ({ monitor }: { monitor: any }) => (
-  <>
-    {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
-      const status = monitor.hardware?.[device];
-      return (
-        <Tooltip key={device} label={`${label}: ${getHardwareStatusText(status)}`}>
-          <Text
-            size="sm"
-            fw={600}
-            c={getHardwareStatusColor(status)}
-            style={{ cursor: 'default' }}
-          >
-            {label[0]}
-          </Text>
-        </Tooltip>
-      );
-    })}
-  </>
-);
-
 const MonitorRow = React.memo(({ monitor, online, openMonitorInfo }: MonitorRowProps) => (
   <Table.Tr>
-    <Table.Td style={{ width: 40 }}>
-      <ThemeIcon
-        radius="xl"
-        size="sm"
-        color={online ? 'green' : 'red'}
-        role="img"
-        aria-label={online ? 'Online' : 'Offline'}
-        title={online ? 'Online' : 'Offline'}
-      >
-        {online ? <IconCheck /> : <IconX />}
-      </ThemeIcon>
-    </Table.Td>
     <Table.Td>
-      <Stack gap={1}>
-        <Text size="sm">{monitor.name || 'No Name'}</Text>
-        <Text size="xs" c="dimmed" ff="monospace">{monitor._id.substring(0, 6).toUpperCase()}</Text>
-      </Stack>
+      <Group gap={6} wrap="nowrap">
+        <Stack gap={1} style={{ overflow: 'hidden' }}>
+          <Group gap={6} wrap="nowrap">
+            <Text
+              size="sm"
+              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {monitor.name || 'No Name'}
+            </Text>
+            <Badge
+              size="sm"
+              variant="light"
+              color={online ? 'green' : 'gray'}
+              style={{ flexShrink: 0 }}
+            >
+              {online ? 'Online' : 'Offline'}
+            </Badge>
+          </Group>
+          <Text size="xs" c="dimmed" ff="monospace">{monitor._id.substring(0, 6).toUpperCase()}</Text>
+        </Stack>
+      </Group>
     </Table.Td>
     <Table.Td>{monitor.group}</Table.Td>
     <Table.Td>{monitor.hostname}</Table.Td>
@@ -190,7 +178,6 @@ export const MonitorTable = React.memo(({ monitors, openMonitorInfo }: MonitorDi
     <Table horizontalSpacing="md" verticalSpacing="xs" striped highlightOnHover stickyHeader>
       <Table.Thead>
         <Table.Tr>
-          <Table.Th aria-label="Status" style={{ width: 40 }} />
           <Table.Th>Name</Table.Th>
           <Table.Th>Group</Table.Th>
           <Table.Th>Hostname</Table.Th>

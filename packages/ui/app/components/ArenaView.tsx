@@ -36,6 +36,7 @@ import type {
 } from '../arena/types';
 import { arenaLayoutsQuery } from '../queries';
 import { ArenaLayoutEditor } from './ArenaLayoutEditor';
+import { HardwareStatusCells } from './MonitorDisplay';
 
 interface MonitorRecord {
   _id: string;
@@ -116,19 +117,6 @@ const getViewModeFromQuery = (params: URLSearchParams): ArenaViewMode => {
 };
 
 const hardwareDeviceOrder = ['keyboard', 'mouse', 'camera'] as const;
-
-const hardwareDeviceLabels: Record<string, string> = {
-  keyboard: 'Keyboard',
-  mouse: 'Mouse',
-  camera: 'Camera',
-};
-
-const getHardwareStatusSummary = (monitor: MonitorRecord): string => {
-  const devices = hardwareDeviceOrder
-    .map((device) => `${hardwareDeviceLabels[device]}: ${monitor.hardware?.[device] || 'unknown'}`)
-    .join(', ');
-  return devices || 'No Data';
-};
 
 const defaultNormalize = (value: string): string => value.trim().toUpperCase();
 
@@ -386,17 +374,24 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
   ) => {
     const { color, monitor, monitors: monitorsForSeat } = getSeatStatusColor(seatId);
     const duplicatesCount = monitorsForSeat.length > 1 ? monitorsForSeat.length : null;
+    const online = !!monitor?.updateAt && monitor.updateAt > Date.now() - ONLINE_THRESHOLD_MS;
     const tooltipContent = (
       <Stack gap={4}>
-        <Text fw={600} size="sm">
-          {seatId}
-        </Text>
+        <Group gap={6} justify="space-between" wrap="nowrap" align="center">
+          <Text fw={600} size="sm">
+            {seatId}
+          </Text>
+          {monitor && (
+            <Badge size="sm" variant="light" color={online ? 'green' : 'gray'}>
+              {online ? 'Online' : 'Offline'}
+            </Badge>
+          )}
+        </Group>
         {monitor ? (
           <>
             <Text size="sm">Machine: {monitor.name ?? monitor.hostname ?? 'Unnamed'}</Text>
             <Text size="sm">IP: {monitor.ip ?? 'Unknown'}</Text>
             <Text size="sm">MAC: {formatMac(monitor.mac)}</Text>
-            <Text size="sm">Online: {monitor.updateAt && monitor.updateAt > Date.now() - ONLINE_THRESHOLD_MS ? 'Yes' : 'No'}</Text>
             <Text size="sm">Uptime: {formatUptime(monitor.uptime)}</Text>
             <Text size="sm">Version: {monitor.version ?? 'Unknown'}</Text>
             <Group gap={6}>
@@ -407,8 +402,8 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
               <ThemeIcon size="sm" color="grape" variant="light"><IconRouter size={14} /></ThemeIcon>
               <Text size="sm">{monitor.wifiBssid ?? 'None'}</Text>
             </Group>
-            <Group gap={6}>
-              <Text size="sm">{getHardwareStatusSummary(monitor)}</Text>
+            <Group gap={6} wrap="nowrap">
+              {monitor.hardware ? <HardwareStatusCells monitor={monitor} /> : <Text size="sm">No hardware data</Text>}
             </Group>
             {monitorsForSeat.length > 1 && (
               <Text size="sm" c="orange">
