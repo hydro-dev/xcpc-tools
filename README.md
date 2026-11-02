@@ -263,7 +263,7 @@ const clientSchema = Schema.object({
     balloonTemplate: Schema.string().default(balloonTemplateDefault), // 气球小票模板
     printColor: Schema.boolean().default(false), // 是否打印彩色代码
     printIgnorePrinterStatus: Schema.boolean().default(false), // 忽略打印机状态，非 idle 也视为可用
-    printPageMax: Schema.number().default(5), // 单次代码打印页数上限
+    printPageMax: Schema.number().default(5), // 单次代码打印页数上限；直打 PDF 同样受限
     printMergeQueue: Schema.number().default(1), // 合并处理的打印任务数量
     printers: Schema.array(Schema.union([
         Schema.string(), // 全局打印机
@@ -285,6 +285,8 @@ const clientSchema = Schema.object({
 Client 启动后可在本机访问 `http://127.0.0.1:5284/`，并通过 `/#/print` 和 `/#/balloon` 查看各自的连接状态、当前任务阶段、目标打印机以及最近 100 条结果。该页面复用管理端界面并只监听 loopback；监听端口被占用时 Client 会报错并退出。
 
 默认只有状态为 `idle` 的打印机才会被派发任务。部分打印机的驱动状态不准确（例如始终报告 `printing` 或 `unknown`），可设置 `printIgnorePrinterStatus: true` 忽略该判定：Client 会把这一设置同步给服务端，服务端据此照常向该客户端派发任务，管理端仍展示驱动上报的真实状态。默认值为 `false`，保持原有行为。
+
+除代码打印外，还支持直接打印 PDF 文件：提交时将 `lang` 设为 `pdf`（或文件名以 `.pdf` 结尾）即可，PDF 不经过模板渲染，原样送往打印机。页数上限与代码打印共用同一个 `printPageMax` 设置，在打印客户端统一截取前 N 页，不引入新的配置项。
 
 首次生成的 `config.server.yaml` 已包含一个打印客户端和一个气球客户端，并分别生成随机 `token`。启动 Client 前，将对应的 `token` 写入该客户端的 `config.client.yaml`；需要更多客户端时，再在服务端配置中追加。管理页面只展示连接状态，不再新增、删除或修改客户端。
 
