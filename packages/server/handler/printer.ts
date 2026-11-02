@@ -108,7 +108,9 @@ class PrintAdminHandler extends AuthHandler {
         }
         fs.ensureDirSync(path.resolve(process.cwd(), 'data/.pdf'));
         const content = fs.readFileSync(path.resolve(process.cwd(), 'data/codes', `${code.tid}#${code._id}`));
-        const doc = await ConvertCodeToPDF(
+        this.response.type = 'application/pdf';
+        this.response.disposition = 'attachment; filename="code.pdf"';
+        this.response.body = code.lang === 'pdf' ? content : Buffer.from(await ConvertCodeToPDF(
             content,
             code.lang,
             code.filename,
@@ -116,10 +118,7 @@ class PrintAdminHandler extends AuthHandler {
             code.location,
             code.createAt,
             params.color ?? true,
-        );
-        this.response.type = 'application/pdf';
-        this.response.disposition = 'attachment; filename="code.pdf"';
-        this.response.body = Buffer.from(doc);
+        ));
     }
 
     async postReprint(params) {
@@ -180,7 +179,8 @@ class CodeHandler extends Handler {
         if (sourceFilename.includes('../')) throw new BadRequestError();
         const codeFile = code ? Buffer.from(String(code)) : fs.readFileSync(uploadedFile.filepath);
         if (!codeFile.length) throw new BadRequestError('Code', null, 'Code is empty');
-        if (codeFile.length > 256 * 1024) throw new BadRequestError('Code', null, 'Code is larger than 256KB');
+        const sizeLimit = lang === 'pdf' ? 8 * 1024 * 1024 : 256 * 1024;
+        if (codeFile.length > sizeLimit) throw new BadRequestError('Code', null, 'File is larger than limit (256kb for src, 8mb for pdf)');
         const res = await this.ctx.db.code.insert({
             tid: team.toString(),
             team: `${team}: ${tname}`,

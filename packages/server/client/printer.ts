@@ -103,18 +103,26 @@ export async function printFile(docs, targetPrinter = '') {
             _id, tid, code, lang, filename, team, location, createAt,
         } = doc;
         if (!code) throw new Error(`Print task ${tid}#${_id} has no source content`);
-        updateClientTask('print', _id, `${location || 'Unknown seat'} · ${filename}`, 'converting', { printer: targetPrinter });
-        const pdf = await ConvertCodeToPDF(
-            Buffer.from(code, 'base64'),
-            lang,
-            filename,
-            team,
-            location,
-            createAt,
-            config.printColor,
-        );
-        fs.writeFileSync(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`), pdf);
-        files.push(path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`));
+        const pdfPath = path.resolve(process.cwd(), `data${path.sep}${tid}#${_id}.pdf`);
+        if (lang === 'pdf') {
+            // Uploaded PDFs bypass the typst pipeline; the bytes go straight
+            // to the printer, still capped by printPageMax below.
+            logger.info(`Printing uploaded PDF ${filename} as-is`);
+            fs.writeFileSync(pdfPath, Buffer.from(code, 'base64'));
+        } else {
+            updateClientTask('print', _id, `${location || 'Unknown seat'} · ${filename}`, 'converting', { printer: targetPrinter });
+            const pdf = await ConvertCodeToPDF(
+                Buffer.from(code, 'base64'),
+                lang,
+                filename,
+                team,
+                location,
+                createAt,
+                config.printColor,
+            );
+            fs.writeFileSync(pdfPath, pdf);
+        }
+        files.push(pdfPath);
     }
     if (files.length === 1) {
         finalFile = files[0];
