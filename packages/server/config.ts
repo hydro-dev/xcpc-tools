@@ -118,6 +118,8 @@ const serviceClientSchema = Schema.object({
     token: Schema.string().required().description('16-128 character URL-safe secret used by config.client.yaml'),
     name: Schema.string().required(),
     type: Schema.array(Schema.union(['printer', 'balloon'] as const)).min(1).default(['printer']),
+    balloonGroups: Schema.array(Schema.string()).default([])
+        .description('exclusive balloon receipt location prefixes; empty accepts only unreserved areas'),
 });
 
 const sshSchema = Schema.object({

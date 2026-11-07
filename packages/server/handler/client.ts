@@ -15,6 +15,7 @@ import {
 const logger = new Logger('handler/client');
 const CLIENT_PROTOCOL_VERSION = 2;
 const TASK_LEASE_DURATION = 45_000;
+let balloonRoutes: Array<{ prefix: string; clientId: string }> = [];
 
 async function refreshClientHeartbeat(ctx: Context, clientId: string, requestIp: string, now = Date.now()) {
     const ip = String(requestIp || '').replace('::ffff:', '');
@@ -67,6 +68,7 @@ async function syncConfiguredClients(ctx: Context) {
     const clients = (config.clients || []).filter((client) => client.type !== 'webhook');
     const tokens = new Set<string>();
     const names = new Set<string>();
+    const routes: typeof balloonRoutes = [];
     for (const client of clients) {
         if (!/^[A-Za-z0-9_-]{16,128}$/.test(client.token)) {
             throw new Error(`Client token must be 16-128 URL-safe characters: ${client.name}`);
@@ -78,7 +80,18 @@ async function syncConfiguredClients(ctx: Context) {
         if (names.has(client.name)) throw new Error(`Duplicate client name in config.server.yaml: ${client.name}`);
         tokens.add(client.token);
         names.add(client.name);
+        const groups = client.balloonGroups || [];
+        if (groups.length && !client.type.includes('balloon')) throw new Error(`balloonGroups requires balloon type: ${client.name}`);
+        for (const group of groups) {
+            const prefix = group.trim().toUpperCase();
+            if (!prefix) throw new Error(`balloonGroups must not contain an empty prefix: ${client.name}`);
+            if (routes.some((route) => route.prefix === prefix)) {
+                throw new Error(`Balloon area is configured more than once: ${prefix}`);
+            }
+            routes.push({ prefix, clientId: client.token });
+        }
     }
+    balloonRoutes = routes.sort((left, right) => right.prefix.length - left.prefix.length);
     const existing = await ctx.db.client.find({});
     for (const client of existing) {
         if (!tokens.has(client.id)) await ctx.db.client.removeOne({ id: client.id }, {});
@@ -277,11 +290,18 @@ class ClientBallloonConnectHandler extends Handler {
         const ip = this.request.ip.replace('::ffff:', '');
         logger.info(`Client ${client.name}(${ip}) connected.`);
         await reapExpiredBalloonClaims(this.ctx);
-        const [candidate] = await this.ctx.db.balloon.find({
+        const candidates = await this.ctx.db.balloon.find({
             printDone: 0,
             shouldPrint: true,
             $or: [{ printClient: '' }, { printClient: { $exists: false } }],
-        }).sort({ time: 1 }).limit(1);
+        }).sort({ time: 1 });
+        const hasReservedArea = balloonRoutes.some((route) => route.clientId === client.id);
+        const candidate = candidates.find((task) => {
+            const location = String(task.location ?? '').trim().toUpperCase();
+            const owner = balloonRoutes.find((route) => location.startsWith(route.prefix));
+            // An offline owner's tasks remain reserved, including after lease expiry.
+            return owner ? owner.clientId === client.id : !hasReservedArea;
+        });
         let balloon = null;
         if (candidate) {
             const receivedAt = Date.now();

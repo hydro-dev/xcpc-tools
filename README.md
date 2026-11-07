@@ -37,6 +37,7 @@ const serverSchema = Schema.intersect([
             token: Schema.string().required(), // 16-128 位 URL 安全随机密钥，同时写入 config.client.yaml
             name: Schema.string().required(), // 管理页面展示名称
             type: Schema.array(Schema.union(['printer', 'balloon'])).min(1).default(['printer']),
+            balloonGroups: Schema.array(Schema.string()).default([]), // 独占的小票区域，按 location 前缀匹配
         })).default([]), // 打印与气球客户端，统一由服务端配置管理
         arenaLayouts: Schema.string().default('data/arena-layouts.json'), // Arena View 布局 JSON 文件路径
         ssh: Schema.object({
@@ -95,6 +96,27 @@ printers:
 
 #### Balloon
 服务支持 `Fetch Mode` 下的气球推送，支持 `DOMjudge` 与 `Hydro` 系统，支持 `DOMjudge` 与 `Hydro` 系统的 `Balloon` 推送，同时若赛事在封榜后仍然推送气球，则支持自定义鼓励气球数，高于设定值则不推送，为所有队伍打造优质赛场体验。
+
+需要某个区域只从一台小票机打印时，在 **服务端 `config.server.yaml`** 对应客户端上配置 `balloonGroups`：
+
+```yaml
+clients:
+  - token: REPLACE_WITH_RANDOM_BALLOON_A_TOKEN
+    name: A 区小票机
+    type: [balloon]
+    balloonGroups: [A]
+  - token: REPLACE_WITH_RANDOM_BALLOON_OTHER_TOKEN
+    name: 其他区域小票机
+    type: [balloon]
+```
+
+将各自的 token 写入对应小票客户端的 `config.client.yaml`，并用 `balloon` 指定该客户端连接的小票机。每台小票客户端使用不同的 token，不要让多个实例共用区域专属 token。
+
+`balloonGroups` 按气球任务的 `location` 座位前缀匹配，忽略大小写和首尾空格。例如 `[A]` 匹配 `A0101`；可填写多个区域，如 `[A, B]`。前缀重叠时采用最长匹配，如 `A01` 比 `A` 优先。同一前缀不能重复配置，空白前缀及未启用 `balloon` 服务的区域配置会在启动时报错。
+
+配置区域的客户端只领取自己区域的任务；未配置或配置为 `[]` 的客户端只领取未被任何客户端绑定的区域。专属客户端离线、故障或任务租约过期时，其他客户端也不会接管该区域，任务等待专属客户端恢复。未配置任何区域时保持原有的共享任务池行为。
+
+修改后重启服务端生效。已经领取的任务不会撤回；切换区域归属前应先让在途打印完成。
 
 #### Monitor
 服务端提供两种选手机上报方式：HTTP `/report` 只更新机器状态，WebSocket `/probe` 在更新状态之外还会接收命令并回传执行结果。旧镜像可以继续定时运行 [`scripts/monitor`](scripts/monitor) 进行 HTTP 上报；新镜像使用 Machine Tools 配置 heartbeat 和 WebSocket Probe。
