@@ -113,7 +113,7 @@ interface MonitorRowProps {
   openMonitorInfo: (monitor: any, tab?: string) => void;
 }
 
-const HardwareStatusCells = ({ monitor }: { monitor: any }) => (
+export const HardwareStatusCells = ({ monitor }: { monitor: any }) => (
   <>
     {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
       const status = monitor.hardware?.[device];
