@@ -13,8 +13,9 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import React, { useState } from 'react';
 import {
-  formatWifiSignal, getHardwareStatusColor, getHardwareStatusText, hardwareDeviceLabels,
+  formatWifiSignal,
 } from '../utils';
+import { HardwareStatusCells } from './MonitorDisplay';
 import VideoPlayer from './VideoPlayer';
 
 function TerminalPanel({ monitor }) {
@@ -231,14 +232,11 @@ export function MonitorInfo({
               <Text>Load: {monitor.load}</Text>
               <Text>Wi-Fi Signal: {wifiSignalText || 'No Data'}</Text>
               <Text>Wi-Fi BSSID: {monitor.wifiBssid || 'No Data'}</Text>
-              {Object.entries(hardwareDeviceLabels).map(([device, label]) => (
-                <Text
-                  key={device}
-                  c={getHardwareStatusColor(monitor.hardware?.[device])}
-                >
-                  {label}: {getHardwareStatusText(monitor.hardware?.[device])}
-                </Text>
-              ))}
+              {monitor.hardware && (
+                <Group gap={6} wrap="nowrap" mt={4}>
+                  <HardwareStatusCells monitor={monitor} />
+                </Group>
+              )}
               <Text>Camera Stream URL: {monitor.camera ?? 'No Camera'}</Text>
               <Text>Desktop Stream URL: {monitor.desktop ?? 'No Desktop'}</Text>
             </Grid.Col>
