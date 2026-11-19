@@ -84,31 +84,15 @@ export default function Monitor() {
     setSearchParams(nextParams);
   }, [searchParams, setSearchParams]);
 
-  const [cameraCheckSaving, setCameraCheckSaving] = React.useState(false);
-  const cameraCheck = query.data?.cameraCheck !== false;
-  const toggleCameraCheck = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const enabled = event.currentTarget.checked;
-    setCameraCheckSaving(true);
-    try {
-      const response = await fetch('/monitor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operation: 'update_camera_check', enabled }),
-      });
-      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
-      const res = await response.json();
-      if (res.error) {
-        notifications.show({ title: 'Error', message: res.error.message, color: 'red' });
-        return;
-      }
-      query.refetch();
-    } catch (e) {
-      console.error(e);
-      notifications.show({ title: 'Error', message: 'Failed to update camera check setting', color: 'red' });
-    } finally {
-      setCameraCheckSaving(false);
-    }
-  }, [query.refetch]);
+  // pure client-side display filter: which hardware devices to show; the
+  // server always checks and reports all of them
+  const [hardwareChecks, setHardwareChecks] = React.useState({ keyboard: true, mouse: true, camera: true });
+  const toggleHardwareCheck = React.useCallback((
+    device: 'keyboard' | 'mouse' | 'camera',
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    setHardwareChecks((prev) => ({ ...prev, [device]: event.currentTarget.checked }));
+  }, []);
 
   const cleanAll = React.useCallback(async () => {
     try {
@@ -212,13 +196,15 @@ export default function Monitor() {
                     { value: 'arena', label: 'Arena view' },
                   ]}
                 />
-                <Switch
-                  size="xs"
-                  label="Camera check"
-                  checked={cameraCheck}
-                  disabled={cameraCheckSaving || query.isPending}
-                  onChange={toggleCameraCheck}
-                />
+                {(['keyboard', 'mouse', 'camera'] as const).map((device) => (
+                  <Switch
+                    key={device}
+                    size="xs"
+                    label={`${device[0].toUpperCase()}${device.slice(1)} check`}
+                    checked={hardwareChecks[device]}
+                    onChange={(e) => toggleHardwareCheck(device, e)}
+                  />
+                ))}
                 <AnsibleHostsModal monitors={monitorsArray} />
                 <MonitorBatchModal refresh={query.refetch} />
                 <Button
@@ -258,7 +244,7 @@ export default function Monitor() {
                 <Skeleton h={48} />
               </Stack>
             ) : activeView === 'arena' ? (
-              <ArenaView monitors={monitorsArray} isLoading={query.isPending} openMonitorInfo={openMonitorInfo} />
+              <ArenaView monitors={monitorsArray} isLoading={query.isPending} openMonitorInfo={openMonitorInfo} hardwareChecks={hardwareChecks} />
             ) : (
               <Stack gap="md">
                 <Tabs
@@ -319,7 +305,7 @@ export default function Monitor() {
                   </Center>
                 ) : (
                   <Stack gap="md">
-                    <MonitorTable monitors={visibleMonitors} openMonitorInfo={openMonitorInfo} />
+                    <MonitorTable monitors={visibleMonitors} openMonitorInfo={openMonitorInfo} hardwareChecks={hardwareChecks} />
                     {activeMonitors.length > 50 && (
                       <Group justify="space-between" wrap="wrap">
                         <Text size="xs" c="dimmed">

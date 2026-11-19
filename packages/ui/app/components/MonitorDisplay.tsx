@@ -29,9 +29,10 @@ const isOnline = (monitor: any) => monitor.updateAt && monitor.updateAt > Date.n
 interface MonitorDisplayProps {
   monitors: any[];
   openMonitorInfo: (monitor: any, tab?: string) => void;
+  hardwareChecks?: { keyboard: boolean; mouse: boolean; camera: boolean };
 }
 
-export const MonitorCards = React.memo(({ monitors, openMonitorInfo }: MonitorDisplayProps) => (
+export const MonitorCards = React.memo(({ monitors, openMonitorInfo, hardwareChecks }: MonitorDisplayProps) => (
   <Grid>
     {monitors.map((m: any) => (
       <Grid.Col key={m._id} span={{
@@ -79,6 +80,7 @@ export const MonitorCards = React.memo(({ monitors, openMonitorInfo }: MonitorDi
             <Center>
               <Group gap={6}>
                 {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
+                  if (hardwareChecks && !hardwareChecks[device]) return null;
                   const status = m.hardware[device];
                   return (
                     <Tooltip key={device} label={`${label}: ${getHardwareStatusText(status)}`}>
@@ -111,11 +113,13 @@ interface MonitorRowProps {
   monitor: any;
   online: boolean;
   openMonitorInfo: (monitor: any, tab?: string) => void;
+  hardwareChecks?: { keyboard: boolean; mouse: boolean; camera: boolean };
 }
 
-const HardwareStatusCells = ({ monitor }: { monitor: any }) => (
+const HardwareStatusCells = ({ monitor, hardwareChecks }: { monitor: any; hardwareChecks?: MonitorDisplayProps['hardwareChecks'] }) => (
   <>
     {Object.entries(hardwareDeviceLabels).map(([device, label]) => {
+      if (hardwareChecks && !hardwareChecks[device]) return null;
       const status = monitor.hardware?.[device];
       return (
         <Tooltip key={device} label={`${label}: ${getHardwareStatusText(status)}`}>
@@ -133,7 +137,9 @@ const HardwareStatusCells = ({ monitor }: { monitor: any }) => (
   </>
 );
 
-const MonitorRow = React.memo(({ monitor, online, openMonitorInfo }: MonitorRowProps) => (
+const MonitorRow = React.memo(({
+  monitor, online, openMonitorInfo, hardwareChecks,
+}: MonitorRowProps) => (
   <Table.Tr>
     <Table.Td style={{ width: 40 }}>
       <ThemeIcon
@@ -170,7 +176,7 @@ const MonitorRow = React.memo(({ monitor, online, openMonitorInfo }: MonitorRowP
     </Table.Td>
     <Table.Td style={{ width: 90, minWidth: 90 }}>
       <Group gap={6} wrap="nowrap">
-        <HardwareStatusCells monitor={monitor} />
+        <HardwareStatusCells monitor={monitor} hardwareChecks={hardwareChecks} />
       </Group>
     </Table.Td>
     <Table.Td style={{ width: 120, minWidth: 120, whiteSpace: 'nowrap' }}>
@@ -185,7 +191,7 @@ const MonitorRow = React.memo(({ monitor, online, openMonitorInfo }: MonitorRowP
   </Table.Tr>
 ));
 
-export const MonitorTable = React.memo(({ monitors, openMonitorInfo }: MonitorDisplayProps) => (
+export const MonitorTable = React.memo(({ monitors, openMonitorInfo, hardwareChecks }: MonitorDisplayProps) => (
   <Table.ScrollContainer minWidth={1150}>
     <Table horizontalSpacing="md" verticalSpacing="xs" striped highlightOnHover stickyHeader>
       <Table.Thead>
@@ -208,6 +214,7 @@ export const MonitorTable = React.memo(({ monitors, openMonitorInfo }: MonitorDi
             monitor={monitor}
             online={isOnline(monitor)}
             openMonitorInfo={openMonitorInfo}
+            hardwareChecks={hardwareChecks}
           />
         ))}
       </Table.Tbody>

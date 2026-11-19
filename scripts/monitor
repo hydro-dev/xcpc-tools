@@ -29,26 +29,9 @@ if [ -n "$NETDEV" ] && [ -d "/sys/class/net/$NETDEV/wireless" ]; then
 fi
 
 # detect keyboard/mouse via evdev capability bitmaps (single-word ev + key/rel bitmaps), camera via video4linux
-# server can disable camera checking (venues without cameras) via GET $HEARTBEATURL {"cameraCheck":false}
-CAMERA_CHECK="true"
-if [ -n "$HEARTBEATURL" ]; then
-  CONFIG_URL="$HEARTBEATURL"
-  if [ -n "$REPORTTOKEN" ]; then
-    case "$CONFIG_URL" in
-      *\?*) CONFIG_URL="${CONFIG_URL}&token=${REPORTTOKEN}" ;;
-      *) CONFIG_URL="${CONFIG_URL}?token=${REPORTTOKEN}" ;;
-    esac
-  fi
-  CAMERA_CHECK="$(curl -sf "$CONFIG_URL" 2>/dev/null | grep -o '"cameraCheck":[a-z]*' | cut -d: -f2)"
-  test -z "$CAMERA_CHECK" && CAMERA_CHECK="true"
-fi
-HARDWARE_STATUS="$(python3 - "$CAMERA_CHECK" <<'PYEOF' 2>/dev/null
+HARDWARE_STATUS="$(python3 - <<'PYEOF' 2>/dev/null
 import glob
 import os
-import sys
-
-
-camera_check = len(sys.argv) > 1 and sys.argv[1] != 'false'
 
 
 def read_bitmap(path):
@@ -90,11 +73,8 @@ for entry in sorted(glob.glob('/sys/class/input/event*')):
 status = {
     'keyboard': 'ok' if keyboards else 'unknown',
     'mouse': 'ok' if mice else 'unknown',
+    'camera': 'ok' if glob.glob('/sys/class/video4linux/video*') else 'unknown',
 }
-if not camera_check:
-    status['camera'] = 'disabled'
-else:
-    status['camera'] = 'ok' if glob.glob('/sys/class/video4linux/video*') else 'unknown'
 print(','.join('{}={}'.format(key, value) for key, value in sorted(status.items())))
 PYEOF
 )"

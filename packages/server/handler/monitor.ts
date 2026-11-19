@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import {
     BadRequestError, ConnectionHandler, ForbiddenError, Handler,
 } from '@hydrooj/framework';
-import { config, saveConfig } from '../config';
+import { config } from '../config';
 import type { HardwareDeviceStatus } from '../interface';
 import { Logger } from '../utils';
 import { AuthHandler } from './misc';
@@ -44,15 +44,6 @@ class MonitorAdminHandler extends AuthHandler {
         }
         this.response.body = { monitors: monitorDict };
         if (!nogroup) this.response.body.groups = groups;
-        this.response.body.cameraCheck = config.monitor.cameraCheck !== false;
-    }
-
-    async postUpdateCameraCheck(params) {
-        const { enabled } = params;
-        if (typeof enabled !== 'boolean') throw new BadRequestError('enabled must be a boolean');
-        config.monitor.cameraCheck = enabled;
-        saveConfig();
-        this.response.body = { success: true, cameraCheck: enabled };
     }
 
     async postUpdate(params) {
@@ -128,16 +119,11 @@ const hardwareStatusFields = ['keyboard', 'mouse', 'camera'] as const;
 
 const sanitizeHardwareStatus = (hardware: any) => {
     if (!hardware || typeof hardware !== 'object') return undefined;
-    const cameraCheckDisabled = config.monitor.cameraCheck === false;
     const result: Record<string, HardwareDeviceStatus> = {};
     for (const field of hardwareStatusFields) {
         const value = hardware[field];
-        if (field === 'camera' && cameraCheckDisabled) {
-            result.camera = 'disabled';
-            continue;
-        }
         if (value === 'ok' || value === 'error' || value === 'unknown') result[field] = value;
-        else if (field === 'camera' && value === 'disabled') result.camera = 'disabled';
+        else if (value === 'disabled') result[field] = 'disabled';
     }
     return Object.keys(result).length ? result : undefined;
 };
@@ -319,12 +305,6 @@ class MachineProbeConnectionHandler extends ConnectionHandler<Context> {
         if (!payload || typeof payload !== 'object') throw new BadRequestError('Invalid probe message');
         if (payload.type === 'hello' || payload.type === 'report') {
             await this.saveProbe(payload.probe);
-            if (payload.type === 'hello') {
-                this.send({
-                    type: 'welcome',
-                    cameraCheck: config.monitor.cameraCheck !== false,
-                });
-            }
             return;
         }
         if (payload.type === 'result') {
@@ -345,7 +325,7 @@ class MonitorReportHandler extends Handler {
         const token = String(this.request.query?.token || '');
         if (expected && token && token !== expected) throw new ForbiddenError('Invalid report token');
         this.response.type = 'application/json';
-        this.response.body = { cameraCheck: config.monitor.cameraCheck !== false };
+        this.response.body = {};
     }
 
     async post(params) {

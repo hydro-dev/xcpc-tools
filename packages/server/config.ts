@@ -67,7 +67,6 @@ password:
 monitor:
   timeSync: false
   reportToken: '' # optional token for both /report and /probe
-  cameraCheck: true # set false when the venue has no cameras
   exporters:
     - job: node
       port: 9100
@@ -146,7 +145,6 @@ const webhookClientSchema = Schema.object({
 const monitorSchema = Schema.object({
     timeSync: Schema.boolean().default(false),
     reportToken: Schema.string().default('').description('Optional query token shared by HTTP and WebSocket machine reports'),
-    cameraCheck: Schema.boolean().default(true).description('Whether monitors should check camera devices; disable for venues without cameras'),
     exporters: Schema.array(Schema.object({
         job: Schema.string().required(),
         port: Schema.number().required(),
@@ -164,7 +162,6 @@ const monitorSchema = Schema.object({
 }).default({
     timeSync: false,
     reportToken: '',
-    cameraCheck: true,
     exporters: [{ job: 'node', port: 9100 }],
     auto: { name: '', group: '', camera: '', desktop: '' },
 });

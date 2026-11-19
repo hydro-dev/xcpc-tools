@@ -123,8 +123,12 @@ const hardwareDeviceLabels: Record<string, string> = {
   camera: 'Camera',
 };
 
-const getHardwareStatusSummary = (monitor: MonitorRecord): string => {
+const getHardwareStatusSummary = (
+  monitor: MonitorRecord,
+  hardwareChecks?: { keyboard: boolean; mouse: boolean; camera: boolean },
+): string => {
   const devices = hardwareDeviceOrder
+    .filter((device) => !hardwareChecks || hardwareChecks[device])
     .map((device) => `${hardwareDeviceLabels[device]}: ${monitor.hardware?.[device] || 'unknown'}`)
     .join(', ');
   return devices || 'No Data';
@@ -177,9 +181,12 @@ interface ArenaViewProps {
   monitors: MonitorRecord[];
   isLoading?: boolean;
   openMonitorInfo?: (monitor: MonitorRecord, tab?: string) => void;
+  hardwareChecks?: { keyboard: boolean; mouse: boolean; camera: boolean };
 }
 
-export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: ArenaViewProps) => {
+export const ArenaView = React.memo(({
+  monitors, isLoading, openMonitorInfo, hardwareChecks,
+}: ArenaViewProps) => {
   const theme = useMantineTheme();
   const queryClient = useQueryClient();
   const monospaceFont = theme.fontFamilyMonospace ?? 'monospace';
@@ -408,7 +415,7 @@ export const ArenaView = React.memo(({ monitors, isLoading, openMonitorInfo }: A
               <Text size="sm">{monitor.wifiBssid ?? 'None'}</Text>
             </Group>
             <Group gap={6}>
-              <Text size="sm">{getHardwareStatusSummary(monitor)}</Text>
+              <Text size="sm">{getHardwareStatusSummary(monitor, hardwareChecks)}</Text>
             </Group>
             {monitorsForSeat.length > 1 && (
               <Text size="sm" c="orange">
