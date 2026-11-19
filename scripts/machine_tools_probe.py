@@ -213,7 +213,7 @@ def wifi_info(name):
     return signal_value, bssid
 
 
-def hardware_status(camera_check=True):
+def hardware_status():
     status = {}
 
     def read_bitmap(path):
@@ -261,12 +261,9 @@ def hardware_status(camera_check=True):
             mice += 1
     status["keyboard"] = "ok" if keyboards else "unknown"
     status["mouse"] = "ok" if mice else "unknown"
-    if not camera_check:
-        status["camera"] = "disabled"
-    else:
-        status["camera"] = (
-            "ok" if os.path.isdir("/sys/class/video4linux") and os.listdir("/sys/class/video4linux") else "unknown"
-        )
+    status["camera"] = (
+        "ok" if os.path.isdir("/sys/class/video4linux") and os.listdir("/sys/class/video4linux") else "unknown"
+    )
     return status
 
 
@@ -359,8 +356,7 @@ def machine_snapshot(config):
     total_memory, memory_used = memory_info()
     wifi_signal, wifi_bssid = wifi_info(identity["name"])
     window_name, window_exe, window_command = active_window_info()
-    camera_check = config.get("cameraCheck", True)
-    hardware = hardware_status(camera_check)
+    hardware = hardware_status()
     uname = os.uname()
     try:
         with open("/proc/uptime", encoding="ascii") as stream:
@@ -622,8 +618,6 @@ async def connect(config, state, state_path):
                 message_type = message.get("type")
                 if message_type == "welcome":
                     log("info", "Connected to machine report server")
-                    if isinstance(message.get("cameraCheck"), bool):
-                        config["cameraCheck"] = message["cameraCheck"]
                     for result in list(state["outbox"].values()):
                         await send_json(result)
                     continue
