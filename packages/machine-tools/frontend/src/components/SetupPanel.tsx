@@ -349,9 +349,13 @@ export function SetupPanel({
             setSeat(patch.seat);
             onConfigChange(next);
         }
+        if (patch.token) {
+            setReportToken(patch.token);
+            next = { ...next, reportToken: patch.token };
+        }
         if (patch.server) {
             const resolved = deriveServerEndpoints(new URL('report', patch.server).toString());
-            const token = config.reportToken || '';
+            const token = patch.token ?? currentReportToken();
             await writePrivilegedFile(
                 useProbe ? MACHINE_TOOLS_ENV_PATH : HEARTBEAT_CONFIG_PATH,
                 useProbe
@@ -367,6 +371,17 @@ export function SetupPanel({
             await startReporter().catch((error) => {
                 throw new Error(`配置已保存，但上报服务启动失败：${error.message}`);
             });
+        } else if (patch.token) {
+            const token = patch.token;
+            await writePrivilegedFile(
+                useProbe ? MACHINE_TOOLS_ENV_PATH : HEARTBEAT_CONFIG_PATH,
+                useProbe
+                    ? `PROBEURL=${shellQuote(config.probeUrl || '')}\nREPORTTOKEN=${shellQuote(token)}\n`
+                    : `HEARTBEATURL=${config.heartbeatUrl || ''}\nREPORTTOKEN=${shellQuote(token)}\n`,
+            ).catch((error) => {
+                throw new Error(`上报 Token 保存失败：${error.message}`);
+            });
+            onConfigChange(next);
         }
         const machine = await collectMachineSnapshot().catch(() => undefined);
         if (machine) onSnapshot(machine);

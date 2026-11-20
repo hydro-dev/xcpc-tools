@@ -7,6 +7,7 @@ export interface QuickNetworkConfig {
 export interface QuickConfig {
     seat?: string;
     server?: string;
+    token?: string;
     network?: QuickNetworkConfig;
 }
 
@@ -46,6 +47,11 @@ export function normalizeQuickConfig(source: QuickConfig): QuickConfig {
         }
         result.server = url.toString().replace(/\/*$/, '/');
     }
+    const token = optionalString(source.token, '上报 Token');
+    if (token) {
+        if (/[|\s]/.test(token)) throw new Error('上报 Token 不能包含空白或 |');
+        result.token = token;
+    }
     if (source.network) {
         const input = source.network;
         const network: QuickNetworkConfig = {};
@@ -72,7 +78,7 @@ export function normalizeQuickConfig(source: QuickConfig): QuickConfig {
         }
         if (Object.keys(network).length) result.network = network;
     }
-    if (!result.seat && !result.server && !result.network) throw new Error('二维码没有需要修改的配置');
+    if (!result.seat && !result.server && !result.token && !result.network) throw new Error('二维码没有需要修改的配置');
     return result;
 }
 
@@ -81,13 +87,13 @@ export function parseQuickConfig(text: string): QuickConfig {
         throw new Error('配置必须是 4096 字节以内的 xms1 文本');
     }
     const fields = text.split('|').map((field) => field.trim());
-    if (fields.length !== 6 || fields[0] !== 'xms1' || /[\r\n]/.test(text)) {
-        throw new Error('配置格式应为 xms1|座位|中心地址|IP/前缀|网关|DNS，空项保留分隔符');
+    if (fields.length !== 7 || fields[0] !== 'xms1' || /[\r\n]/.test(text)) {
+        throw new Error('配置格式应为 xms1|座位|中心地址|上报Token|IP/前缀|网关|DNS，空项保留分隔符');
     }
-    const [, seat, server, ip, gateway, dns] = fields;
+    const [, seat, server, token, ip, gateway, dns] = fields;
     if (Boolean(ip) !== Boolean(gateway)) throw new Error('IP/前缀和网关必须同时填写或同时留空');
     return normalizeQuickConfig({
-        seat, server,
+        seat, server, token,
         network: { ip, gateway, dns: dns.split(',').filter(Boolean) },
     });
 }

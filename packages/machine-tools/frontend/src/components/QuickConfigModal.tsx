@@ -14,7 +14,7 @@ interface QuickConfigModalProps {
 }
 
 const labels: Record<string, string> = {
-    seat: '座位号', server: '中心地址', ip: 'IPv4 地址/前缀', gateway: '网关', dns: 'DNS',
+    seat: '座位号', server: '中心地址', token: '上报 Token', ip: 'IPv4 地址/前缀', gateway: '网关', dns: 'DNS',
 };
 const targetValue = (target: NetworkTarget) => `${target.kind}:${target.id}:${target.device.name}`;
 
@@ -96,6 +96,7 @@ export function QuickConfigModal({ onClose, onApply }: QuickConfigModalProps) {
     const changes = [
         ...config?.seat ? [['seat', config.seat]] : [],
         ...config?.server ? [['server', config.server]] : [],
+        ...config?.token ? [['token', config.token]] : [],
         ...Object.entries(network || {}).map(([field, value]) => [field, Array.isArray(value) ? value.join('、') : value]),
     ];
 

@@ -113,7 +113,7 @@ export default function App() {
                 headings: { fontFamily: '"Noto Sans SC", "Segoe UI", system-ui, sans-serif', fontWeight: '750' },
             }}
         >
-            <Notifications position="top-right" />
+            <Notifications position="bottom-left" />
             {hasPresentationArgument(Array.isArray(window.NL_ARGS) ? window.NL_ARGS : [])
                 ? <PresentationPage />
                 : <MachineToolsConfigApp />}
